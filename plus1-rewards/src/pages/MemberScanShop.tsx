@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import jsQR from 'jsqr';
+import { parseShopQR } from '../lib/config';
 
 export function MemberScanShop() {
   const navigate = useNavigate();
@@ -83,14 +84,18 @@ export function MemberScanShop() {
   };
 
   const handleQRDecoded = async (data: string) => {
-    // QR format: "SHOP:{shopId}" or raw shopId
-    const shopId = data.startsWith('SHOP:') ? data.replace('SHOP:', '') : data;
+    // parseShopQR handles: plus1rewards.com URL, SHOP: legacy, raw UUID
+    const shopId = parseShopQR(data);
+    if (!shopId) {
+      setError('QR code not recognized as a +1 Rewards shop. Try entering the Shop ID manually.');
+      return;
+    }
     const { data: shopData } = await supabase.from('shops').select('id, name').eq('id', shopId).single();
     if (shopData) {
       setScannedShopId(shopData.id);
       setShopName(shopData.name);
     } else {
-      setError('QR code not recognized as a +1 Rewards shop. Try entering the Shop ID manually.');
+      setError('Shop not found in the +1 Rewards network. Try entering the Shop ID manually.');
     }
   };
 

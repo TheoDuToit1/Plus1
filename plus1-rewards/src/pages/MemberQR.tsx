@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import QRCode from 'qrcode';
+import { encodeMemberQR } from '../lib/config';
 
 export function MemberQR() {
   const navigate = useNavigate();
@@ -20,7 +21,8 @@ export function MemberQR() {
       const { data } = await supabase.from('members').select('name, phone, qr_code').eq('id', user.id).single();
       if (data) {
         setMemberData(data);
-        setTimeout(() => renderQR(data.qr_code || data.phone || user.id), 100);
+        const qrValue = encodeMemberQR(data.qr_code, data.phone || user.id);
+        setTimeout(() => renderQR(qrValue), 100);
       }
     } catch { /* silent */ } finally { setLoading(false); }
   };
@@ -42,9 +44,10 @@ export function MemberQR() {
 
   const refreshQR = async () => {
     if (!memberData) return;
-    const newQR = `PLUS1-${memberData.phone}-${Date.now()}`;
-    await supabase.from('members').update({ qr_code: newQR }).eq('phone', memberData.phone);
-    renderQR(newQR);
+    const newCode = `${memberData.phone}-${Date.now()}`;
+    const newQRUrl = encodeMemberQR(newCode, memberData.phone);
+    await supabase.from('members').update({ qr_code: newCode }).eq('phone', memberData.phone);
+    renderQR(newQRUrl);
   };
 
   return (

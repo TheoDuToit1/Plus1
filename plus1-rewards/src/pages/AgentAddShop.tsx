@@ -17,7 +17,7 @@ export function AgentAddShop() {
     e.preventDefault(); setError(''); setLoading(true);
     if (!agent.id) { navigate('/agent/login'); return; }
     try {
-      const { data, error: insertError } = await supabase.from('shops').insert([{
+      const { error: insertError } = await supabase.from('shops').insert([{
         name: form.name.trim(), phone: form.phone.trim(), email: form.email.trim(),
         address: form.address.trim(), bank_name: form.bank_name.trim(), bank_account: form.bank_account.trim(),
         commission_rate: parseFloat(form.commission_rate), agent_id: agent.id, status: 'active',

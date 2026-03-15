@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
+interface Shop { id: string; name: string; status: string }
+
 interface DashboardStats {
   totalShops: number; activeShops: number; suspendedShops: number;
   revenueThisMonth: number; policiesActivated: number; overdueShops: number; upcomingPayouts: number;
@@ -12,13 +14,19 @@ export function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats>({ totalShops: 0, activeShops: 0, suspendedShops: 0, revenueThisMonth: 0, policiesActivated: 0, overdueShops: 0, upcomingPayouts: 0 });
   const [alerts, setAlerts] = useState<Array<{ id: string; type: 'warning' | 'info'; message: string }>>([]);
   const [loading, setLoading] = useState(true);
+  const [allShops, setAllShops] = useState<Shop[]>([]);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [selectedShopId, setSelectedShopId] = useState('');
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  const [invoiceSuccess, setInvoiceSuccess] = useState('');
 
   useEffect(() => { loadDashboardData(); }, []);
 
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const { data: shops } = await supabase.from("shops").select("id, status");
+      const { data: shops } = await supabase.from("shops").select("id, name, status");
+      setAllShops(shops || []);
       const totalShops = shops?.length || 0;
       const activeShops = shops?.filter(s => s.status === "active").length || 0;
       const suspendedShops = shops?.filter(s => s.status === "suspended").length || 0;
@@ -50,6 +58,21 @@ export function AdminDashboard() {
     { label: 'Total Shops', value: String(stats.totalShops), sub: 'Network size', color: 'var(--blue)' },
     { label: 'Collection Rate', value: `${stats.totalShops > 0 ? Math.round(((stats.totalShops - stats.overdueShops) / stats.totalShops) * 100) : 0}%`, sub: 'On-time payments', color: 'var(--green-dark)' },
   ];
+
+  const generateInvoice = async () => {
+    if (!selectedShopId) return;
+    setGeneratingInvoice(true);
+    try {
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      const { data: txns } = await supabase.from('transactions').select('member_reward, agent_commission, platform_fee').eq('shop_id', selectedShopId).gte('created_at', currentMonth + '-01');
+      const total = (txns || []).reduce((s, t) => s + (t.member_reward || 0) + (t.agent_commission || 0) + (t.platform_fee || 0), 0);
+      await supabase.from('monthly_invoices').insert([{ shop_id: selectedShopId, invoice_month: currentMonth, total_due: total, status: 'generated', due_date: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString() }]);
+      const shop = allShops.find(s => s.id === selectedShopId);
+      setInvoiceSuccess(`✓ Invoice of R${total.toFixed(2)} generated for ${shop?.name}`);
+      setShowInvoiceModal(false); setSelectedShopId('');
+      setTimeout(() => setInvoiceSuccess(''), 4000);
+    } catch { /* silent */ } finally { setGeneratingInvoice(false); }
+  };
 
   if (loading) return (
     <div className="page-wrapper" style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -93,6 +116,8 @@ export function AdminDashboard() {
             </div>
           )}
 
+          {invoiceSuccess && <div className="alert alert-success">{invoiceSuccess}</div>}
+
           {/* KPI Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
             {kpis.map((kpi, i) => (
@@ -109,12 +134,12 @@ export function AdminDashboard() {
             <h2 className="section-title">⚡ Quick Actions</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.875rem' }}>
               {[
-                { label: '📄 Generate Invoices', path: '/admin/invoices', color: 'var(--blue)' },
-                { label: '🔴 Manage Suspensions', path: '/admin/suspensions', color: 'var(--red)' },
-                { label: '👥 Agent Payouts', path: '/admin/agents', color: '#0e7490' },
-                { label: '📊 Export Day1 Batch', path: null, color: 'var(--green-dark)' },
+                { label: '📄 Generate Invoices', action: () => setShowInvoiceModal(true), color: 'var(--blue)' },
+                { label: '🔴 Manage Suspensions', action: () => navigate('/admin/suspensions'), color: 'var(--red)' },
+                { label: '👥 Agent Payouts', action: () => navigate('/admin/agents'), color: '#0e7490' },
+                { label: '📊 Export Day1 Batch', action: () => navigate('/admin/day1-batch'), color: 'var(--green-dark)' },
               ].map((action, i) => (
-                <button key={i} onClick={() => action.path ? navigate(action.path) : alert('Export feature coming soon')}
+                <button key={i} onClick={action.action}
                   style={{ background: action.color, color: '#fff', border: 'none', borderRadius: '12px', padding: '1rem', fontSize: '0.875rem', fontWeight: 700, cursor: 'pointer', textAlign: 'left', transition: 'opacity 0.2s' }}
                   onMouseOver={e => (e.currentTarget.style.opacity = '0.85')}
                   onMouseOut={e => (e.currentTarget.style.opacity = '1')}
@@ -127,9 +152,28 @@ export function AdminDashboard() {
         </div>
       </main>
 
-      <footer style={{ background: '#fff', borderTop: '1px solid var(--gray-border)', padding: '1rem', textAlign: 'center' }}>
-        <p style={{ color: 'var(--gray-light)', fontSize: '0.8125rem' }}>© 2026 +1 Rewards Admin Panel</p>
-      </footer>
+      {/* Generate Invoice Modal */}
+      {showInvoiceModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem' }}>
+          <div style={{ background: '#fff', borderRadius: '20px', padding: '2rem', width: '100%', maxWidth: '440px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <h2 style={{ fontWeight: 800, fontSize: '1.25rem', marginBottom: '0.375rem' }}>📄 Generate Monthly Invoice</h2>
+            <p style={{ color: 'var(--gray-text)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Select a shop to generate their invoice for {new Date().toISOString().slice(0, 7)}.</p>
+            <label className="input-label">Select Shop</label>
+            <select className="input" value={selectedShopId} onChange={e => setSelectedShopId(e.target.value)} style={{ marginBottom: '1.25rem' }}>
+              <option value="">— Choose a shop —</option>
+              {allShops.map(shop => (
+                <option key={shop.id} value={shop.id}>{shop.name} {shop.status === 'suspended' ? '⚠ Suspended' : '✓ Active'}</option>
+              ))}
+            </select>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button onClick={() => { setShowInvoiceModal(false); setSelectedShopId(''); }} className="btn btn-ghost" style={{ flex: 1, borderRadius: '10px' }}>Cancel</button>
+              <button onClick={generateInvoice} disabled={!selectedShopId || generatingInvoice} className="btn btn-primary" style={{ flex: 2, borderRadius: '10px', height: '48px' }}>
+                {generatingInvoice ? '⏳ Generating...' : '✓ Generate Invoice'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

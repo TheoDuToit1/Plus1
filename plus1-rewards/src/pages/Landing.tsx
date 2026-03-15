@@ -6,10 +6,11 @@ export function Landing() {
   const [hoveredRole, setHoveredRole] = useState<string | null>(null)
 
   const roles = [
-    { id: 'member', icon: '👤', title: 'Member', desc: 'Earn rewards & fund your health policy', path: '/member/register', loginPath: '/member/login', color: 'var(--blue)' },
-    { id: 'shop', icon: '🏪', title: 'Shop Owner', desc: 'Issue rewards & grow your customer base', path: '/shop/register', loginPath: '/shop/login', color: 'var(--green-dark)' },
-    { id: 'agent', icon: '📊', title: 'Sales Agent', desc: 'Recruit shops & earn 1% commission', path: '/agent/register', loginPath: '/agent/login', color: '#0891b2' },
-    { id: 'admin', icon: '⚙️', title: 'Admin', desc: 'Monitor the platform & manage operations', path: '/admin/dashboard', loginPath: '/admin/dashboard', color: '#7c3aed' },
+    { id: 'member', icon: '👤', title: 'Member', desc: 'Earn rewards & fund your health policy with everyday shopping', path: '/member/register', loginPath: '/member/login', color: 'var(--blue)', loginOnly: false },
+    { id: 'shop', icon: '🏪', title: 'Shop Owner', desc: 'Issue rewards to members & grow your loyal customer base', path: '/shop/register', loginPath: '/shop/login', color: 'var(--green-dark)', loginOnly: false },
+    { id: 'agent', icon: '📊', title: 'Sales Agent', desc: 'Recruit shops to the network & earn 1% commission on every transaction', path: '/agent/register', loginPath: '/agent/login', color: '#0891b2', loginOnly: false },
+    { id: 'provider', icon: '🏥', title: 'Policy Provider', desc: 'Day1 Health — access monthly batch files of activated member policies', path: '', loginPath: '/provider/login', color: '#064e3b', loginOnly: true },
+    { id: 'admin', icon: '⚙️', title: 'Admin', desc: 'Monitor the platform, manage invoices, suspensions & agent payouts', path: '', loginPath: '/admin/login', color: '#7c3aed', loginOnly: true },
   ]
 
   return (
@@ -89,7 +90,7 @@ export function Landing() {
               { step: '03', icon: '🏥', title: 'Fund Your Policy', desc: 'Rewards automatically fill your Day1 Health plan. Once full, your policy activates.' },
             ].map((s, i) => (
               <div key={i} style={{ background: 'var(--bg)', borderRadius: '16px', padding: '1.75rem', border: '1px solid var(--gray-border)', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--blue)', opacity: 0.2, position: 'absolute', top: '1rem', right: '1.25rem', fontSize: '4rem', lineHeight: 1 }}>{s.step}</div>
+                <div style={{ fontWeight: 800, color: 'var(--blue)', opacity: 0.2, position: 'absolute', top: '1rem', right: '1.25rem', fontSize: '4rem', lineHeight: 1 }}>{s.step}</div>
                 <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>{s.icon}</div>
                 <h3 style={{ fontSize: '1.0625rem', fontWeight: 700, color: '#111827', marginBottom: '0.5rem' }}>{s.title}</h3>
                 <p style={{ fontSize: '0.9rem', color: 'var(--gray-text)', lineHeight: 1.6 }}>{s.desc}</p>
@@ -125,11 +126,13 @@ export function Landing() {
                 <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#111827', marginBottom: '0.375rem' }}>{role.title}</h3>
                 <p style={{ fontSize: '0.875rem', color: 'var(--gray-text)', lineHeight: 1.5, marginBottom: '1.25rem' }}>{role.desc}</p>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={() => navigate(role.path)} style={{ flex: 1, background: role.color, color: '#fff', border: 'none', borderRadius: '8px', padding: '0.625rem 0.5rem', fontWeight: 700, fontSize: '0.8125rem', cursor: 'pointer' }}>
-                    Register
-                  </button>
-                  <button onClick={() => navigate(role.loginPath)} style={{ flex: 1, background: 'transparent', color: role.color, border: `1.5px solid ${role.color}`, borderRadius: '8px', padding: '0.625rem 0.5rem', fontWeight: 700, fontSize: '0.8125rem', cursor: 'pointer' }}>
-                    Sign In
+                  {!role.loginOnly && (
+                    <button onClick={() => navigate(role.path)} style={{ flex: 1, background: role.color, color: '#fff', border: 'none', borderRadius: '8px', padding: '0.625rem 0.5rem', fontWeight: 700, fontSize: '0.8125rem', cursor: 'pointer' }}>
+                      Register
+                    </button>
+                  )}
+                  <button onClick={() => navigate(role.loginPath)} style={{ flex: 1, background: role.loginOnly ? role.color : 'transparent', color: role.loginOnly ? '#fff' : role.color, border: `1.5px solid ${role.color}`, borderRadius: '8px', padding: '0.625rem 0.5rem', fontWeight: 700, fontSize: '0.8125rem', cursor: 'pointer' }}>
+                    {role.loginOnly ? '🔐 Sign In' : 'Sign In'}
                   </button>
                 </div>
               </div>

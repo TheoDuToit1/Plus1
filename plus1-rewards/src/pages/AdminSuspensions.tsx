@@ -22,19 +22,35 @@ export function AdminSuspensions() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const { data: suspendedInvoices } = await supabase.from("monthly_invoices").select("id, shop_id, total_due, due_date, penalty_amount, created_at").eq("status", "suspended");
-      const { data: overdueInvoices } = await supabase.from("monthly_invoices").select("id, shop_id, total_due, due_date").eq("status", "overdue");
-      const { data: shops } = await supabase.from("shops").select("id, name");
-      const { data: wallets } = await supabase.from("wallets").select("shop_id, member_id");
-      const shopMap = new Map(shops?.map(s => [s.id, s.name]) || []);
+      // Directly query shops with suspended status — catches all suspension sources
+      const { data: suspendedShopsList } = await supabase.from('shops').select('id, name, phone, commission_rate').eq('status', 'suspended');
+      const { data: overdueInvoices } = await supabase.from('monthly_invoices').select('id, shop_id, total_due, due_date').eq('status', 'overdue');
+      const { data: suspendedInvoices } = await supabase.from('monthly_invoices').select('id, shop_id, total_due, due_date, penalty_amount, created_at').eq('status', 'suspended');
+      const { data: wallets } = await supabase.from('wallets').select('shop_id, member_id');
+
       const membersByShop = new Map<string, Set<string>>();
       wallets?.forEach(w => { if (!membersByShop.has(w.shop_id)) membersByShop.set(w.shop_id, new Set()); membersByShop.get(w.shop_id)?.add(w.member_id); });
+
       const today = new Date();
-      const processed = (suspendedInvoices || []).map(inv => {
-        const daysOverdue = Math.max(Math.floor((today.getTime() - new Date(inv.due_date).getTime()) / 86400000), 0);
-        return { id: inv.id, shop_id: inv.shop_id, shop_name: shopMap.get(inv.shop_id) || "Unknown", invoice_amount: inv.total_due, due_date: inv.due_date, days_overdue: daysOverdue, members_affected: membersByShop.get(inv.shop_id)?.size || 0, suspension_date: inv.created_at, penalty_amount: inv.penalty_amount || 0 };
+
+      // Build suspended list from shops table (source of truth)
+      const processed: SuspendedShop[] = (suspendedShopsList || []).map(shop => {
+        const invoice = (suspendedInvoices || []).find(inv => inv.shop_id === shop.id);
+        const daysOverdue = invoice ? Math.max(Math.floor((today.getTime() - new Date(invoice.due_date).getTime()) / 86400000), 0) : 0;
+        return {
+          id: invoice?.id || shop.id, shop_id: shop.id, shop_name: shop.name,
+          invoice_amount: invoice?.total_due || 0, due_date: invoice?.due_date || '',
+          days_overdue: daysOverdue, members_affected: membersByShop.get(shop.id)?.size || 0,
+          suspension_date: invoice?.created_at || new Date().toISOString(), penalty_amount: invoice?.penalty_amount || 0,
+        };
       });
-      const warnings = (overdueInvoices || []).map(inv => ({ shop_id: inv.shop_id, shop_name: shopMap.get(inv.shop_id) || "Unknown", invoice_amount: inv.total_due, days_overdue: Math.max(Math.floor((today.getTime() - new Date(inv.due_date).getTime()) / 86400000), 0), due_date: inv.due_date })).filter(w => w.days_overdue >= 4 && w.days_overdue < 7);
+
+      const warnings = (overdueInvoices || []).map(inv => {
+        const shopInfo = (suspendedShopsList || []).find(s => s.id === inv.shop_id);
+        const days = Math.max(Math.floor((today.getTime() - new Date(inv.due_date).getTime()) / 86400000), 0);
+        return { shop_id: inv.shop_id, shop_name: shopInfo?.name || 'Unknown', invoice_amount: inv.total_due, days_overdue: days, due_date: inv.due_date };
+      }).filter(w => w.days_overdue >= 4 && w.days_overdue < 7);
+
       setSuspendedShops(processed);
       setEarlyWarnings(warnings);
       setStats({ totalSuspended: processed.length, totalRevenueLost: processed.reduce((s, sh) => s + sh.invoice_amount, 0), totalMembersAffected: processed.reduce((s, sh) => s + sh.members_affected, 0), averageDaysSuspended: processed.length > 0 ? Math.round(processed.reduce((s, sh) => s + sh.days_overdue, 0) / processed.length * 10) / 10 : 0 });

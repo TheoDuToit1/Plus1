@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import QRCode from 'qrcode';
+import { encodeMemberQR } from '../lib/config';
 
 interface Wallet {
   id: string; member_id: string; shop_id: string;
@@ -39,7 +40,7 @@ export function MemberDashboard() {
         // Render QR code on canvas after state update
         setTimeout(() => {
           if (qrCanvasRef.current) {
-            const qrValue = memberData.qr_code || `PLUS1-${memberData.phone}-${Date.now()}`;
+            const qrValue = encodeMemberQR(memberData.qr_code, memberData.phone);
             QRCode.toCanvas(qrCanvasRef.current, qrValue, {
               width: 200, margin: 2,
               color: { dark: '#1a568b', light: '#ffffff' },

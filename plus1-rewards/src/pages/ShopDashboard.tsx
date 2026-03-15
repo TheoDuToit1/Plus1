@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import jsQR from 'jsqr';
 import QRCode from 'qrcode';
+import { encodeShopQR, parseMemberQR } from '../lib/config';
 
 interface Member { id: string; name: string; phone: string; qr_code: string }
 interface Wallet { id: string; member_id: string; balance: number; policies: { name: string; current: number; target: number; status: 'active' | 'suspended' } }
@@ -43,7 +44,7 @@ export function ShopDashboard() {
         // Render the shop's own QR code
         setTimeout(() => {
           if (shopQRCanvasRef.current) {
-            QRCode.toCanvas(shopQRCanvasRef.current, `SHOP:${shopDetails.id}`, {
+            QRCode.toCanvas(shopQRCanvasRef.current, encodeShopQR(shopDetails.id), {
               width: 180, margin: 1, color: { dark: '#1a568b', light: '#ffffff' }
             });
           }
@@ -104,19 +105,19 @@ export function ShopDashboard() {
   };
 
   const handleMemberQRDecoded = async (data: string) => {
-    // Member QR contains their qr_code value or phone or PLUS1-{phone}-{ts}
     setError('');
+    // Parse using config helper — supports URL, PLUS1-legacy, and raw strings
+    const identifier = parseMemberQR(data);
+    if (!identifier) { setError('QR code not recognized. Use phone search instead.'); return; }
+
     let memberData = null;
-    // Try qr_code field first
-    const { data: byQR } = await supabase.from('members').select('*').eq('qr_code', data).single();
+    // Try qr_code field
+    const { data: byQR } = await supabase.from('members').select('*').eq('qr_code', identifier).single();
     if (byQR) { memberData = byQR; }
     else {
-      // Fallback: extract phone from PLUS1-{phone}-{ts} format
-      const match = data.match(/PLUS1-([0-9]+)-/);
-      if (match) {
-        const { data: byPhone } = await supabase.from('members').select('*').eq('phone', match[1]).single();
-        if (byPhone) memberData = byPhone;
-      }
+      // Try phone
+      const { data: byPhone } = await supabase.from('members').select('*').eq('phone', identifier).single();
+      if (byPhone) memberData = byPhone;
     }
     if (!memberData) { setError('QR code not recognized. Ask member to use phone search instead.'); return; }
     setMember(memberData);
