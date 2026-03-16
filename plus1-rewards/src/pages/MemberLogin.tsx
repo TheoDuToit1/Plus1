@@ -1,183 +1,169 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-
+// plus1-rewards/src/pages/MemberLogin.tsx
 export default function MemberLogin() {
-  const navigate = useNavigate();
-  const [formData, setFormData] = useState({ email: '', password: '' });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      });
-      if (authError) throw authError;
-      if (data.user) navigate('/member/dashboard');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+  const handleNavigation = (path: string) => {
+    window.location.href = path;
   };
 
   return (
-    <div className="auth-page">
-      {/* ── LEFT PANEL ── */}
-      <div className="auth-panel-left">
-        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: '340px' }}>
-          {/* Logo */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', marginBottom: '2.5rem' }}>
-            <div className="logo-mark-white">
-              <span className="logo-text">+1</span>
-            </div>
-            <span style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.5px' }}>+1 Rewards</span>
+    <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
+      <div className="flex min-h-screen">
+        {/* Left Side: Value Proposition & Branding */}
+        <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden">
+          {/* Background Image with Overlay */}
+          <div className="absolute inset-0 z-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-background-dark/90 via-background-dark/60 to-transparent z-10"></div>
+            <img 
+              alt="Premium Rewards background" 
+              className="w-full h-full object-cover" 
+              data-alt="Luxury lifestyle shopping with premium credit card" 
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBs0NJvdFopFrHzhlnAatUu3wtcZ5HH0frFV3JuGfICUVtpraRhtig6O1WHOTnpmsLzDyNUFW6WWhY4a3_V8J-_iy2rIhwd_ifsQs_w6bs4TR9w_aVmCUzGY65N4y02OuDtcVM6Fu7q6RsIOUGD87zx6YktI6Xe478iBBrEcMjQcPpMZt-_D2DjIw4TtN6lm5KmVXR74LblHmi3jIWkP4_dBbQFhN6W-CnxQGljxRaRESt0AN8e1FaKgAs2uKKWBPQJ3Hoi2TCSPz50" 
+            />
           </div>
-
-          {/* Tagline */}
-          <h1 style={{ fontSize: '2rem', fontWeight: 800, lineHeight: 1.2, marginBottom: '1rem', letterSpacing: '-0.5px' }}>
-            Shop. Earn.<br />Cover your health.
-          </h1>
-          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '1rem', lineHeight: 1.6, marginBottom: '2.5rem' }}>
-            Every rand you spend at partner shops builds your Day1 Health insurance policy — automatically.
-          </p>
-
-          {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            {[
-              { value: '3%', label: 'Rewards per purchase' },
-              { value: 'R385', label: 'Monthly policy target' },
-              { value: '100%', label: 'Offline capable' },
-              { value: 'Day1', label: 'Health insurance partner' },
-            ].map((s, i) => (
-              <div key={i} style={{
-                background: 'rgba(255,255,255,0.1)',
-                backdropFilter: 'blur(8px)',
-                borderRadius: '12px',
-                padding: '1rem',
-                border: '1px solid rgba(255,255,255,0.15)',
-              }}>
-                <div style={{ fontSize: '1.375rem', fontWeight: 800, marginBottom: '0.25rem', color: '#37d270' }}>{s.value}</div>
-                <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>{s.label}</div>
+          <div className="relative z-20">
+            <div className="flex items-center gap-3">
+              <div className="size-10 bg-primary rounded-lg flex items-center justify-center text-background-dark">
+                <span className="material-symbols-outlined text-3xl font-bold">add_circle</span>
               </div>
-            ))}
+              <h2 className="text-2xl font-black tracking-tighter text-white uppercase italic">+1 Rewards</h2>
+            </div>
+          </div>
+          <div className="relative z-20 max-w-lg">
+            <h1 className="text-5xl font-black leading-tight tracking-tight text-white mb-6">
+              Secure your health through <span className="text-primary italic">everyday</span> shopping.
+            </h1>
+            <p className="text-xl text-slate-300 leading-relaxed">
+              Experience the premium rewards program designed for your wellbeing and financial security.
+            </p>
+          </div>
+          <div className="relative z-20 flex gap-8">
+            <div className="flex flex-col">
+              <span className="text-primary text-2xl font-bold">150k+</span>
+              <span className="text-slate-400 text-sm">Active Members</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-primary text-2xl font-bold">2.4%</span>
+              <span className="text-slate-400 text-sm">Avg. Cashback</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-primary text-2xl font-bold">50+</span>
+              <span className="text-slate-400 text-sm">Health Partners</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* ── RIGHT PANEL ── */}
-      <div className="auth-panel-right" style={{ alignSelf: 'stretch', justifyContent: 'center' }}>
-        <div className="auth-form animate-fade-up">
-          {/* Mobile logo (hidden on desktop via auth-panel-left display:none) */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
-            <div className="logo-mark">
-              <span className="logo-text">+1</span>
-            </div>
-            <span style={{ fontSize: '1.0625rem', fontWeight: 800, color: '#111827' }}>+1 Rewards</span>
+        {/* Right Side: Login Form */}
+        <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 bg-background-light dark:bg-background-dark border-l border-white/5">
+          {/* Back Button */}
+          <div className="w-full max-w-md mb-6">
+            <button 
+              onClick={() => handleNavigation('/')}
+              className="bg-custom-dark text-center w-48 rounded-2xl h-14 relative text-white text-xl font-semibold group shadow-lg" 
+              type="button"
+            >
+              <div className="bg-primary rounded-xl h-12 w-1/4 flex items-center justify-center absolute left-1 top-[4px] group-hover:w-[184px] z-10 duration-500">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" height="25px" width="25px">
+                  <path d="M224 480h640a32 32 0 1 1 0 64H224a32 32 0 0 1 0-64z" fill="#000000"></path>
+                  <path d="m237.248 512 265.408 265.344a32 32 0 0 1-45.312 45.312l-288-288a32 32 0 0 1 0-45.312l288-288a32 32 0 1 1 45.312 45.312L237.248 512z" fill="#000000"></path>
+                </svg>
+              </div>
+              <p className="translate-x-2 text-white">Go Back</p>
+            </button>
           </div>
-
-          <h2 style={{ fontSize: '1.625rem', fontWeight: 800, color: '#111827', marginBottom: '0.375rem', letterSpacing: '-0.3px' }}>
-            Welcome back, member
-          </h2>
-          <p style={{ color: 'var(--gray-text)', fontSize: '0.9375rem', marginBottom: '2rem' }}>
-            Sign in to view your rewards &amp; policy progress.
-          </p>
-
-          {error && (
-            <div className="alert alert-error" style={{ marginBottom: '1.25rem' }}>
-              {error}
+          
+          <div className="w-full max-w-md space-y-8">
+            {/* Mobile Logo */}
+            <div className="lg:hidden flex items-center gap-3 mb-12">
+              <div className="size-8 bg-primary rounded-lg flex items-center justify-center text-background-dark">
+                <span className="material-symbols-outlined text-xl font-bold">add_circle</span>
+              </div>
+              <h2 className="text-xl font-black tracking-tighter text-slate-900 dark:text-white uppercase italic">+1 Rewards</h2>
             </div>
-          )}
-
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div>
-              <label className="input-label" htmlFor="email">Email address</label>
-              <input
-                id="email"
-                type="email"
-                name="email"
-                className="input"
-                placeholder="sarah@gmail.com"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                autoComplete="email"
-              />
+              <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Welcome Back</h2>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">Please enter your details to access your dashboard.</p>
             </div>
-
-            <div>
-              <label className="input-label" htmlFor="password">Password</label>
-              <input
-                id="password"
-                type="password"
-                name="password"
-                className="input"
-                placeholder="••••••••"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                autoComplete="current-password"
-              />
+            <form action="#" className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="email">Email or Phone Number</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-slate-400 text-xl">mail</span>
+                  </div>
+                  <input 
+                    className="block w-full pl-11 pr-4 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
+                    id="email" 
+                    placeholder="name@example.com" 
+                    type="text"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between ml-1">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300" htmlFor="password">Password</label>
+                  <a className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors" href="#">Forgot password?</a>
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-slate-400 text-xl">lock</span>
+                  </div>
+                  <input 
+                    className="block w-full pl-11 pr-12 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
+                    id="password" 
+                    placeholder="••••••••" 
+                    type="password"
+                  />
+                  <span className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer">
+                    <span className="material-symbols-outlined">visibility</span>
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center">
+                <input 
+                  className="h-4 w-4 text-primary focus:ring-primary border-slate-300 dark:border-primary/30 rounded bg-white dark:bg-background-dark" 
+                  id="remember-me" 
+                  name="remember-me" 
+                  type="checkbox"
+                />
+                <label className="ml-2 block text-sm text-slate-600 dark:text-slate-400" htmlFor="remember-me">Remember me for 30 days</label>
+              </div>
+              <button 
+                className="w-full bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group" 
+                type="submit"
+              >
+                Sign In
+                <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+              </button>
+            </form>
+            <div className="relative my-8">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200 dark:border-primary/10"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-background-light dark:bg-background-dark text-slate-500 uppercase tracking-widest text-xs font-bold">Or continue with</span>
+              </div>
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-primary btn-block"
-              style={{ marginTop: '0.5rem', height: '52px', fontSize: '1rem', borderRadius: '12px' }}
-            >
-              {loading ? (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span className="animate-spin" style={{ display: 'inline-block', width: '16px', height: '16px', borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: '#fff' }} />
-                  Signing in...
-                </span>
-              ) : 'Sign In to My Account'}
-            </button>
-          </form>
-
-          <p style={{ textAlign: 'center', color: 'var(--gray-text)', marginTop: '1.5rem', fontSize: '0.875rem' }}>
-            Don't have an account?{' '}
-            <button
-              onClick={() => navigate('/member/register')}
-              style={{ color: 'var(--blue)', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontSize: 'inherit' }}
-            >
-              Register for free →
-            </button>
-          </p>
-
-          <div style={{ borderTop: '1px solid var(--gray-border)', marginTop: '1.5rem', paddingTop: '1.25rem' }}>
-            <p style={{ textAlign: 'center', fontSize: '0.8125rem', color: 'var(--gray-light)', marginBottom: '0.75rem' }}>
-              Not a member?
+            <div className="grid grid-cols-2 gap-4">
+              <button 
+                onClick={() => handleNavigation('/shop/login')}
+                className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-white/20 bg-transparent hover:bg-primary/10 hover:border-primary transition-all"
+              >
+                <span className="material-symbols-outlined text-slate-300 text-xl">storefront</span>
+                <span className="text-sm font-semibold text-slate-300">Shop Login</span>
+              </button>
+              <button 
+                onClick={() => handleNavigation('/agent/login')}
+                className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-white/20 bg-transparent hover:bg-primary/10 hover:border-primary transition-all"
+              >
+                <span className="material-symbols-outlined text-slate-300 text-xl">assignment_ind</span>
+                <span className="text-sm font-semibold text-slate-300">Agent Login</span>
+              </button>
+            </div>
+            <p className="text-center text-slate-600 dark:text-slate-400 mt-8">
+              Don&apos;t have an account? <a onClick={() => handleNavigation('/member/register')} className="text-primary font-bold hover:underline cursor-pointer">Register Now</a>
             </p>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button
-                onClick={() => navigate('/shop/login')}
-                className="btn btn-ghost btn-block"
-                style={{ fontSize: '0.8125rem', borderRadius: '10px', padding: '0.625rem' }}
-              >
-                🏪 Shop Login
-              </button>
-              <button
-                onClick={() => navigate('/agent/login')}
-                className="btn btn-ghost btn-block"
-                style={{ fontSize: '0.8125rem', borderRadius: '10px', padding: '0.625rem' }}
-              >
-                📊 Agent Login
-              </button>
-            </div>
           </div>
         </div>
       </div>
     </div>
-  );
+  )
 }
