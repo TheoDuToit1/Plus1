@@ -10,7 +10,10 @@ export const APP_URL: string = (import.meta as any).env?.VITE_APP_URL || 'https:
  * When scanned by the in-app scanner, jsQR decodes it and we extract the shopId.
  */
 export function encodeShopQR(shopId: string): string {
-  return `${APP_URL}/member/scan-shop?shop=${shopId}`;
+  if (!shopId) return '';
+  // Ensure the URL is properly formatted
+  const baseUrl = APP_URL.endsWith('/') ? APP_URL.slice(0, -1) : APP_URL;
+  return `${baseUrl}/member/scan-shop?shop=${encodeURIComponent(shopId)}`;
 }
 
 /**
@@ -18,7 +21,11 @@ export function encodeShopQR(shopId: string): string {
  * Format: plus1rewards.com/member?id={qrCode} — readable by shop scanner.
  */
 export function encodeMemberQR(qrCode: string, phone: string): string {
-  return `${APP_URL}/member?id=${encodeURIComponent(qrCode || phone)}`;
+  if (!qrCode && !phone) return '';
+  // Ensure the URL is properly formatted
+  const baseUrl = APP_URL.endsWith('/') ? APP_URL.slice(0, -1) : APP_URL;
+  const identifier = qrCode || phone;
+  return `${baseUrl}/member?id=${encodeURIComponent(identifier)}`;
 }
 
 /**
@@ -60,4 +67,30 @@ export function parseMemberQR(data: string): string | null {
 
   // Return raw string (could be a qr_code field value)
   return data || null;
+}
+
+/**
+ * Validates if a QR code value is safe to generate
+ * Checks for common issues that might cause QR generation to fail
+ */
+export function validateQRValue(value: string): boolean {
+  if (!value || typeof value !== 'string') return false;
+  if (value.length > 2000) return false; // QR codes have practical limits
+  // Check for problematic characters that might cause issues
+  try {
+    // Test if it can be encoded as URI component
+    encodeURIComponent(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Creates a safe fallback QR value if the primary one fails
+ */
+export function createFallbackQR(primaryValue: string, fallbackValue: string): string {
+  if (validateQRValue(primaryValue)) return primaryValue;
+  if (validateQRValue(fallbackValue)) return fallbackValue;
+  return 'ERROR_GENERATING_QR';
 }

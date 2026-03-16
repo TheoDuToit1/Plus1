@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import QRCode from 'qrcode';
-import { encodeMemberQR } from '../lib/config';
+import { encodeMemberQR, validateQRValue, createFallbackQR } from '../lib/config';
 
 interface Wallet {
   id: string; member_id: string; shop_id: string;
@@ -21,6 +21,7 @@ export function MemberDashboard() {
   const [syncing, setSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingTransactions, setPendingTransactions] = useState(0);
+  const [qrError, setQrError] = useState<string>('');
   const qrCanvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -28,6 +29,61 @@ export function MemberDashboard() {
     window.addEventListener('offline', () => setIsOnline(false));
     loadDashboardData();
   }, []);
+
+  // Separate useEffect for QR generation
+  useEffect(() => {
+    if (member && qrCanvasRef.current) {
+      const generateQR = async () => {
+        try {
+          console.log('Member data for QR:', member); // Debug log
+          const qrValue = encodeMemberQR(member.qr_code || member.id, member.phone);
+          const safeQRValue = createFallbackQR(qrValue, member.phone);
+          console.log('Generating QR for:', safeQRValue); // Debug log
+          
+          // Clear canvas first
+          const ctx = qrCanvasRef.current?.getContext('2d');
+          if (ctx && qrCanvasRef.current) {
+            ctx.clearRect(0, 0, qrCanvasRef.current.width, qrCanvasRef.current.height);
+          }
+          
+          if (qrCanvasRef.current) {
+            await QRCode.toCanvas(qrCanvasRef.current, safeQRValue, {
+              width: 200, 
+              height: 200,
+              margin: 2,
+              color: { dark: '#1a568b', light: '#ffffff' },
+              errorCorrectionLevel: 'M'
+            });
+            console.log('QR code generated successfully'); // Debug log
+            setQrError(''); // Clear any previous errors
+          }
+        } catch (error) {
+          console.error('QR Code generation failed:', error);
+          setQrError('QR generation failed');
+          // Final fallback: try with just phone number
+          if (member.phone && qrCanvasRef.current) {
+            try {
+              await QRCode.toCanvas(qrCanvasRef.current, member.phone, {
+                width: 200, 
+                height: 200,
+                margin: 2,
+                color: { dark: '#1a568b', light: '#ffffff' },
+                errorCorrectionLevel: 'M'
+              });
+              console.log('Fallback QR code generated successfully'); // Debug log
+              setQrError(''); // Clear error if fallback works
+            } catch (fallbackError) {
+              console.error('Fallback QR generation also failed:', fallbackError);
+              setQrError('QR generation completely failed');
+            }
+          }
+        }
+      };
+
+      // Small delay to ensure canvas is ready
+      setTimeout(generateQR, 100);
+    }
+  }, [member]); // Trigger when member data changes
 
   const loadDashboardData = async () => {
     setLoading(true);
@@ -37,16 +93,6 @@ export function MemberDashboard() {
       const { data: memberData } = await supabase.from('members').select('*').eq('id', user.id).single();
       if (memberData) {
         setMember(memberData);
-        // Render QR code on canvas after state update
-        setTimeout(() => {
-          if (qrCanvasRef.current) {
-            const qrValue = encodeMemberQR(memberData.qr_code, memberData.phone);
-            QRCode.toCanvas(qrCanvasRef.current, qrValue, {
-              width: 200, margin: 2,
-              color: { dark: '#1a568b', light: '#ffffff' },
-            });
-          }
-        }, 150);
       }
       const { data: walletsData } = await supabase.from('wallets').select('*').eq('member_id', user.id);
       if (walletsData) {
@@ -143,7 +189,24 @@ export function MemberDashboard() {
                 display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem',
                 border: '2px solid #dce8f5',
               }}>
-                <canvas ref={qrCanvasRef} style={{ borderRadius: '8px', display: 'block' }} />
+                <canvas ref={qrCanvasRef} style={{ 
+                  borderRadius: '8px', 
+                  display: 'block',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb'
+                }} />
+                {qrError && (
+                  <div style={{ 
+                    padding: '0.5rem', 
+                    background: '#fee2e2', 
+                    color: '#dc2626', 
+                    borderRadius: '8px',
+                    fontSize: '0.75rem',
+                    textAlign: 'center'
+                  }}>
+                    {qrError}
+                  </div>
+                )}
                 <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--blue)', margin: 0, letterSpacing: '0.05em' }}>{member.phone}</p>
               </div>
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -152,6 +215,34 @@ export function MemberDashboard() {
                 </button>
                 <button className="btn btn-ghost" onClick={() => { navigator.clipboard?.writeText(member.phone); }} style={{ borderRadius: '10px' }}>
                   📋 Copy Phone
+                </button>
+                <button className="btn btn-ghost" onClick={async () => {
+                  if (qrCanvasRef.current && member) {
+                    const qrValue = encodeMemberQR(member.qr_code || member.id, member.phone);
+                    await QRCode.toCanvas(qrCanvasRef.current, qrValue, {
+                      width: 200, height: 200, margin: 2,
+                      color: { dark: '#1a568b', light: '#ffffff' },
+                      errorCorrectionLevel: 'M'
+                    });
+                  }
+                }} style={{ borderRadius: '10px', fontSize: '0.75rem' }}>
+                  🔄 Regenerate
+                </button>
+                <button className="btn btn-ghost" onClick={async () => {
+                  if (qrCanvasRef.current) {
+                    try {
+                      await QRCode.toCanvas(qrCanvasRef.current, 'TEST QR CODE', {
+                        width: 200, height: 200, margin: 2,
+                        color: { dark: '#1a568b', light: '#ffffff' },
+                        errorCorrectionLevel: 'M'
+                      });
+                      setQrError('Test QR generated');
+                    } catch (error) {
+                      setQrError('Test QR failed: ' + error);
+                    }
+                  }
+                }} style={{ borderRadius: '10px', fontSize: '0.75rem' }}>
+                  🧪 Test QR
                 </button>
               </div>
             </div>

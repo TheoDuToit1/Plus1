@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import jsQR from 'jsqr';
 import QRCode from 'qrcode';
-import { encodeShopQR, parseMemberQR } from '../lib/config';
+import { encodeShopQR, parseMemberQR, validateQRValue, createFallbackQR } from '../lib/config';
 
 interface Member { id: string; name: string; phone: string; qr_code: string }
 interface Wallet { id: string; member_id: string; balance: number; policies: { name: string; current: number; target: number; status: 'active' | 'suspended' } }
@@ -42,13 +42,49 @@ export function ShopDashboard() {
       if (shopDetails) {
         setShop(shopDetails);
         // Render the shop's own QR code
-        setTimeout(() => {
-          if (shopQRCanvasRef.current) {
-            QRCode.toCanvas(shopQRCanvasRef.current, encodeShopQR(shopDetails.id), {
-              width: 180, margin: 1, color: { dark: '#1a568b', light: '#ffffff' }
+        setTimeout(async () => {
+          if (shopQRCanvasRef.current && shopDetails.id) {
+            try {
+              const qrValue = encodeShopQR(shopDetails.id);
+              console.log('Generating shop QR for:', qrValue); // Debug log
+              
+              // Clear canvas first
+              const ctx = shopQRCanvasRef.current.getContext('2d');
+              if (ctx) {
+                ctx.clearRect(0, 0, shopQRCanvasRef.current.width, shopQRCanvasRef.current.height);
+              }
+              
+              await QRCode.toCanvas(shopQRCanvasRef.current, qrValue, {
+                width: 180, 
+                height: 180,
+                margin: 1, 
+                color: { dark: '#1a568b', light: '#ffffff' },
+                errorCorrectionLevel: 'M'
+              });
+              console.log('Shop QR code generated successfully'); // Debug log
+            } catch (error) {
+              console.error('Shop QR Code generation failed:', error);
+              // Fallback: try with just shop ID
+              try {
+                await QRCode.toCanvas(shopQRCanvasRef.current, `SHOP:${shopDetails.id}`, {
+                  width: 180, 
+                  height: 180,
+                  margin: 1,
+                  color: { dark: '#1a568b', light: '#ffffff' },
+                  errorCorrectionLevel: 'M'
+                });
+                console.log('Fallback shop QR code generated successfully'); // Debug log
+              } catch (fallbackError) {
+                console.error('Fallback shop QR generation also failed:', fallbackError);
+              }
+            }
+          } else {
+            console.log('Shop canvas or details not available:', { 
+              canvas: !!shopQRCanvasRef.current, 
+              shopDetails: !!shopDetails 
             });
           }
-        }, 200);
+        }, 300); // Increased timeout
       }
       const { data: transactions } = await supabase.from('transactions').select('*').eq('shop_id', parsedShop.id).order('created_at', { ascending: false }).limit(5);
       if (transactions) {
@@ -218,7 +254,12 @@ export function ShopDashboard() {
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
               <div style={{ background: 'var(--blue-light)', borderRadius: '16px', padding: '1.25rem', border: '2px solid #dce8f5' }}>
-                <canvas ref={shopQRCanvasRef} style={{ borderRadius: '8px', display: 'block' }} />
+                <canvas ref={shopQRCanvasRef} style={{ 
+                  borderRadius: '8px', 
+                  display: 'block',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb'
+                }} />
               </div>
               <div style={{ textAlign: 'center' }}>
                 <p style={{ fontWeight: 700, color: '#111827', margin: '0 0 2px' }}>{shop?.name}</p>

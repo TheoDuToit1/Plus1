@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import QRCode from 'qrcode';
-import { encodeMemberQR } from '../lib/config';
+import { encodeMemberQR, validateQRValue, createFallbackQR } from '../lib/config';
 
 export function MemberQR() {
   const navigate = useNavigate();
@@ -29,11 +29,31 @@ export function MemberQR() {
 
   const renderQR = async (value: string) => {
     if (!canvasRef.current) return;
-    await QRCode.toCanvas(canvasRef.current, value, {
-      width: Math.min(window.innerWidth * 0.75, 280),
-      margin: 2,
-      color: { dark: '#1a568b', light: '#ffffff' },
-    });
+    try {
+      const safeValue = createFallbackQR(value, memberData?.phone || '');
+      console.log('Rendering QR for:', safeValue); // Debug log
+      await QRCode.toCanvas(canvasRef.current, safeValue, {
+        width: Math.min(window.innerWidth * 0.75, 280),
+        margin: 2,
+        color: { dark: '#1a568b', light: '#ffffff' },
+        errorCorrectionLevel: 'M'
+      });
+    } catch (error) {
+      console.error('QR Code rendering failed:', error);
+      // Fallback: try with just phone number
+      if (memberData?.phone && value !== memberData.phone) {
+        try {
+          await QRCode.toCanvas(canvasRef.current, memberData.phone, {
+            width: Math.min(window.innerWidth * 0.75, 280),
+            margin: 2,
+            color: { dark: '#1a568b', light: '#ffffff' },
+            errorCorrectionLevel: 'M'
+          });
+        } catch (fallbackError) {
+          console.error('Fallback QR rendering also failed:', fallbackError);
+        }
+      }
+    }
   };
 
   const copyPhone = () => {
