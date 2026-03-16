@@ -23,7 +23,6 @@ import { AgentDashboard } from './pages/AgentDashboard'
 import { AgentAddShop } from './pages/AgentAddShop'
 import { AdminLogin } from './pages/AdminLogin'
 import { AdminDashboard } from './pages/AdminDashboard'
-import { AdminManagement } from './pages/AdminManagement'
 import { AdminInvoices } from './pages/AdminInvoices'
 import { AdminSuspensions } from './pages/AdminSuspensions'
 import { AdminAgentPayouts } from './pages/AdminAgentPayouts'
@@ -74,7 +73,6 @@ function App() {
         {/* Admin */}
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/management" element={<AdminManagement />} />
         <Route path="/admin/invoices" element={<AdminInvoices />} />
         <Route path="/admin/suspensions" element={<AdminSuspensions />} />
         <Route path="/admin/agents" element={<AdminAgentPayouts />} />

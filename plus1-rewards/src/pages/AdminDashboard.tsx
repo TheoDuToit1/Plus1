@@ -69,11 +69,25 @@ export function AdminDashboard() {
         supabase.from("members").select("*").order('created_at', { ascending: false }),
         supabase.from("shops").select("*").order('created_at', { ascending: false }),
         supabase.from("agents").select("*").order('created_at', { ascending: false }),
-        supabase.from("policy_providers").select("*").order('created_at', { ascending: false }),
+        supabase.from("policy_providers").select("*").order('created_at', { ascending: false }).then(result => {
+          // Handle case where policy_providers table doesn't exist
+          if (result.error && result.error.code === 'PGRST116') {
+            console.warn('policy_providers table does not exist yet');
+            return { data: [], error: null };
+          }
+          return result;
+        }),
         supabase.from("policy_holders").select(`
           *, policy_plans(name, monthly_target), 
           policy_providers(name), members(name)
-        `).order('created_at', { ascending: false }),
+        `).order('created_at', { ascending: false }).then(result => {
+          // Handle case where policy_holders table doesn't exist
+          if (result.error && result.error.code === 'PGRST116') {
+            console.warn('policy_holders table does not exist yet');
+            return { data: [], error: null };
+          }
+          return result;
+        }),
         supabase.from("transactions").select(`
           *, shops(name), members(name), agents(name)
         `).order('created_at', { ascending: false }).limit(50),
@@ -641,7 +655,26 @@ export function AdminDashboard() {
                     {recentProviders.length === 0 ? (
                       <tr>
                         <td colSpan={7} style={{ textAlign: 'center', padding: '3rem', color: 'var(--gray-text)' }}>
-                          No policy providers found. New providers can register at /provider/register
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+                            <div style={{ fontSize: '3rem' }}>🏥</div>
+                            <div>
+                              <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.125rem', fontWeight: 600 }}>No Policy Providers Found</h3>
+                              <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--gray-light)' }}>
+                                The policy_providers table may not exist yet.<br/>
+                                Run the CREATE_POLICY_PROVIDERS_TABLE.sql file to set up the table.
+                              </p>
+                            </div>
+                            <button 
+                              onClick={() => window.open('/provider/register', '_blank')}
+                              style={{ 
+                                background: 'var(--blue)', color: '#fff', border: 'none',
+                                borderRadius: '8px', padding: '0.5rem 1rem', fontSize: '0.875rem',
+                                fontWeight: 600, cursor: 'pointer'
+                              }}
+                            >
+                              Register New Provider
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ) : recentProviders.map(provider => (
