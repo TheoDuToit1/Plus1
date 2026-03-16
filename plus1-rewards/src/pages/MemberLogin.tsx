@@ -1,7 +1,40 @@
 // plus1-rewards/src/pages/MemberLogin.tsx
+import { useState, FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+
 export default function MemberLogin() {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) throw signInError;
+
+      if (data.user) {
+        navigate('/member/dashboard');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to sign in');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleNavigation = (path: string) => {
-    window.location.href = path;
+    navigate(path);
   };
 
   return (
@@ -82,7 +115,12 @@ export default function MemberLogin() {
               <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Welcome Back</h2>
               <p className="mt-2 text-slate-600 dark:text-slate-400">Please enter your details to access your dashboard.</p>
             </div>
-            <form action="#" className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl p-4">
+                  <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="email">Email or Phone Number</label>
                 <div className="relative">
@@ -94,6 +132,9 @@ export default function MemberLogin() {
                     id="email" 
                     placeholder="name@example.com" 
                     type="text"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
                   />
                 </div>
               </div>
@@ -111,6 +152,9 @@ export default function MemberLogin() {
                     id="password" 
                     placeholder="••••••••" 
                     type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
                   />
                   <span className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer">
                     <span className="material-symbols-outlined">visibility</span>
@@ -127,10 +171,11 @@ export default function MemberLogin() {
                 <label className="ml-2 block text-sm text-slate-600 dark:text-slate-400" htmlFor="remember-me">Remember me for 30 days</label>
               </div>
               <button 
-                className="w-full bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group" 
+                className="w-full bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed" 
                 type="submit"
+                disabled={loading}
               >
-                Sign In
+                {loading ? 'Signing in...' : 'Sign In'}
                 <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
               </button>
             </form>
