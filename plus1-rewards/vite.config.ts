@@ -12,4 +12,8 @@ export default defineConfig({
     sourcemap: false,
     minify: 'terser',
   },
+  preview: {
+    port: 5174,
+    host: true,
+  },
 })

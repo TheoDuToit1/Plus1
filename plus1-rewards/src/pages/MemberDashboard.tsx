@@ -40,23 +40,27 @@ export function MemberDashboard() {
           const safeQRValue = createFallbackQR(qrValue, member.phone);
           console.log('Generating QR for:', safeQRValue); // Debug log
           
+          // Ensure canvas is ready
+          if (!qrCanvasRef.current) {
+            console.log('Canvas not ready yet');
+            return;
+          }
+          
           // Clear canvas first
-          const ctx = qrCanvasRef.current?.getContext('2d');
-          if (ctx && qrCanvasRef.current) {
+          const ctx = qrCanvasRef.current.getContext('2d');
+          if (ctx) {
             ctx.clearRect(0, 0, qrCanvasRef.current.width, qrCanvasRef.current.height);
           }
           
-          if (qrCanvasRef.current) {
-            await QRCode.toCanvas(qrCanvasRef.current, safeQRValue, {
-              width: 200, 
-              height: 200,
-              margin: 2,
-              color: { dark: '#1a568b', light: '#ffffff' },
-              errorCorrectionLevel: 'M'
-            });
-            console.log('QR code generated successfully'); // Debug log
-            setQrError(''); // Clear any previous errors
-          }
+          await QRCode.toCanvas(qrCanvasRef.current, safeQRValue, {
+            width: 200, 
+            height: 200,
+            margin: 2,
+            color: { dark: '#1a568b', light: '#ffffff' },
+            errorCorrectionLevel: 'M'
+          });
+          console.log('QR code generated successfully'); // Debug log
+          setQrError(''); // Clear any previous errors
         } catch (error) {
           console.error('QR Code generation failed:', error);
           setQrError('QR generation failed');
@@ -80,8 +84,10 @@ export function MemberDashboard() {
         }
       };
 
-      // Small delay to ensure canvas is ready
-      setTimeout(generateQR, 100);
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        setTimeout(generateQR, 200);
+      });
     }
   }, [member]); // Trigger when member data changes
 

@@ -32,6 +32,61 @@ export function ShopDashboard() {
 
   useEffect(() => { loadShopData(); }, []);
 
+  // Separate useEffect for shop QR generation
+  useEffect(() => {
+    if (shop && shopQRCanvasRef.current) {
+      const generateShopQR = async () => {
+        try {
+          const qrValue = encodeShopQR(shop.id);
+          console.log('Generating shop QR for:', qrValue); // Debug log
+          
+          // Ensure canvas is ready
+          if (!shopQRCanvasRef.current) {
+            console.log('Shop canvas not ready yet');
+            return;
+          }
+          
+          // Clear canvas first
+          const ctx = shopQRCanvasRef.current.getContext('2d');
+          if (ctx) {
+            ctx.clearRect(0, 0, shopQRCanvasRef.current.width, shopQRCanvasRef.current.height);
+          }
+          
+          await QRCode.toCanvas(shopQRCanvasRef.current, qrValue, {
+            width: 180, 
+            height: 180,
+            margin: 1, 
+            color: { dark: '#1a568b', light: '#ffffff' },
+            errorCorrectionLevel: 'M'
+          });
+          console.log('Shop QR code generated successfully'); // Debug log
+        } catch (error) {
+          console.error('Shop QR Code generation failed:', error);
+          // Fallback: try with just shop ID
+          if (shopQRCanvasRef.current) {
+            try {
+              await QRCode.toCanvas(shopQRCanvasRef.current, `SHOP:${shop.id}`, {
+                width: 180, 
+                height: 180,
+                margin: 1,
+                color: { dark: '#1a568b', light: '#ffffff' },
+                errorCorrectionLevel: 'M'
+              });
+              console.log('Fallback shop QR code generated successfully'); // Debug log
+            } catch (fallbackError) {
+              console.error('Fallback shop QR generation also failed:', fallbackError);
+            }
+          }
+        }
+      };
+
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        setTimeout(generateShopQR, 200);
+      });
+    }
+  }, [shop]); // Trigger when shop data changes
+
   const loadShopData = async () => {
     setLoading(true);
     try {
@@ -41,50 +96,6 @@ export function ShopDashboard() {
       const { data: shopDetails } = await supabase.from('shops').select('*').eq('id', parsedShop.id).single();
       if (shopDetails) {
         setShop(shopDetails);
-        // Render the shop's own QR code
-        setTimeout(async () => {
-          if (shopQRCanvasRef.current && shopDetails.id) {
-            try {
-              const qrValue = encodeShopQR(shopDetails.id);
-              console.log('Generating shop QR for:', qrValue); // Debug log
-              
-              // Clear canvas first
-              const ctx = shopQRCanvasRef.current.getContext('2d');
-              if (ctx) {
-                ctx.clearRect(0, 0, shopQRCanvasRef.current.width, shopQRCanvasRef.current.height);
-              }
-              
-              await QRCode.toCanvas(shopQRCanvasRef.current, qrValue, {
-                width: 180, 
-                height: 180,
-                margin: 1, 
-                color: { dark: '#1a568b', light: '#ffffff' },
-                errorCorrectionLevel: 'M'
-              });
-              console.log('Shop QR code generated successfully'); // Debug log
-            } catch (error) {
-              console.error('Shop QR Code generation failed:', error);
-              // Fallback: try with just shop ID
-              try {
-                await QRCode.toCanvas(shopQRCanvasRef.current, `SHOP:${shopDetails.id}`, {
-                  width: 180, 
-                  height: 180,
-                  margin: 1,
-                  color: { dark: '#1a568b', light: '#ffffff' },
-                  errorCorrectionLevel: 'M'
-                });
-                console.log('Fallback shop QR code generated successfully'); // Debug log
-              } catch (fallbackError) {
-                console.error('Fallback shop QR generation also failed:', fallbackError);
-              }
-            }
-          } else {
-            console.log('Shop canvas or details not available:', { 
-              canvas: !!shopQRCanvasRef.current, 
-              shopDetails: !!shopDetails 
-            });
-          }
-        }, 300); // Increased timeout
       }
       const { data: transactions } = await supabase.from('transactions').select('*').eq('shop_id', parsedShop.id).order('created_at', { ascending: false }).limit(5);
       if (transactions) {
