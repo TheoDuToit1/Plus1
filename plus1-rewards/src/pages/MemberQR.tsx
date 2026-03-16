@@ -1,14 +1,14 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import QRCode from 'qrcode';
-import { encodeMemberQR, validateQRValue, createFallbackQR } from '../lib/config';
+import { encodeMemberQR } from '../lib/config';
 
 export function MemberQR() {
   const navigate = useNavigate();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [memberData, setMemberData] = useState<{ name: string; phone: string; qr_code: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => { loadMemberQR(); }, []);
@@ -21,38 +21,31 @@ export function MemberQR() {
       const { data } = await supabase.from('members').select('name, phone, qr_code').eq('id', user.id).single();
       if (data) {
         setMemberData(data);
-        const qrValue = encodeMemberQR(data.qr_code, data.phone || user.id);
-        setTimeout(() => renderQR(qrValue), 100);
+        await generateQR(data.qr_code, data.phone || user.id);
       }
     } catch { /* silent */ } finally { setLoading(false); }
   };
 
-  const renderQR = async (value: string) => {
-    if (!canvasRef.current) return;
+  const generateQR = async (qrCode: string, phone: string) => {
+    const qrValue = encodeMemberQR(qrCode, phone);
     try {
-      const safeValue = createFallbackQR(value, memberData?.phone || '');
-      console.log('Rendering QR for:', safeValue); // Debug log
-      await QRCode.toCanvas(canvasRef.current, safeValue, {
-        width: Math.min(window.innerWidth * 0.75, 280),
+      const url = await QRCode.toDataURL(qrValue, {
+        width: Math.min(window.innerWidth * 0.75, 300),
         margin: 2,
         color: { dark: '#1a568b', light: '#ffffff' },
-        errorCorrectionLevel: 'M'
+        errorCorrectionLevel: 'M',
       });
-    } catch (error) {
-      console.error('QR Code rendering failed:', error);
-      // Fallback: try with just phone number
-      if (memberData?.phone && value !== memberData.phone) {
-        try {
-          await QRCode.toCanvas(canvasRef.current, memberData.phone, {
-            width: Math.min(window.innerWidth * 0.75, 280),
-            margin: 2,
-            color: { dark: '#1a568b', light: '#ffffff' },
-            errorCorrectionLevel: 'M'
-          });
-        } catch (fallbackError) {
-          console.error('Fallback QR rendering also failed:', fallbackError);
-        }
-      }
+      setQrDataUrl(url);
+    } catch {
+      try {
+        const url = await QRCode.toDataURL(phone, {
+          width: Math.min(window.innerWidth * 0.75, 300),
+          margin: 2,
+          color: { dark: '#1a568b', light: '#ffffff' },
+          errorCorrectionLevel: 'M',
+        });
+        setQrDataUrl(url);
+      } catch { /* silent */ }
     }
   };
 
@@ -65,9 +58,8 @@ export function MemberQR() {
   const refreshQR = async () => {
     if (!memberData) return;
     const newCode = `${memberData.phone}-${Date.now()}`;
-    const newQRUrl = encodeMemberQR(newCode, memberData.phone);
     await supabase.from('members').update({ qr_code: newCode }).eq('phone', memberData.phone);
-    renderQR(newQRUrl);
+    await generateQR(newCode, memberData.phone);
   };
 
   return (
@@ -97,12 +89,16 @@ export function MemberQR() {
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem',
           animation: 'fadeInUp 0.4s ease both',
         }}>
-          {loading ? (
+          {loading || !qrDataUrl ? (
             <div style={{ width: '240px', height: '240px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: '3px solid var(--blue-light)', borderTopColor: 'var(--blue)', animation: 'spin 1s linear infinite' }} />
             </div>
           ) : (
-            <canvas ref={canvasRef} style={{ borderRadius: '12px' }} />
+            <img
+              src={qrDataUrl}
+              alt="Member QR Code"
+              style={{ width: '240px', height: '240px', borderRadius: '12px', display: 'block' }}
+            />
           )}
 
           {/* Phone number */}

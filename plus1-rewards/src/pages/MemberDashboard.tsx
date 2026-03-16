@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import QRCode from 'qrcode';
-import { encodeMemberQR, validateQRValue, createFallbackQR } from '../lib/config';
+import { encodeMemberQR } from '../lib/config';
 
 interface Wallet {
   id: string; member_id: string; shop_id: string;
-  balance: number; points: number;
-  policies: { name: string; current: number; target: number; status: 'active' | 'suspended' };
+  rewards_total?: number; balance?: number;
+  policies: { name: string; current: number; target: number; status: 'active' | 'suspended' } | null;
 }
 interface Shop { id: string; name: string; status: 'active' | 'suspended' }
 interface Member { id: string; name: string; phone: string; email?: string; qr_code: string }
@@ -21,75 +21,48 @@ export function MemberDashboard() {
   const [syncing, setSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingTransactions, setPendingTransactions] = useState(0);
-  const [qrError, setQrError] = useState<string>('');
-  const qrCanvasRef = useRef<HTMLCanvasElement>(null);
+  // QR as data URL — no canvas/ref timing issues
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+  const [qrLoading, setQrLoading] = useState(false);
 
   useEffect(() => {
-    window.addEventListener('online', () => setIsOnline(true));
-    window.addEventListener('offline', () => setIsOnline(false));
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
     loadDashboardData();
+    return () => { window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline); };
   }, []);
 
-  // Separate useEffect for QR generation
+  // Generate QR as data URL whenever member changes — no DOM needed
   useEffect(() => {
-    if (member && qrCanvasRef.current) {
-      const generateQR = async () => {
-        try {
-          console.log('Member data for QR:', member); // Debug log
-          const qrValue = encodeMemberQR(member.qr_code || member.id, member.phone);
-          const safeQRValue = createFallbackQR(qrValue, member.phone);
-          console.log('Generating QR for:', safeQRValue); // Debug log
-          
-          // Ensure canvas is ready
-          if (!qrCanvasRef.current) {
-            console.log('Canvas not ready yet');
-            return;
-          }
-          
-          // Clear canvas first
-          const ctx = qrCanvasRef.current.getContext('2d');
-          if (ctx) {
-            ctx.clearRect(0, 0, qrCanvasRef.current.width, qrCanvasRef.current.height);
-          }
-          
-          await QRCode.toCanvas(qrCanvasRef.current, safeQRValue, {
-            width: 200, 
-            height: 200,
-            margin: 2,
-            color: { dark: '#1a568b', light: '#ffffff' },
-            errorCorrectionLevel: 'M'
-          });
-          console.log('QR code generated successfully'); // Debug log
-          setQrError(''); // Clear any previous errors
-        } catch (error) {
-          console.error('QR Code generation failed:', error);
-          setQrError('QR generation failed');
-          // Final fallback: try with just phone number
-          if (member.phone && qrCanvasRef.current) {
-            try {
-              await QRCode.toCanvas(qrCanvasRef.current, member.phone, {
-                width: 200, 
-                height: 200,
-                margin: 2,
-                color: { dark: '#1a568b', light: '#ffffff' },
-                errorCorrectionLevel: 'M'
-              });
-              console.log('Fallback QR code generated successfully'); // Debug log
-              setQrError(''); // Clear error if fallback works
-            } catch (fallbackError) {
-              console.error('Fallback QR generation also failed:', fallbackError);
-              setQrError('QR generation completely failed');
-            }
-          }
-        }
-      };
+    if (!member) return;
+    generateQRDataUrl(member);
+  }, [member]);
 
-      // Use requestAnimationFrame to ensure DOM is ready
-      requestAnimationFrame(() => {
-        setTimeout(generateQR, 200);
+  const generateQRDataUrl = async (m: Member) => {
+    setQrLoading(true);
+    try {
+      const qrValue = encodeMemberQR(m.qr_code, m.phone || m.id);
+      const url = await QRCode.toDataURL(qrValue, {
+        width: 210,
+        margin: 2,
+        color: { dark: '#1a568b', light: '#ffffff' },
+        errorCorrectionLevel: 'M',
       });
-    }
-  }, [member]); // Trigger when member data changes
+      setQrDataUrl(url);
+    } catch {
+      // Fallback to just the phone number
+      try {
+        const url = await QRCode.toDataURL(m.phone || m.id, {
+          width: 210, margin: 2,
+          color: { dark: '#1a568b', light: '#ffffff' },
+          errorCorrectionLevel: 'M',
+        });
+        setQrDataUrl(url);
+      } catch { /* silent */ }
+    } finally { setQrLoading(false); }
+  };
 
   const loadDashboardData = async () => {
     setLoading(true);
@@ -97,9 +70,7 @@ export function MemberDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { navigate('/member/login'); return; }
       const { data: memberData } = await supabase.from('members').select('*').eq('id', user.id).single();
-      if (memberData) {
-        setMember(memberData);
-      }
+      if (memberData) setMember(memberData);
       const { data: walletsData } = await supabase.from('wallets').select('*').eq('member_id', user.id);
       if (walletsData) {
         setWallets(walletsData);
@@ -119,9 +90,10 @@ export function MemberDashboard() {
     setSyncing(false);
   };
 
-  const getProgress = (w: Wallet) => w.policies ? Math.min(100, Math.round((w.policies.current / w.policies.target) * 100)) : 0;
+  const getProgress = (w: Wallet) =>
+    w.policies ? Math.min(100, Math.round((w.policies.current / w.policies.target) * 100)) : 0;
 
-  const totalBalance = wallets.reduce((s, w) => s + (w.balance || 0), 0);
+  const totalBalance = wallets.reduce((s, w) => s + (w.rewards_total || w.balance || 0), 0);
   const mainWallet = wallets[0];
   const progressPct = mainWallet ? getProgress(mainWallet) : 0;
 
@@ -195,22 +167,19 @@ export function MemberDashboard() {
                 display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem',
                 border: '2px solid #dce8f5',
               }}>
-                <canvas ref={qrCanvasRef} style={{ 
-                  borderRadius: '8px', 
-                  display: 'block',
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #e5e7eb'
-                }} />
-                {qrError && (
-                  <div style={{ 
-                    padding: '0.5rem', 
-                    background: '#fee2e2', 
-                    color: '#dc2626', 
-                    borderRadius: '8px',
-                    fontSize: '0.75rem',
-                    textAlign: 'center'
-                  }}>
-                    {qrError}
+                {qrLoading ? (
+                  <div style={{ width: '210px', height: '210px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '3px solid var(--blue-light)', borderTopColor: 'var(--blue)', animation: 'spin 1s linear infinite' }} />
+                  </div>
+                ) : qrDataUrl ? (
+                  <img
+                    src={qrDataUrl}
+                    alt="Member QR Code"
+                    style={{ width: '210px', height: '210px', borderRadius: '8px', display: 'block', border: '1px solid #dce8f5' }}
+                  />
+                ) : (
+                  <div style={{ width: '210px', height: '210px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', borderRadius: '8px', color: 'var(--gray-light)', fontSize: '0.875rem' }}>
+                    QR unavailable
                   </div>
                 )}
                 <p style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--blue)', margin: 0, letterSpacing: '0.05em' }}>{member.phone}</p>
@@ -222,33 +191,8 @@ export function MemberDashboard() {
                 <button className="btn btn-ghost" onClick={() => { navigator.clipboard?.writeText(member.phone); }} style={{ borderRadius: '10px' }}>
                   📋 Copy Phone
                 </button>
-                <button className="btn btn-ghost" onClick={async () => {
-                  if (qrCanvasRef.current && member) {
-                    const qrValue = encodeMemberQR(member.qr_code || member.id, member.phone);
-                    await QRCode.toCanvas(qrCanvasRef.current, qrValue, {
-                      width: 200, height: 200, margin: 2,
-                      color: { dark: '#1a568b', light: '#ffffff' },
-                      errorCorrectionLevel: 'M'
-                    });
-                  }
-                }} style={{ borderRadius: '10px', fontSize: '0.75rem' }}>
-                  🔄 Regenerate
-                </button>
-                <button className="btn btn-ghost" onClick={async () => {
-                  if (qrCanvasRef.current) {
-                    try {
-                      await QRCode.toCanvas(qrCanvasRef.current, 'TEST QR CODE', {
-                        width: 200, height: 200, margin: 2,
-                        color: { dark: '#1a568b', light: '#ffffff' },
-                        errorCorrectionLevel: 'M'
-                      });
-                      setQrError('Test QR generated');
-                    } catch (error) {
-                      setQrError('Test QR failed: ' + error);
-                    }
-                  }
-                }} style={{ borderRadius: '10px', fontSize: '0.75rem' }}>
-                  🧪 Test QR
+                <button className="btn btn-ghost" onClick={() => generateQRDataUrl(member)} style={{ borderRadius: '10px' }}>
+                  🔄 Refresh QR
                 </button>
               </div>
             </div>
@@ -291,9 +235,9 @@ export function MemberDashboard() {
           <div className="card animate-fade-up">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
               <h2 className="section-title" style={{ margin: 0 }}>🏪 Partner Shops ({wallets.length})</h2>
-              <button onClick={handleSync} disabled={syncing} className="btn btn-ghost" style={{ fontSize: '0.8125rem', borderRadius: '8px', padding: '0.5rem 0.875rem', gap: '0.375rem' }}>
+              <button onClick={handleSync} disabled={syncing} className="btn btn-ghost" style={{ fontSize: '0.8125rem', borderRadius: '8px', padding: '0.5rem 0.875rem' }}>
                 <span style={syncing ? { animation: 'spin 1s linear infinite', display: 'inline-block' } : {}}>🔄</span>
-                {syncing ? 'Syncing...' : 'Sync'}
+                {' '}{syncing ? 'Syncing...' : 'Sync'}
               </button>
             </div>
 
@@ -306,7 +250,8 @@ export function MemberDashboard() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {wallets.map(wallet => {
                   const shop = shops.get(wallet.shop_id);
-                  const isActive = wallet.policies?.status === 'active';
+                  const bal = wallet.rewards_total ?? wallet.balance ?? 0;
+                  const isActive = shop?.status === 'active';
                   return (
                     <div key={wallet.id} style={{
                       border: '1.5px solid var(--gray-border)', borderRadius: '12px', padding: '1rem',
@@ -315,7 +260,7 @@ export function MemberDashboard() {
                     }}>
                       <div>
                         <p style={{ fontWeight: 700, color: '#111827', marginBottom: '0.25rem' }}>{shop?.name || 'Unknown Shop'}</p>
-                        <p style={{ fontSize: '0.875rem', color: 'var(--blue)', fontWeight: 700 }}>R{wallet.balance?.toFixed(2) || '0.00'} balance</p>
+                        <p style={{ fontSize: '0.875rem', color: 'var(--blue)', fontWeight: 700 }}>R{Number(bal).toFixed(2)} rewards</p>
                       </div>
                       <span className={`badge ${isActive ? 'badge-green' : 'badge-orange'}`}>
                         {isActive ? '✓ Active' : '⚠ Suspended'}

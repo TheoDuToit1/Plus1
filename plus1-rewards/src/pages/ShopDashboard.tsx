@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import jsQR from 'jsqr';
 import QRCode from 'qrcode';
-import { encodeShopQR, parseMemberQR, validateQRValue, createFallbackQR } from '../lib/config';
+import { encodeShopQR, parseMemberQR } from '../lib/config';
 
 interface Member { id: string; name: string; phone: string; qr_code: string }
 interface Wallet { id: string; member_id: string; balance: number; policies: { name: string; current: number; target: number; status: 'active' | 'suspended' } }
@@ -28,64 +28,25 @@ export function ShopDashboard() {
   const [todayTotal, setTodayTotal] = useState(0);
   const [activeTab, setActiveTab] = useState<'scan' | 'phone'>('scan');
   const rafRef = useRef<number>(0);
-  const shopQRCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [shopQrDataUrl, setShopQrDataUrl] = useState<string>('');
 
   useEffect(() => { loadShopData(); }, []);
 
-  // Separate useEffect for shop QR generation
+  // Generate shop QR as data URL — no canvas ref needed
   useEffect(() => {
-    if (shop && shopQRCanvasRef.current) {
-      const generateShopQR = async () => {
-        try {
-          const qrValue = encodeShopQR(shop.id);
-          console.log('Generating shop QR for:', qrValue); // Debug log
-          
-          // Ensure canvas is ready
-          if (!shopQRCanvasRef.current) {
-            console.log('Shop canvas not ready yet');
-            return;
-          }
-          
-          // Clear canvas first
-          const ctx = shopQRCanvasRef.current.getContext('2d');
-          if (ctx) {
-            ctx.clearRect(0, 0, shopQRCanvasRef.current.width, shopQRCanvasRef.current.height);
-          }
-          
-          await QRCode.toCanvas(shopQRCanvasRef.current, qrValue, {
-            width: 180, 
-            height: 180,
-            margin: 1, 
-            color: { dark: '#1a568b', light: '#ffffff' },
-            errorCorrectionLevel: 'M'
-          });
-          console.log('Shop QR code generated successfully'); // Debug log
-        } catch (error) {
-          console.error('Shop QR Code generation failed:', error);
-          // Fallback: try with just shop ID
-          if (shopQRCanvasRef.current) {
-            try {
-              await QRCode.toCanvas(shopQRCanvasRef.current, `SHOP:${shop.id}`, {
-                width: 180, 
-                height: 180,
-                margin: 1,
-                color: { dark: '#1a568b', light: '#ffffff' },
-                errorCorrectionLevel: 'M'
-              });
-              console.log('Fallback shop QR code generated successfully'); // Debug log
-            } catch (fallbackError) {
-              console.error('Fallback shop QR generation also failed:', fallbackError);
-            }
-          }
-        }
-      };
-
-      // Use requestAnimationFrame to ensure DOM is ready
-      requestAnimationFrame(() => {
-        setTimeout(generateShopQR, 200);
-      });
-    }
-  }, [shop]); // Trigger when shop data changes
+    if (!shop) return;
+    QRCode.toDataURL(encodeShopQR(shop.id), {
+      width: 180, margin: 1,
+      color: { dark: '#1a568b', light: '#ffffff' },
+      errorCorrectionLevel: 'M',
+    })
+      .then(url => setShopQrDataUrl(url))
+      .catch(() =>
+        QRCode.toDataURL(`SHOP:${shop.id}`, { width: 180, margin: 1, color: { dark: '#1a568b', light: '#ffffff' } })
+          .then(url => setShopQrDataUrl(url))
+          .catch(() => {})
+      );
+  }, [shop]);
 
   const loadShopData = async () => {
     setLoading(true);
@@ -265,12 +226,17 @@ export function ShopDashboard() {
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
               <div style={{ background: 'var(--blue-light)', borderRadius: '16px', padding: '1.25rem', border: '2px solid #dce8f5' }}>
-                <canvas ref={shopQRCanvasRef} style={{ 
-                  borderRadius: '8px', 
-                  display: 'block',
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #e5e7eb'
-                }} />
+                {shopQrDataUrl ? (
+                  <img
+                    src={shopQrDataUrl}
+                    alt="Shop QR Code"
+                    style={{ width: '180px', height: '180px', borderRadius: '8px', display: 'block', border: '1px solid #dce8f5' }}
+                  />
+                ) : (
+                  <div style={{ width: '180px', height: '180px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '3px solid var(--blue-light)', borderTopColor: 'var(--blue)', animation: 'spin 1s linear infinite' }} />
+                  </div>
+                )}
               </div>
               <div style={{ textAlign: 'center' }}>
                 <p style={{ fontWeight: 700, color: '#111827', margin: '0 0 2px' }}>{shop?.name}</p>
