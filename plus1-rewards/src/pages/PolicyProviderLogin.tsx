@@ -1,16 +1,25 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export function PolicyProviderLogin() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Hardcoded Day1 Health credentials
   const PROVIDER_EMAIL = 'day1health@plus1rewards.co.za';
   const PROVIDER_PASSWORD = 'Day1Health2026!';
+
+  useEffect(() => {
+    // Check for success message from registration
+    if (location.state?.message) {
+      setSuccessMessage(location.state.message);
+    }
+  }, [location]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault(); setError(''); setLoading(true);
@@ -67,6 +76,12 @@ export function PolicyProviderLogin() {
           <h2 style={{ fontSize: '1.625rem', fontWeight: 800, color: '#111827', marginBottom: '0.375rem' }}>Partner Sign In</h2>
           <p style={{ color: 'var(--gray-text)', fontSize: '0.9375rem', marginBottom: '2rem' }}>Access your +1 Rewards policy batch data.</p>
 
+          {successMessage && (
+            <div className="alert alert-success" style={{ marginBottom: '1.25rem' }}>
+              {successMessage}
+            </div>
+          )}
+
           {error && <div className="alert alert-error" style={{ marginBottom: '1.25rem' }}>{error}</div>}
 
           <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
@@ -86,6 +101,21 @@ export function PolicyProviderLogin() {
           <div style={{ marginTop: '2rem', padding: '1rem', background: '#f0fdf4', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
             <p style={{ fontSize: '0.75rem', color: '#166534', textAlign: 'center', margin: 0 }}>
               🔒 Authorised Day1 Health partners only.<br />Contact <strong>admin@plus1rewards.co.za</strong> to request access.
+            </p>
+          </div>
+
+          <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+            <p style={{ fontSize: '0.875rem', color: 'var(--gray-text)' }}>
+              New policy provider?{' '}
+              <button
+                onClick={() => navigate('/provider/register')}
+                style={{ 
+                  background: 'none', border: 'none', color: 'var(--primary)', 
+                  fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' 
+                }}
+              >
+                Register here
+              </button>
             </p>
           </div>
         </div>

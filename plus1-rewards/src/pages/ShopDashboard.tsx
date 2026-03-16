@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import jsQR from 'jsqr';
 import QRCode from 'qrcode';
-import { encodeShopQR, parseMemberQR } from '../lib/config';
+import { encodeShopQR } from '../lib/config';
 
 interface Member { id: string; name: string; phone: string; qr_code: string }
 interface Wallet { id: string; member_id: string; balance: number; policies: { name: string; current: number; target: number; status: 'active' | 'suspended' } }
@@ -12,14 +11,11 @@ interface Shop { id: string; name: string; commission_rate: number; status: 'act
 
 export function ShopDashboard() {
   const navigate = useNavigate();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [shop, setShop] = useState<Shop | null>(null);
   const [member, setMember] = useState<Member | null>(null);
   const [wallet, setWallet] = useState<Wallet | null>(null);
   const [purchaseAmount, setPurchaseAmount] = useState('');
   const [phoneSearch, setPhoneSearch] = useState('');
-  const [scanning, setScanning] = useState(false);
   const [loading, setLoading] = useState(true);
   const [issuing, setIssuing] = useState(false);
   const [error, setError] = useState('');
@@ -27,10 +23,19 @@ export function ShopDashboard() {
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [todayTotal, setTodayTotal] = useState(0);
   const [activeTab, setActiveTab] = useState<'scan' | 'phone'>('scan');
-  const rafRef = useRef<number>(0);
   const [shopQrDataUrl, setShopQrDataUrl] = useState<string>('');
 
-  useEffect(() => { loadShopData(); }, []);
+  useEffect(() => { 
+    loadShopData(); 
+    // Check if we have a selected member from the scanner
+    const selectedMemberData = sessionStorage.getItem('selectedMember');
+    if (selectedMemberData) {
+      const { member: selectedMember, wallet: selectedWallet } = JSON.parse(selectedMemberData);
+      setMember(selectedMember);
+      setWallet(selectedWallet);
+      sessionStorage.removeItem('selectedMember');
+    }
+  }, []);
 
   // Generate shop QR as data URL — no canvas ref needed
   useEffect(() => {
@@ -70,68 +75,6 @@ export function ShopDashboard() {
         }
       }
     } catch { /* silent */ } finally { setLoading(false); }
-  };
-
-  const startScanning = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play();
-          setScanning(true);
-          requestAnimationFrame(tickScan);
-        };
-      }
-    } catch { setError('Unable to access camera'); }
-  };
-
-  const tickScan = () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA) {
-      rafRef.current = requestAnimationFrame(tickScan); return;
-    }
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) { rafRef.current = requestAnimationFrame(tickScan); return; }
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'dontInvert' });
-    if (code?.data) {
-      stopScanning();
-      handleMemberQRDecoded(code.data);
-    } else {
-      rafRef.current = requestAnimationFrame(tickScan);
-    }
-  };
-  const stopScanning = () => {
-    cancelAnimationFrame(rafRef.current);
-    if (videoRef.current?.srcObject) (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
-    setScanning(false);
-  };
-
-  const handleMemberQRDecoded = async (data: string) => {
-    setError('');
-    // Parse using config helper — supports URL, PLUS1-legacy, and raw strings
-    const identifier = parseMemberQR(data);
-    if (!identifier) { setError('QR code not recognized. Use phone search instead.'); return; }
-
-    let memberData = null;
-    // Try qr_code field
-    const { data: byQR } = await supabase.from('members').select('*').eq('qr_code', identifier).single();
-    if (byQR) { memberData = byQR; }
-    else {
-      // Try phone
-      const { data: byPhone } = await supabase.from('members').select('*').eq('phone', identifier).single();
-      if (byPhone) memberData = byPhone;
-    }
-    if (!memberData) { setError('QR code not recognized. Ask member to use phone search instead.'); return; }
-    setMember(memberData);
-    const { data: walletData } = await supabase.from('wallets').select('*').eq('member_id', memberData.id).eq('shop_id', shop?.id).single();
-    if (walletData) setWallet(walletData);
-    else setError('Member not connected to this shop. Ask them to scan your shop QR code first.');
   };
 
   const handlePhoneSearch = async () => {
@@ -263,17 +206,10 @@ export function ShopDashboard() {
             </div>
 
             {/* Scan Tab */}
-            {activeTab === 'scan' && !scanning && !member && (
-              <button onClick={startScanning} className="btn btn-primary btn-block" style={{ borderRadius: '12px', height: '52px' }}>
+            {activeTab === 'scan' && !member && (
+              <button onClick={() => navigate('/shop/scan-member')} className="btn btn-primary btn-block" style={{ borderRadius: '12px', height: '52px' }}>
                 📷 Start QR Scanner
               </button>
-            )}
-            {activeTab === 'scan' && scanning && (
-              <div style={{ position: 'relative', background: '#000', borderRadius: '16px', overflow: 'hidden', marginBottom: '1rem', aspectRatio: '1', maxHeight: '300px' }}>
-                <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <canvas ref={canvasRef} style={{ display: 'none' }} />
-                <button onClick={stopScanning} style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.375rem 0.75rem', cursor: 'pointer', fontWeight: 600, fontSize: '0.8125rem' }}>✕ Stop</button>
-              </div>
             )}
 
             {/* Phone Tab */}

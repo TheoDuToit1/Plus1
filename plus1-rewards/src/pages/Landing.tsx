@@ -9,7 +9,7 @@ export function Landing() {
     { id: 'member', icon: '👤', title: 'Member', desc: 'Earn rewards & fund your health policy with everyday shopping', path: '/member/register', loginPath: '/member/login', color: 'var(--blue)', loginOnly: false },
     { id: 'shop', icon: '🏪', title: 'Shop Owner', desc: 'Issue rewards to members & grow your loyal customer base', path: '/shop/register', loginPath: '/shop/login', color: 'var(--green-dark)', loginOnly: false },
     { id: 'agent', icon: '📊', title: 'Sales Agent', desc: 'Recruit shops to the network & earn 1% commission on every transaction', path: '/agent/register', loginPath: '/agent/login', color: '#0891b2', loginOnly: false },
-    { id: 'provider', icon: '🏥', title: 'Policy Provider', desc: 'Day1 Health — access monthly batch files of activated member policies', path: '', loginPath: '/provider/login', color: '#064e3b', loginOnly: true },
+    { id: 'provider', icon: '🏥', title: 'Policy Provider', desc: 'Partner with +1 Rewards to offer health insurance through our platform', path: '/provider/register', loginPath: '/provider/login', color: '#064e3b', loginOnly: false },
     { id: 'admin', icon: '⚙️', title: 'Admin', desc: 'Monitor the platform, manage invoices, suspensions & agent payouts', path: '', loginPath: '/admin/login', color: '#7c3aed', loginOnly: true },
   ]
 

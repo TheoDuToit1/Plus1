@@ -27,6 +27,7 @@ import { AdminSuspensions } from './pages/AdminSuspensions'
 import { AdminAgentPayouts } from './pages/AdminAgentPayouts'
 import { AdminDay1Batch } from './pages/AdminDay1Batch'
 import { PolicyProviderLogin } from './pages/PolicyProviderLogin'
+import { PolicyProviderRegister } from './pages/PolicyProviderRegister'
 import { PolicyProviderDashboard } from './pages/PolicyProviderDashboard'
 import { LegalPopia } from './pages/LegalPopia'
 import { LegalMemberTerms } from './pages/LegalMemberTerms'
@@ -75,6 +76,7 @@ function App() {
         <Route path="/admin/agents" element={<AdminAgentPayouts />} />
         <Route path="/admin/day1-batch" element={<AdminDay1Batch />} />
         {/* Policy Provider */}
+        <Route path="/provider/register" element={<PolicyProviderRegister />} />
         <Route path="/provider/login" element={<PolicyProviderLogin />} />
         <Route path="/provider/dashboard" element={<PolicyProviderDashboard />} />
         {/* Legal */}
