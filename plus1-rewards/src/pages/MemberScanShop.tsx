@@ -112,24 +112,35 @@ export function MemberScanShop() {
   const handleConnect = async () => {
     if (!scannedShopId) return;
     setConnecting(true);
+    setError('');
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { navigate('/member/login'); return; }
       const { data: shopData } = await supabase.from('shops').select('id, name, status').eq('id', scannedShopId).single();
-      if (!shopData) { setError('Shop not found.'); setConnecting(false); return; }
-      if (shopData.status === 'suspended') { setError('This shop is currently suspended.'); setConnecting(false); return; }
+      if (!shopData) { setError('Shop not found. Please try scanning again.'); setConnecting(false); return; }
+      if (shopData.status === 'suspended') { setError('This shop is currently suspended and cannot accept new connections.'); setConnecting(false); return; }
       const { error: walletError } = await supabase.from('wallets').insert([{
-        member_id: user.id, shop_id: scannedShopId,
-        policies: { name: 'Day-to-Day Single', current: 0, target: 385, status: 'active' },
+        member_id: user.id,
+        shop_id: scannedShopId,
+        balance: 0,
         rewards_total: 0,
+        policies: { name: 'Day-to-Day Single', current: 0, target: 385, status: 'active' },
       }]);
       if (walletError?.code === '23505') {
         // Already connected — still navigate to dashboard
         navigate('/member/dashboard'); return;
       }
-      if (walletError) throw walletError;
+      if (walletError) {
+        // Surface the real Supabase error message
+        setError(walletError.message || walletError.details || 'Failed to connect to shop. Please try again.');
+        setConnecting(false);
+        return;
+      }
       navigate('/member/dashboard');
-    } catch (err) { setError(err instanceof Error ? err.message : 'Connection failed'); setConnecting(false); }
+    } catch (err: any) {
+      setError(err?.message || err?.details || 'Connection failed. Please try again.');
+      setConnecting(false);
+    }
   };
 
   return (

@@ -183,7 +183,21 @@ export function ShopDashboard() {
               </div>
               <div style={{ textAlign: 'center' }}>
                 <p style={{ fontWeight: 700, color: '#111827', margin: '0 0 2px' }}>{shop?.name}</p>
-                <p style={{ fontSize: '0.8125rem', color: 'var(--gray-light)', margin: 0 }}>Commission: {shop?.commission_rate}% · Members earn {shop ? shop.commission_rate - 2 : 0}%</p>
+                <p style={{ fontSize: '0.8125rem', color: 'var(--gray-light)', margin: '0 0 0.875rem' }}>Commission: {shop?.commission_rate}% · Members earn {shop ? shop.commission_rate - 2 : 0}%</p>
+                {/* Shop ID — for members to enter manually if camera scan fails */}
+                <div style={{ background: '#f3f4f6', borderRadius: '10px', padding: '0.625rem 0.875rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', border: '1px solid var(--gray-border)' }}>
+                  <div style={{ textAlign: 'left' }}>
+                    <p style={{ fontSize: '0.6875rem', color: 'var(--gray-light)', margin: '0 0 1px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Shop ID (for manual entry)</p>
+                    <p style={{ fontSize: '0.75rem', color: '#374151', margin: 0, fontFamily: 'monospace', wordBreak: 'break-all' }}>{shop?.id}</p>
+                  </div>
+                  <button
+                    onClick={() => { navigator.clipboard?.writeText(shop?.id || ''); }}
+                    style={{ background: 'var(--blue)', color: '#fff', border: 'none', borderRadius: '7px', padding: '0.375rem 0.625rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}
+                    title="Copy Shop ID"
+                  >
+                    📋 Copy
+                  </button>
+                </div>
               </div>
             </div>
           </div>

@@ -16,6 +16,7 @@ import { ShopDashboard } from './pages/ShopDashboard'
 import { ShopHistory } from './pages/ShopHistory'
 import { ShopInvoice } from './pages/ShopInvoice'
 import { ShopFindMember } from './pages/ShopFindMember'
+import { ShopScanMember } from './pages/ShopScanMember'
 import { AgentRegister } from './pages/AgentRegister'
 import { AgentLogin } from './pages/AgentLogin'
 import { AgentDashboard } from './pages/AgentDashboard'
@@ -63,6 +64,7 @@ function App() {
         <Route path="/shop/history" element={<ShopHistory />} />
         <Route path="/shop/invoice" element={<ShopInvoice />} />
         <Route path="/shop/find-member" element={<ShopFindMember />} />
+        <Route path="/shop/scan-member" element={<ShopScanMember />} />
         {/* Agent */}
         <Route path="/agent/register" element={<AgentRegister />} />
         <Route path="/agent/login" element={<AgentLogin />} />
