@@ -1,7 +1,7 @@
 // plus1-rewards/src/components/landing/FAQ.tsx
 export default function FAQ() {
   return (
-    <section className="py-24 px-6 lg:px-20 bg-background-light dark:bg-[#0a160e]" id="faq">
+    <section className="py-24 px-6 lg:px-20 bg-background-dark" id="faq">
       <div className="max-w-3xl mx-auto">
         <h2 className="text-3xl font-bold text-white text-center mb-16">Frequently Asked Questions</h2>
         <div className="space-y-6">

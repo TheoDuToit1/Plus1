@@ -1,7 +1,7 @@
 // plus1-rewards/src/components/landing/Hero.tsx
 export default function Hero() {
   return (
-    <section className="relative flex items-center justify-center overflow-hidden px-6 lg:px-20 min-h-screen">
+    <section className="relative flex items-center justify-center overflow-hidden px-6 lg:px-20 min-h-screen bg-background-dark">
       <div className="absolute inset-0 z-0">
         <div className="absolute inset-0 bg-gradient-to-r from-background-dark via-background-dark/80 to-transparent z-10"></div>
         <img 

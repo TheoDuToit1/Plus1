@@ -5,7 +5,7 @@ export default function Roles() {
   };
 
   return (
-    <section className="py-24 px-6 lg:px-20 bg-background-light dark:bg-[#0a160e]" id="roles">
+    <section className="py-24 px-6 lg:px-20 bg-background-dark" id="roles">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
           <div className="max-w-xl">

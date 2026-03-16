@@ -9,6 +9,13 @@ import AgentLogin from './pages/AgentLogin'
 import AgentRegister from './pages/AgentRegister'
 import PolicyProviderLogin from './pages/PolicyProviderLogin'
 import AdminLogin from './pages/AdminLogin'
+import Dashboard from './components/dashboard/Dashboard'
+import MembersPage from './components/dashboard/pages/MembersPage'
+import ShopsPage from './components/dashboard/pages/ShopsPage'
+import AgentsPage from './components/dashboard/pages/AgentsPage'
+import PolicyProvidersPage from './components/dashboard/pages/PolicyProvidersPage'
+import PoliciesPage from './components/dashboard/pages/PoliciesPage'
+import TransactionsPage from './components/dashboard/pages/TransactionsPage'
 
 export default function App() {
   return (
@@ -24,6 +31,13 @@ export default function App() {
           <Route path="/agent/register" element={<AgentRegister />} />
           <Route path="/provider/login" element={<PolicyProviderLogin />} />
           <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin/dashboard" element={<Dashboard />} />
+          <Route path="/admin/members" element={<MembersPage />} />
+          <Route path="/admin/shops" element={<ShopsPage />} />
+          <Route path="/admin/agents" element={<AgentsPage />} />
+          <Route path="/admin/providers" element={<PolicyProvidersPage />} />
+          <Route path="/admin/policies" element={<PoliciesPage />} />
+          <Route path="/admin/transactions" element={<TransactionsPage />} />
         </Routes>
       </Router>
     </div>

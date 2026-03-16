@@ -1,7 +1,7 @@
 // plus1-rewards/src/components/landing/OfflineFeature.tsx
 export default function OfflineFeature() {
   return (
-    <section className="py-24 px-6 lg:px-20 relative overflow-hidden" id="features">
+    <section className="py-24 px-6 lg:px-20 bg-background-dark relative overflow-hidden" id="features">
       <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-16 items-center">
         <div className="relative">
           <div className="absolute -inset-10 bg-primary/10 blur-[100px] rounded-full"></div>
