@@ -77,7 +77,7 @@ SELECT
   n_tup_ins as "Rows"
 FROM pg_stat_user_tables 
 WHERE schemaname = 'public'
-ORDER BY relname;
+ORDER BY relname;e;
 
 -- Check storage buckets (this will show bucket info, not files)
 SELECT 
