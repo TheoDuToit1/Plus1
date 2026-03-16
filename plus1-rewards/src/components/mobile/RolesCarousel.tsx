@@ -1,8 +1,10 @@
 // plus1-rewards/src/components/mobile/RolesCarousel.tsx
 import { useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function RolesCarousel() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollContainerRef.current) {
@@ -50,10 +52,16 @@ export default function RolesCarousel() {
               <p className="text-slate-400 mt-2 text-sm">Shop as usual and get premium private healthcare without monthly cash premiums.</p>
             </div>
             <div className="flex gap-3 mt-2">
-              <button className="flex-1 bg-primary text-background-dark py-3 rounded-xl font-bold text-base shadow-lg shadow-primary/20 active:scale-[0.98] transition-transform">
+              <button 
+                onClick={() => navigate('/member/register')}
+                className="flex-1 bg-primary text-background-dark py-3 rounded-xl font-bold text-base shadow-lg shadow-primary/20 active:scale-[0.98] transition-transform"
+              >
                 Register
               </button>
-              <button className="flex-1 bg-transparent border border-primary text-primary py-3 rounded-xl font-bold text-base active:scale-[0.98] transition-transform">
+              <button 
+                onClick={() => navigate('/member/login')}
+                className="flex-1 bg-transparent border border-primary text-primary py-3 rounded-xl font-bold text-base active:scale-[0.98] transition-transform"
+              >
                 Login
               </button>
             </div>
@@ -69,10 +77,16 @@ export default function RolesCarousel() {
               <p className="text-slate-400 mt-2 text-sm">Increase customer loyalty and attract new shoppers by offering +1 health rewards.</p>
             </div>
             <div className="flex gap-3 mt-2">
-              <button className="flex-1 bg-primary text-background-dark py-3 rounded-xl font-bold text-base shadow-lg shadow-primary/20 active:scale-[0.98] transition-transform">
+              <button 
+                onClick={() => navigate('/shop/register')}
+                className="flex-1 bg-primary text-background-dark py-3 rounded-xl font-bold text-base shadow-lg shadow-primary/20 active:scale-[0.98] transition-transform"
+              >
                 Register
               </button>
-              <button className="flex-1 bg-transparent border border-primary text-primary py-3 rounded-xl font-bold text-base active:scale-[0.98] transition-transform">
+              <button 
+                onClick={() => navigate('/shop/login')}
+                className="flex-1 bg-transparent border border-primary text-primary py-3 rounded-xl font-bold text-base active:scale-[0.98] transition-transform"
+              >
                 Login
               </button>
             </div>
@@ -88,10 +102,16 @@ export default function RolesCarousel() {
               <p className="text-slate-400 mt-2 text-sm">Help your community stay healthy while earning commissions for onboarding stores.</p>
             </div>
             <div className="flex gap-3 mt-2">
-              <button className="flex-1 bg-primary text-background-dark py-3 rounded-xl font-bold text-base shadow-lg shadow-primary/20 active:scale-[0.98] transition-transform">
+              <button 
+                onClick={() => navigate('/agent/register')}
+                className="flex-1 bg-primary text-background-dark py-3 rounded-xl font-bold text-base shadow-lg shadow-primary/20 active:scale-[0.98] transition-transform"
+              >
                 Register
               </button>
-              <button className="flex-1 bg-transparent border border-primary text-primary py-3 rounded-xl font-bold text-base active:scale-[0.98] transition-transform">
+              <button 
+                onClick={() => navigate('/agent/login')}
+                className="flex-1 bg-transparent border border-primary text-primary py-3 rounded-xl font-bold text-base active:scale-[0.98] transition-transform"
+              >
                 Login
               </button>
             </div>
