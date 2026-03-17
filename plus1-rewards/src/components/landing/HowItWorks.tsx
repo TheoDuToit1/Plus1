@@ -1,7 +1,7 @@
 // plus1-rewards/src/components/landing/HowItWorks.tsx
 export default function HowItWorks() {
   return (
-    <section className="py-24 px-6 lg:px-20 bg-background-dark" id="how-it-works">
+    <section className="py-24 px-6 lg:px-20" style={{ backgroundColor: '#0f172a' }} id="how-it-works">
       <div className="max-w-7xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-20">
           <h2 className="text-4xl font-bold text-white mb-4">How it works in 3 Simple Steps</h2>

@@ -5,7 +5,7 @@ export default function Roles() {
   };
 
   return (
-    <section className="py-24 px-6 lg:px-20 bg-background-dark" id="roles">
+    <section className="py-24 px-6 lg:px-20" style={{ backgroundColor: '#0f172a' }} id="roles">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
           <div className="max-w-xl">
@@ -13,7 +13,7 @@ export default function Roles() {
             <p className="text-slate-400">+1 Rewards benefits members, retailers, and dedicated agents alike.</p>
           </div>
         </div>
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Members Card */}
           <div className="bg-background-dark border border-primary/10 p-8 rounded-2xl hover:border-primary/40 transition-all flex flex-col">
             <span className="material-symbols-outlined text-primary text-4xl mb-6">group</span>
@@ -98,6 +98,36 @@ export default function Roles() {
               </button>
               <button 
                 onClick={() => handleNavigation('/agent/register')}
+                className="flex-1 py-3 border border-primary text-primary font-bold rounded-xl hover:bg-primary hover:text-background-dark transition-all"
+              >
+                Register
+              </button>
+            </div>
+          </div>
+          {/* Policy Providers Card */}
+          <div className="bg-background-dark border border-primary/10 p-8 rounded-2xl hover:border-primary/40 transition-all flex flex-col">
+            <span className="material-symbols-outlined text-primary text-4xl mb-6">verified_user</span>
+            <h3 className="text-2xl font-bold text-white mb-4">Policy Providers</h3>
+            <p className="text-slate-400 mb-8 flex-grow">Expand your reach and streamline policy management with transparent partner integration and real-time reconciliation.</p>
+            <ul className="space-y-3 mb-8">
+              <li className="flex items-center gap-2 text-sm text-slate-300">
+                <span className="material-symbols-outlined text-primary text-sm">check_circle</span>
+                Real-time policy tracking
+              </li>
+              <li className="flex items-center gap-2 text-sm text-slate-300">
+                <span className="material-symbols-outlined text-primary text-sm">check_circle</span>
+                Automated reconciliation
+              </li>
+            </ul>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => handleNavigation('/provider/login')}
+                className="flex-1 py-3 bg-primary text-background-dark font-bold rounded-xl hover:bg-primary/90 transition-all"
+              >
+                Login
+              </button>
+              <button 
+                onClick={() => handleNavigation('/provider/register')}
                 className="flex-1 py-3 border border-primary text-primary font-bold rounded-xl hover:bg-primary hover:text-background-dark transition-all"
               >
                 Register

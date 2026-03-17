@@ -1,7 +1,7 @@
 // plus1-rewards/src/components/landing/TrustBadge.tsx
 export default function TrustBadge() {
   return (
-    <section className="py-20 bg-background-dark">
+    <section className="py-20" style={{ backgroundColor: '#0f172a' }}>
       <div className="max-w-7xl mx-auto px-6 lg:px-20 text-center">
         <h4 className="text-primary font-bold uppercase tracking-widest text-sm mb-12">Our Trusted Insurance Partner</h4>
         <div className="flex flex-wrap items-center justify-center gap-12 opacity-80 mb-12">

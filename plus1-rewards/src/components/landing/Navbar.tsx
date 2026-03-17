@@ -1,7 +1,7 @@
 // plus1-rewards/src/components/landing/Navbar.tsx
 export default function Navbar() {
   return (
-    <nav className="sticky top-0 z-50 border-b border-primary/10 bg-background-dark/80 backdrop-blur-md px-6 lg:px-20 py-4">
+    <nav className="sticky top-0 z-50 border-b border-primary/10 backdrop-blur-md px-6 lg:px-20 py-4" style={{ backgroundColor: 'rgba(15, 23, 42, 0.8)' }}>
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-2 text-primary">
           <span className="material-symbols-outlined text-3xl">add_circle</span>

@@ -3,6 +3,33 @@ export default function PolicyProviderLogin() {
   const handleNavigation = (path: string) => {
     window.location.href = path;
   };
+
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const email = (form.querySelector('#email') as HTMLInputElement)?.value;
+    const password = (form.querySelector('#password') as HTMLInputElement)?.value;
+
+    if (!email || !password) {
+      alert('Please enter email and password');
+      return;
+    }
+
+    try {
+      // For demo purposes, use a default provider ID
+      // In production, you would authenticate against your provider database
+      const providerData = {
+        id: 'day1-health-provider', // Use a fixed ID for demo
+        name: 'Day1 Health Partner',
+        email: email,
+      };
+      localStorage.setItem('currentProvider', JSON.stringify(providerData));
+      // Redirect to provider dashboard after login
+      window.location.href = '/provider/dashboard';
+    } catch (err) {
+      alert('Login failed');
+    }
+  };
   
   return (
     <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
@@ -82,7 +109,7 @@ export default function PolicyProviderLogin() {
               <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Policy Provider Login</h2>
               <p className="mt-2 text-slate-600 dark:text-slate-400">Access your policy management dashboard and member data.</p>
             </div>
-            <form action="#" className="space-y-6">
+            <form onSubmit={handleLogin} className="space-y-6">
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="email">Provider Email Address</label>
                 <div className="relative">
@@ -152,7 +179,7 @@ export default function PolicyProviderLogin() {
               </p>
             </div>
             <p className="text-center text-slate-600 dark:text-slate-400 mt-8">
-              New policy provider? <a className="text-primary font-bold hover:underline" href="#">Apply for Partnership</a>
+              New policy provider? <a className="text-primary font-bold hover:underline" href="/provider/register">Create an account</a>
             </p>
           </div>
         </div>

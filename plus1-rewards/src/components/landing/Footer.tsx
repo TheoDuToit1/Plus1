@@ -1,7 +1,7 @@
 // plus1-rewards/src/components/landing/Footer.tsx
 export default function Footer() {
   return (
-    <footer className="bg-background-dark border-t border-primary/10 py-16 px-6 lg:px-20">
+    <footer className="border-t border-primary/10 py-16 px-6 lg:px-20" style={{ backgroundColor: '#0f172a' }}>
       <div className="max-w-7xl mx-auto">
         <div className="grid md:grid-cols-4 gap-12 mb-16">
           <div className="col-span-2">

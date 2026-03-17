@@ -8,6 +8,7 @@ import ShopRegister from './pages/ShopRegister'
 import AgentLogin from './pages/AgentLogin'
 import AgentRegister from './pages/AgentRegister'
 import PolicyProviderLogin from './pages/PolicyProviderLogin'
+import { PolicyProviderRegister } from './pages/PolicyProviderRegister'
 import AdminLogin from './pages/AdminLogin'
 import Dashboard from './components/dashboard/Dashboard'
 import MembersPage from './components/dashboard/pages/MembersPage'
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="/agent/login" element={<AgentLogin />} />
           <Route path="/agent/register" element={<AgentRegister />} />
           <Route path="/provider/login" element={<PolicyProviderLogin />} />
+          <Route path="/provider/register" element={<PolicyProviderRegister />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<Dashboard />} />
           <Route path="/admin/members" element={<MembersPage />} />

@@ -5,27 +5,22 @@ import { supabase } from '../lib/supabase';
 export function PolicyProviderRegister() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    name: '',
+    company_name: '',
+    contact_person: '',
     email: '',
     phone: '',
-    company_name: '',
-    registration_number: '',
-    contact_person: '',
-    bank_name: '',
-    bank_account: '',
-    account_holder: ''
+    password: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      // Validate required fields
-      if (!formData.name || !formData.email || !formData.company_name) {
+      if (!formData.company_name || !formData.contact_person || !formData.email || !formData.password) {
         throw new Error('Please fill in all required fields');
       }
 
@@ -33,29 +28,20 @@ export function PolicyProviderRegister() {
       const { data, error: insertError } = await supabase
         .from('policy_providers')
         .insert([{
-          name: formData.name,
+          name: formData.company_name,
           email: formData.email,
           phone: formData.phone || null,
-          company_name: formData.company_name,
-          registration_number: formData.registration_number || null,
-          contact_person: formData.contact_person || null,
-          bank_name: formData.bank_name || null,
-          bank_account: formData.bank_account || null,
-          account_holder: formData.account_holder || null,
-          status: 'pending' // Requires admin approval
+          contact_person: formData.contact_person,
+          status: 'pending'
         }])
         .select()
         .single();
 
       if (insertError) throw insertError;
 
-      // Success - redirect to login with message
-      navigate('/provider/login', { 
-        state: { 
-          message: 'Registration submitted successfully! Your account is pending approval. You will be contacted within 2 business days.' 
-        }
-      });
-
+      // Show success message and redirect to login
+      alert('Registration submitted successfully! Your account is pending approval. You will be contacted within 2 business days.');
+      navigate('/provider/login');
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
@@ -70,246 +56,234 @@ export function PolicyProviderRegister() {
     }));
   };
 
+  const handleNavigation = (path: string) => {
+    window.location.href = path;
+  };
+
   return (
-    <div className="auth-page">
-      <div className="auth-panel-left">
-        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: '340px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', marginBottom: '2.5rem' }}>
-            <div className="logo-mark-white"><span className="logo-text">+1</span></div>
-            <span style={{ fontSize: '1.25rem', fontWeight: 800 }}>Policy Provider</span>
+    <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
+      <div className="flex min-h-screen">
+        {/* Left Side: Value Proposition & Branding */}
+        <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden">
+          {/* Background Image with Overlay */}
+          <div className="absolute inset-0 z-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-background-dark/90 via-background-dark/60 to-transparent z-10"></div>
+            <img 
+              alt="Healthcare professionals collaborating" 
+              className="w-full h-full object-cover" 
+              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBs0NJvdFopFrHzhlnAatUu3wtcZ5HH0frFV3JuGfICUVtpraRhtig6O1WHOTnpmsLzDyNUFW6WWhY4a3_V8J-_iy2rIhwd_ifsQs_w6bs4TR9w_aVmCUzGY65N4y02OuDtcVM6Fu7q6RsIOUGD87zx6YktI6Xe478iBBrEcMjQcPpMZt-_D2DjIw4TtN6lm5KmVXR74LblHmi3jIWkP4_dBbQFhN6W-CnxQGljxRaRESt0AN8e1FaKgAs2uKKWBPQJ3Hoi2TCSPz50" 
+            />
           </div>
-          <h1 style={{ fontSize: '1.875rem', fontWeight: 800, lineHeight: 1.2, marginBottom: '1rem' }}>
-            Partner with +1 Rewards
-          </h1>
-          <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: '0.9375rem', lineHeight: 1.6, marginBottom: '2.5rem' }}>
-            Join our network of health insurance providers and reach more customers through our rewards platform.
-          </p>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-            {[
-              { icon: '🎯', title: 'Targeted Reach', desc: 'Access customers actively saving for health coverage' },
-              { icon: '📊', title: 'Real-time Data', desc: 'Track policy activations and member engagement' },
-              { icon: '💰', title: 'Revenue Growth', desc: 'Earn from every policy funded through our platform' },
-              { icon: '🤝', title: 'Partnership Support', desc: 'Dedicated account management and integration help' }
-            ].map((feature, i) => (
-              <div key={i} style={{ 
-                display: 'flex', alignItems: 'center', gap: '0.75rem', 
-                background: 'rgba(255,255,255,0.1)', borderRadius: '10px', 
-                padding: '0.875rem', border: '1px solid rgba(255,255,255,0.15)', 
-                textAlign: 'left' 
-              }}>
-                <span style={{ fontSize: '1.375rem', flexShrink: 0 }}>{feature.icon}</span>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.875rem' }}>{feature.title}</div>
-                  <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: '0.75rem' }}>{feature.desc}</div>
-                </div>
+          <div className="relative z-20">
+            <div className="flex items-center gap-3">
+              <div className="size-10 bg-primary rounded-lg flex items-center justify-center text-background-dark">
+                <span className="material-symbols-outlined text-3xl font-bold">health_and_safety</span>
               </div>
-            ))}
+              <h2 className="text-2xl font-black tracking-tighter text-white uppercase italic">Provider Portal</h2>
+            </div>
           </div>
-          
-          <button 
-            onClick={() => navigate('/')} 
-            style={{ 
-              marginTop: '2rem', background: 'none', border: '1px solid rgba(255,255,255,0.35)', 
-              color: '#fff', borderRadius: '8px', padding: '0.5rem 1rem', 
-              cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' 
-            }}
-          >
-            ← Back to Home
-          </button>
-        </div>
-      </div>
-
-      <div className="auth-panel-right">
-        <div className="auth-form animate-fade-up">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
-            <div style={{ 
-              width: '36px', height: '36px', background: '#064e3b', 
-              borderRadius: '10px', display: 'flex', alignItems: 'center', 
-              justifyContent: 'center', fontSize: '1.125rem' 
-            }}>
-              🏥
-            </div>
-            <span style={{ fontSize: '1.0625rem', fontWeight: 800, color: '#064e3b' }}>
-              Provider Registration
-            </span>
-          </div>
-          
-          <h2 style={{ fontSize: '1.625rem', fontWeight: 800, color: '#111827', marginBottom: '0.375rem' }}>
-            Join Our Network
-          </h2>
-          <p style={{ color: 'var(--gray-text)', fontSize: '0.9375rem', marginBottom: '2rem' }}>
-            Register your health insurance company to start partnering with +1 Rewards.
-          </p>
-
-          {error && (
-            <div className="alert alert-error" style={{ marginBottom: '1.25rem' }}>
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
-            {/* Company Information */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label className="input-label">Company Name *</label>
-                <input
-                  type="text"
-                  name="company_name"
-                  className="input"
-                  placeholder="Health Insurance Co."
-                  value={formData.company_name}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div>
-                <label className="input-label">Registration Number</label>
-                <input
-                  type="text"
-                  name="registration_number"
-                  className="input"
-                  placeholder="2023/123456/07"
-                  value={formData.registration_number}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-
-            {/* Contact Person */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label className="input-label">Contact Person Name *</label>
-                <input
-                  type="text"
-                  name="name"
-                  className="input"
-                  placeholder="John Smith"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div>
-                <label className="input-label">Job Title</label>
-                <input
-                  type="text"
-                  name="contact_person"
-                  className="input"
-                  placeholder="Business Development Manager"
-                  value={formData.contact_person}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-
-            {/* Contact Details */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div>
-                <label className="input-label">Email Address *</label>
-                <input
-                  type="email"
-                  name="email"
-                  className="input"
-                  placeholder="partnerships@company.co.za"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
-              <div>
-                <label className="input-label">Phone Number</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  className="input"
-                  placeholder="+27123456789"
-                  value={formData.phone}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-
-            {/* Banking Details */}
-            <div style={{ 
-              padding: '1rem', background: '#f8fafc', borderRadius: '8px', 
-              border: '1px solid #e2e8f0', marginTop: '0.5rem' 
-            }}>
-              <h3 style={{ fontSize: '0.875rem', fontWeight: 700, color: '#374151', marginBottom: '0.75rem' }}>
-                Banking Details (Optional - can be added later)
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-                <div>
-                  <label className="input-label">Bank Name</label>
-                  <input
-                    type="text"
-                    name="bank_name"
-                    className="input"
-                    placeholder="Standard Bank"
-                    value={formData.bank_name}
-                    onChange={handleChange}
-                  />
-                </div>
-                <div>
-                  <label className="input-label">Account Number</label>
-                  <input
-                    type="text"
-                    name="bank_account"
-                    className="input"
-                    placeholder="123456789"
-                    value={formData.bank_account}
-                    onChange={handleChange}
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="input-label">Account Holder Name</label>
-                <input
-                  type="text"
-                  name="account_holder"
-                  className="input"
-                  placeholder="Company Name (Pty) Ltd"
-                  value={formData.account_holder}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
-
-            <button 
-              type="submit" 
-              disabled={loading}
-              style={{ 
-                height: '52px', fontSize: '1rem', borderRadius: '12px', 
-                border: 'none', background: 'linear-gradient(135deg, #064e3b, #065f46)', 
-                color: '#fff', fontWeight: 800, cursor: 'pointer' 
-              }}
-            >
-              {loading ? '⏳ Submitting...' : '🏥 Submit Registration'}
-            </button>
-          </form>
-
-          <div style={{ 
-            marginTop: '2rem', padding: '1rem', background: '#fef3c7', 
-            borderRadius: '10px', border: '1px solid #f59e0b' 
-          }}>
-            <p style={{ fontSize: '0.75rem', color: '#92400e', textAlign: 'center', margin: 0 }}>
-              ⚠️ Registration requires admin approval.<br />
-              You'll receive login credentials within <strong>2 business days</strong>.
+          <div className="relative z-20 max-w-lg">
+            <h1 className="text-5xl font-black leading-tight tracking-tight text-white mb-6">
+              Join Our <span className="text-primary italic">Partner Network</span>
+            </h1>
+            <p className="text-xl text-slate-300 leading-relaxed">
+              Expand your reach and streamline policy management with transparent partner integration.
             </p>
           </div>
+          <div className="relative z-20 flex gap-8">
+            <div className="flex flex-col">
+              <span className="text-primary text-2xl font-bold">Real-time</span>
+              <span className="text-slate-400 text-sm">Policy Tracking</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-primary text-2xl font-bold">Auto</span>
+              <span className="text-slate-400 text-sm">Reconciliation</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-primary text-2xl font-bold">24/7</span>
+              <span className="text-slate-400 text-sm">System Access</span>
+            </div>
+          </div>
+        </div>
 
-          <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
-            <p style={{ fontSize: '0.875rem', color: 'var(--gray-text)' }}>
-              Already have an account?{' '}
-              <button
-                onClick={() => navigate('/provider/login')}
-                style={{ 
-                  background: 'none', border: 'none', color: 'var(--primary)', 
-                  fontWeight: 600, cursor: 'pointer', textDecoration: 'underline' 
-                }}
+        {/* Right Side: Registration Form */}
+        <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 bg-background-light dark:bg-background-dark border-l border-white/5">
+          {/* Back Button */}
+          <div className="w-full max-w-md mb-6">
+            <button 
+              onClick={() => handleNavigation('/')}
+              className="bg-custom-dark text-center w-48 rounded-2xl h-14 relative text-white text-xl font-semibold group shadow-lg" 
+              type="button"
+            >
+              <div className="bg-primary rounded-xl h-12 w-1/4 flex items-center justify-center absolute left-1 top-[4px] group-hover:w-[184px] z-10 duration-500">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" height="25px" width="25px">
+                  <path d="M224 480h640a32 32 0 1 1 0 64H224a32 32 0 0 1 0-64z" fill="#000000"></path>
+                  <path d="m237.248 512 265.408 265.344a32 32 0 0 1-45.312 45.312l-288-288a32 32 0 0 1 0-45.312l288-288a32 32 0 1 1 45.312 45.312L237.248 512z" fill="#000000"></path>
+                </svg>
+              </div>
+              <p className="translate-x-2 text-white">Go Back</p>
+            </button>
+          </div>
+          
+          <div className="w-full max-w-md space-y-8">
+            {/* Mobile Logo */}
+            <div className="lg:hidden flex items-center gap-3 mb-12">
+              <div className="size-8 bg-primary rounded-lg flex items-center justify-center text-background-dark">
+                <span className="material-symbols-outlined text-xl font-bold">health_and_safety</span>
+              </div>
+              <h2 className="text-xl font-black tracking-tighter text-slate-900 dark:text-white uppercase italic">Provider Portal</h2>
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Create Your Account</h2>
+              <p className="mt-2 text-slate-600 dark:text-slate-400">Join for free and start partnering with +1 Rewards.</p>
+            </div>
+
+            {error && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+                <p className="text-red-300 text-sm">{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="company_name">Company Name</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-slate-400 text-xl">business</span>
+                  </div>
+                  <input 
+                    className="block w-full pl-11 pr-4 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
+                    id="company_name" 
+                    name="company_name"
+                    placeholder="Day1 Health Insurance" 
+                    type="text"
+                    value={formData.company_name}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="contact_person">Contact Person Name</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-slate-400 text-xl">person</span>
+                  </div>
+                  <input 
+                    className="block w-full pl-11 pr-4 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
+                    id="contact_person" 
+                    name="contact_person"
+                    placeholder="John Smith" 
+                    type="text"
+                    value={formData.contact_person}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="phone">Phone Number</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-slate-400 text-xl">phone</span>
+                  </div>
+                  <input 
+                    className="block w-full pl-11 pr-4 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
+                    id="phone" 
+                    name="phone"
+                    placeholder="+27123456789" 
+                    type="tel"
+                    value={formData.phone}
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="email">Email Address</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-slate-400 text-xl">mail</span>
+                  </div>
+                  <input 
+                    className="block w-full pl-11 pr-4 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
+                    id="email" 
+                    name="email"
+                    placeholder="partnerships@company.co.za" 
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="password">Password</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-slate-400 text-xl">lock</span>
+                  </div>
+                  <input 
+                    className="block w-full pl-11 pr-12 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
+                    id="password" 
+                    name="password"
+                    placeholder="••••••••" 
+                    type="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                  />
+                  <span className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer">
+                    <span className="material-symbols-outlined">visibility</span>
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center">
+                <input 
+                  className="h-4 w-4 text-primary focus:ring-primary border-slate-300 dark:border-primary/30 rounded bg-white dark:bg-background-dark" 
+                  id="agree" 
+                  name="agree" 
+                  type="checkbox"
+                  required
+                />
+                <label className="ml-2 block text-sm text-slate-600 dark:text-slate-400" htmlFor="agree">I agree to the Terms of Service and Privacy Policy</label>
+              </div>
+
+              <button 
+                className="w-full bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group" 
+                type="submit"
+                disabled={loading}
               >
-                Sign in here
+                {loading ? 'Creating Account...' : 'Create My Account'}
+                <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
               </button>
+            </form>
+
+            <div className="relative my-8">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200 dark:border-primary/10"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-background-light dark:bg-background-dark text-slate-500 uppercase tracking-widest text-xs font-bold">Registration Required</span>
+              </div>
+            </div>
+
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-2">
+                <span className="material-symbols-outlined text-primary text-xl">security</span>
+                <span className="text-sm font-bold text-slate-900 dark:text-white">Pending Approval</span>
+              </div>
+              <p className="text-xs text-slate-600 dark:text-slate-400">
+                Your registration will be reviewed by our team. You&apos;ll receive login credentials within 2 business days.
+              </p>
+            </div>
+
+            <p className="text-center text-slate-600 dark:text-slate-400 mt-8">
+              Already have an account? <a className="text-primary font-bold hover:underline" href="/provider/login">Sign in here</a>
             </p>
           </div>
         </div>

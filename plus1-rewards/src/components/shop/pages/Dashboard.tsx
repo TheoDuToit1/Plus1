@@ -1,0 +1,137 @@
+// src/components/shop/pages/Dashboard.tsx
+import { useState, useEffect } from 'react';
+import { supabase } from '../../../lib/supabase';
+import { useShopDashboard } from '../../../hooks/useShopDashboard';
+import WelcomeSection from '../components/WelcomeSection';
+import TopStatsGrid from '../components/TopStatsGrid';
+import RewardsIssuanceTool from '../components/RewardsIssuanceTool';
+import RecentTransactions from '../components/RecentTransactions';
+import ShopQRCode from '../components/ShopQRCode';
+import GrowthPromo from '../components/GrowthPromo';
+
+export default function Dashboard() {
+  const [shopId, setShopId] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [purchaseAmount, setPurchaseAmount] = useState('');
+  const [activeTab, setActiveTab] = useState('scan');
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [issuingRewards, setIssuingRewards] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const { shop, transactions, stats, loading, error, issueRewards, searchMember } = useShopDashboard(shopId);
+
+  // Get current shop from auth
+  useEffect(() => {
+    const getCurrentShop = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user?.id) {
+          // Try to find shop by user ID or email
+          const { data: shopData, error: shopError } = await supabase
+            .from('shops')
+            .select('id')
+            .limit(1);
+          
+          if (shopData && shopData.length > 0) {
+            setShopId(shopData[0].id);
+          } else {
+            console.log('No shops found in database');
+          }
+        }
+      } catch (err) {
+        console.error('Error getting current shop:', err);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+    getCurrentShop();
+  }, []);
+
+  const handleIssueRewards = async () => {
+    if (!purchaseAmount || !selectedMemberId) {
+      alert('Please select a member and enter an amount');
+      return;
+    }
+
+    setIssuingRewards(true);
+    try {
+      await issueRewards(selectedMemberId, parseFloat(purchaseAmount));
+      setSuccessMessage(`Rewards issued successfully! R${purchaseAmount} purchase recorded.`);
+      setPurchaseAmount('');
+      setSelectedMemberId(null);
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (err) {
+      alert('Failed to issue rewards: ' + (err as any).message);
+    } finally {
+      setIssuingRewards(false);
+    }
+  };
+
+  const handleSearchMember = async (phone: string) => {
+    try {
+      const member = await searchMember(phone);
+      setSelectedMemberId(member.id);
+    } catch (err) {
+      alert('Member not found');
+    }
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!shopId) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-white mb-4">No shop found for your account</p>
+          <p className="text-slate-400 text-sm">Please contact support or register a shop</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {error && (
+        <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 mb-6 text-red-200">
+          {error}
+        </div>
+      )}
+      {successMessage && (
+        <div className="bg-primary/20 border border-primary/50 rounded-lg p-4 mb-6 text-primary">
+          {successMessage}
+        </div>
+      )}
+      <WelcomeSection shopName={shop?.name} shopId={shop?.id} />
+      <TopStatsGrid stats={stats} />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-7 flex flex-col gap-6">
+          <RewardsIssuanceTool
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            purchaseAmount={purchaseAmount}
+            setPurchaseAmount={setPurchaseAmount}
+            selectedMemberId={selectedMemberId}
+            onIssueRewards={handleIssueRewards}
+            onSearchMember={handleSearchMember}
+            isLoading={issuingRewards}
+          />
+          <RecentTransactions transactions={transactions} />
+        </div>
+        <div className="lg:col-span-5 flex flex-col gap-6">
+          <ShopQRCode shopId={shop?.id} />
+          <GrowthPromo />
+        </div>
+      </div>
+    </>
+  );
+}

@@ -10,6 +10,7 @@ interface QRCodeCardProps {
 export default function QRCodeCard({ phone, qrCodeUrl, qrLoading, onRefresh, onFullScreen }: QRCodeCardProps) {
   const handleCopyPhone = () => {
     navigator.clipboard?.writeText(phone);
+    alert('Phone number copied to clipboard!');
   };
 
   return (
@@ -52,6 +53,7 @@ export default function QRCodeCard({ phone, qrCodeUrl, qrLoading, onRefresh, onF
           <button 
             onClick={onFullScreen}
             className="flex-1 flex items-center justify-center gap-2 rounded-lg h-10 px-3 bg-[#1a3324] text-white text-xs font-bold hover:bg-[#23482f] transition-all"
+            title="View QR code in full screen"
           >
             <span className="material-symbols-outlined text-sm">fullscreen</span>
             Full Screen
@@ -59,6 +61,7 @@ export default function QRCodeCard({ phone, qrCodeUrl, qrLoading, onRefresh, onF
           <button 
             onClick={handleCopyPhone}
             className="flex-1 flex items-center justify-center gap-2 rounded-lg h-10 px-3 bg-[#1a3324] text-white text-xs font-bold hover:bg-[#23482f] transition-all"
+            title="Copy phone number to clipboard"
           >
             <span className="material-symbols-outlined text-sm">content_copy</span>
             Copy Phone
@@ -66,6 +69,7 @@ export default function QRCodeCard({ phone, qrCodeUrl, qrLoading, onRefresh, onF
           <button 
             onClick={onRefresh}
             className="p-2 rounded-lg bg-[#1a3324] text-white hover:bg-[#23482f]"
+            title="Refresh QR code"
           >
             <span className="material-symbols-outlined text-sm">refresh</span>
           </button>
