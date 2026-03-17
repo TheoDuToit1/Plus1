@@ -133,7 +133,13 @@ export const useShopDashboard = (shopId: string | null) => {
       const commissionRate = shop?.commission_rate || 13;
       const shopContribution = purchaseAmount * (commissionRate / 100);
       const memberReward = purchaseAmount * 0.11; // 11% to member
-      const platformFee = shopContribution - memberReward;
+      
+      // Platform fee should be positive (shop pays more than member receives)
+      // If commission rate is less than 11%, platform fee would be negative
+      const platformFee = Math.max(0, shopContribution - memberReward);
+      
+      // Agent commission is 2% of purchase amount
+      const agentCommission = purchaseAmount * 0.02;
 
       // Create transaction
       const { data: transaction, error: transError } = await supabase
@@ -144,7 +150,7 @@ export const useShopDashboard = (shopId: string | null) => {
           purchase_amount: purchaseAmount,
           shop_contribution: shopContribution,
           member_reward: memberReward,
-          agent_commission: 0,
+          agent_commission: agentCommission,
           platform_fee: platformFee,
           status: 'pending_sync'
         })

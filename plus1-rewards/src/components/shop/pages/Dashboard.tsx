@@ -96,14 +96,55 @@ export default function Dashboard() {
 
   const handleQRScanned = async (qrData: string) => {
     try {
-      // QR data should be the member ID
-      const { data: member, error } = await supabase
+      // Parse the QR data to extract member identifier
+      const { parseMemberQR } = await import('../../../lib/config');
+      const memberIdentifier = parseMemberQR(qrData);
+      
+      if (!memberIdentifier) {
+        alert('Invalid QR code format');
+        return;
+      }
+
+      // Try to find member by qr_code first, then by phone, then by ID
+      let member = null;
+      
+      // Try qr_code field
+      const { data: memberByQR } = await supabase
         .from('members')
         .select('*')
-        .eq('id', qrData)
+        .eq('qr_code', memberIdentifier)
         .single();
+      
+      if (memberByQR) {
+        member = memberByQR;
+      } else {
+        // Try phone number
+        const { data: memberByPhone } = await supabase
+          .from('members')
+          .select('*')
+          .eq('phone', memberIdentifier)
+          .single();
+        
+        if (memberByPhone) {
+          member = memberByPhone;
+        } else {
+          // Try ID
+          const { data: memberById } = await supabase
+            .from('members')
+            .select('*')
+            .eq('id', memberIdentifier)
+            .single();
+          
+          if (memberById) {
+            member = memberById;
+          }
+        }
+      }
 
-      if (error) throw error;
+      if (!member) {
+        alert('Member not found. Please ask them to register first.');
+        return;
+      }
 
       // Fetch member's wallet balance
       const { data: wallet } = await supabase
@@ -121,7 +162,8 @@ export default function Dashboard() {
         balance: wallet?.balance || 0
       });
     } catch (err) {
-      alert('Invalid QR code or member not found');
+      console.error('QR scan error:', err);
+      alert('Error processing QR code. Please try manual phone search.');
     }
   };
 
