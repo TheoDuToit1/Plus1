@@ -178,8 +178,7 @@ export const useShopDashboard = (shopId: string | null) => {
           .from('wallets')
           .update({
             rewards_total: (existingWallet.rewards_total || 0) + memberReward,
-            balance: (existingWallet.balance || 0) + memberReward,
-            updated_at: new Date().toISOString()
+            balance: (existingWallet.balance || 0) + memberReward
           })
           .eq('id', existingWallet.id);
         
