@@ -156,7 +156,7 @@ export const useShopDashboard = (shopId: string | null) => {
           member_reward: memberReward,
           agent_commission: agentCommission,
           platform_fee: platformFee,
-          status: 'completed'
+          status: 'pending_sync'
         })
         .select()
         .single();
