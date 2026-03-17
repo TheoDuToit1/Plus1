@@ -21,6 +21,12 @@ import { MemberDashboard } from './pages/MemberDashboard'
 import { ShopDashboard } from './pages/ShopDashboard'
 import { AgentDashboard } from './pages/AgentDashboard'
 import { PolicyProviderDashboard } from './pages/PolicyProviderDashboard'
+import { MemberScanShop } from './pages/MemberScanShop'
+import { MemberPolicySelector } from './pages/MemberPolicySelector'
+import { MemberHistory } from './pages/MemberHistory'
+import { MemberProfile } from './pages/MemberProfile'
+import { MemberQR } from './pages/MemberQR'
+import { MemberFindShops } from './pages/MemberFindShops'
 
 export default function App() {
   return (
@@ -45,6 +51,12 @@ export default function App() {
           <Route path="/admin/policies" element={<PoliciesPage />} />
           <Route path="/admin/transactions" element={<TransactionsPage />} />
           <Route path="/member/dashboard" element={<MemberDashboard />} />
+          <Route path="/member/scan-shop" element={<MemberScanShop />} />
+          <Route path="/member/policy-selector" element={<MemberPolicySelector />} />
+          <Route path="/member/history" element={<MemberHistory />} />
+          <Route path="/member/profile" element={<MemberProfile />} />
+          <Route path="/member/qr" element={<MemberQR />} />
+          <Route path="/member/find-shops" element={<MemberFindShops />} />
           <Route path="/shop/dashboard" element={<ShopDashboard />} />
           <Route path="/agent/dashboard" element={<AgentDashboard />} />
           <Route path="/provider/dashboard" element={<PolicyProviderDashboard />} />

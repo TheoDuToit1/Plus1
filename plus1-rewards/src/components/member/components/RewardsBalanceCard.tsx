@@ -1,12 +1,16 @@
 // plus1-rewards/src/components/member/components/RewardsBalanceCard.tsx
+import { useNavigate } from 'react-router-dom';
+
 interface RewardsBalanceCardProps {
   balance: number;
   lastUpdated: string;
 }
 
 export default function RewardsBalanceCard({ balance, lastUpdated }: RewardsBalanceCardProps) {
+  const navigate = useNavigate();
+
   const handleDetailsClick = () => {
-    console.log('Details clicked');
+    navigate('/member/history');
   };
 
   return (
