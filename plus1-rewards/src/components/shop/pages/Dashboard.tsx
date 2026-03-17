@@ -15,6 +15,7 @@ export default function Dashboard() {
   const [purchaseAmount, setPurchaseAmount] = useState('');
   const [activeTab, setActiveTab] = useState('scan');
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
+  const [memberDetails, setMemberDetails] = useState<any>(null);
   const [issuingRewards, setIssuingRewards] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -60,6 +61,7 @@ export default function Dashboard() {
       setSuccessMessage(`Rewards issued successfully! R${purchaseAmount} purchase recorded.`);
       setPurchaseAmount('');
       setSelectedMemberId(null);
+      setMemberDetails(null);
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (err) {
       alert('Failed to issue rewards: ' + (err as any).message);
@@ -71,10 +73,61 @@ export default function Dashboard() {
   const handleSearchMember = async (phone: string) => {
     try {
       const member = await searchMember(phone);
+      
+      // Fetch member's wallet balance
+      const { data: wallet } = await supabase
+        .from('wallets')
+        .select('balance')
+        .eq('member_id', member.id)
+        .eq('shop_id', shopId)
+        .single();
+      
       setSelectedMemberId(member.id);
+      setMemberDetails({
+        id: member.id,
+        name: member.name,
+        phone: member.phone,
+        balance: wallet?.balance || 0
+      });
     } catch (err) {
       alert('Member not found');
     }
+  };
+
+  const handleQRScanned = async (qrData: string) => {
+    try {
+      // QR data should be the member ID
+      const { data: member, error } = await supabase
+        .from('members')
+        .select('*')
+        .eq('id', qrData)
+        .single();
+
+      if (error) throw error;
+
+      // Fetch member's wallet balance
+      const { data: wallet } = await supabase
+        .from('wallets')
+        .select('balance')
+        .eq('member_id', member.id)
+        .eq('shop_id', shopId)
+        .single();
+
+      setSelectedMemberId(member.id);
+      setMemberDetails({
+        id: member.id,
+        name: member.name,
+        phone: member.phone,
+        balance: wallet?.balance || 0
+      });
+    } catch (err) {
+      alert('Invalid QR code or member not found');
+    }
+  };
+
+  const handleClearMember = () => {
+    setSelectedMemberId(null);
+    setMemberDetails(null);
   };
 
   if (authLoading || loading) {
@@ -121,8 +174,11 @@ export default function Dashboard() {
             purchaseAmount={purchaseAmount}
             setPurchaseAmount={setPurchaseAmount}
             selectedMemberId={selectedMemberId}
+            memberDetails={memberDetails}
             onIssueRewards={handleIssueRewards}
             onSearchMember={handleSearchMember}
+            onQRScanned={handleQRScanned}
+            onClearMember={handleClearMember}
             isLoading={issuingRewards}
           />
           <RecentTransactions transactions={transactions} />
