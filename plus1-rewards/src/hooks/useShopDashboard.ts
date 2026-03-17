@@ -145,7 +145,7 @@ export const useShopDashboard = (shopId: string | null) => {
       // Platform gets 1% of purchase amount
       const platformFee = purchaseAmount * 0.01;
 
-      // Create transaction
+      // Create transaction with synced status (immediate transaction)
       const { data: transaction, error: transError } = await supabase
         .from('transactions')
         .insert({
@@ -156,29 +156,46 @@ export const useShopDashboard = (shopId: string | null) => {
           member_reward: memberReward,
           agent_commission: agentCommission,
           platform_fee: platformFee,
-          status: 'pending_sync'
+          status: 'synced',
+          synced_at: new Date().toISOString()
         })
         .select()
         .single();
 
       if (transError) throw transError;
 
-      // Update wallet balance
-      const { data: wallet, error: walletError } = await supabase
+      // Check if wallet exists, if not create it
+      const { data: existingWallet, error: walletCheckError } = await supabase
         .from('wallets')
         .select('*')
         .eq('member_id', memberId)
         .eq('shop_id', shopId)
-        .single();
+        .maybeSingle();
 
-      if (!walletError && wallet) {
-        await supabase
+      if (existingWallet) {
+        // Update existing wallet
+        const { error: updateError } = await supabase
           .from('wallets')
           .update({
-            rewards_total: (wallet.rewards_total || 0) + memberReward,
-            balance: (wallet.balance || 0) + memberReward
+            rewards_total: (existingWallet.rewards_total || 0) + memberReward,
+            balance: (existingWallet.balance || 0) + memberReward,
+            updated_at: new Date().toISOString()
           })
-          .eq('id', wallet.id);
+          .eq('id', existingWallet.id);
+        
+        if (updateError) throw updateError;
+      } else {
+        // Create new wallet
+        const { error: createError } = await supabase
+          .from('wallets')
+          .insert({
+            member_id: memberId,
+            shop_id: shopId,
+            rewards_total: memberReward,
+            balance: memberReward
+          });
+        
+        if (createError) throw createError;
       }
 
       // Refresh data
