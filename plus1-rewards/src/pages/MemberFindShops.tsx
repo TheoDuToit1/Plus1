@@ -16,6 +16,8 @@ export function MemberFindShops() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [connectedShopIds, setConnectedShopIds] = useState<Set<string>>(new Set());
+  const [pendingRequestIds, setPendingRequestIds] = useState<Set<string>>(new Set());
+  const [requestingShopId, setRequestingShopId] = useState<string | null>(null);
 
   useEffect(() => { loadShops(); }, []);
 
@@ -40,6 +42,14 @@ export function MemberFindShops() {
           .select('shop_id')
           .eq('member_id', user.id);
         if (wallets) setConnectedShopIds(new Set(wallets.map(w => w.shop_id)));
+
+        // Get pending join requests
+        const { data: requests } = await supabase
+          .from('join_requests')
+          .select('shop_id')
+          .eq('member_id', user.id)
+          .eq('status', 'pending');
+        if (requests) setPendingRequestIds(new Set(requests.map(r => r.shop_id)));
       }
     } catch { /* silent */ } finally { setLoading(false); }
   };
@@ -49,6 +59,41 @@ export function MemberFindShops() {
   );
 
   const memberEarns = (rate: number) => Math.max(rate - 2, 1);
+
+  const handleJoinRequest = async (shopId: string, shopName: string) => {
+    try {
+      setRequestingShopId(shopId);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        alert('Please log in to request to join shops');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('join_requests')
+        .insert({
+          member_id: user.id,
+          shop_id: shopId,
+          message: `Hi! I'd like to join ${shopName} to start earning rewards on my purchases.`
+        });
+
+      if (error) {
+        if (error.code === '23505') {
+          alert('You already have a pending request for this shop');
+        } else {
+          throw error;
+        }
+      } else {
+        alert(`Join request sent to ${shopName}! They will be notified and can approve your request.`);
+        setPendingRequestIds(prev => new Set([...prev, shopId]));
+      }
+    } catch (err: any) {
+      alert('Failed to send join request: ' + err.message);
+    } finally {
+      setRequestingShopId(null);
+    }
+  };
 
   return (
     <div className="page-wrapper">
@@ -128,6 +173,8 @@ export function MemberFindShops() {
               <div>
                 {filtered.map((shop, i) => {
                   const isConnected = connectedShopIds.has(shop.id);
+                  const hasPendingRequest = pendingRequestIds.has(shop.id);
+                  const isRequesting = requestingShopId === shop.id;
                   const earns = memberEarns(shop.commission_rate);
                   return (
                     <div key={shop.id} style={{
@@ -146,21 +193,42 @@ export function MemberFindShops() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
                           <p style={{ fontWeight: 700, color: '#111827', margin: 0, fontSize: '0.9375rem' }}>{shop.name}</p>
                           {isConnected && <span className="badge badge-green" style={{ fontSize: '0.6875rem' }}>✓ Connected</span>}
+                          {hasPendingRequest && <span className="badge badge-yellow" style={{ fontSize: '0.6875rem' }}>⏳ Pending</span>}
                         </div>
                         <p style={{ fontSize: '0.8125rem', color: 'var(--gray-text)', margin: 0 }}>
                           You earn <strong style={{ color: 'var(--green-dark)' }}>{earns}%</strong> rewards per purchase
                         </p>
                       </div>
 
-                      {/* Commission badge + scan button */}
+                      {/* Commission badge + action button */}
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.375rem', flexShrink: 0 }}>
                         <span className="badge badge-blue">{shop.commission_rate}% commission</span>
-                        {!isConnected && (
+                        {isConnected ? (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--green-dark)', fontWeight: 600 }}>
+                            ✓ Connected
+                          </span>
+                        ) : hasPendingRequest ? (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--yellow)', fontWeight: 600 }}>
+                            ⏳ Request sent
+                          </span>
+                        ) : (
                           <button
-                            onClick={() => navigate('/member/scan-shop')}
-                            style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--blue)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                            onClick={() => handleJoinRequest(shop.id, shop.name)}
+                            disabled={isRequesting}
+                            style={{ 
+                              fontSize: '0.75rem', 
+                              fontWeight: 700, 
+                              color: 'var(--blue)', 
+                              background: 'none', 
+                              border: 'none', 
+                              cursor: 'pointer', 
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              backgroundColor: 'var(--blue-light)',
+                              opacity: isRequesting ? 0.5 : 1
+                            }}
                           >
-                            Scan to connect →
+                            {isRequesting ? 'Sending...' : '📝 Request to Join'}
                           </button>
                         )}
                       </div>

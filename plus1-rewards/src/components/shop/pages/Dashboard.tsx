@@ -8,6 +8,7 @@ import RewardsIssuanceTool from '../components/RewardsIssuanceTool';
 import RecentTransactions from '../components/RecentTransactions';
 import ShopQRCode from '../components/ShopQRCode';
 import GrowthPromo from '../components/GrowthPromo';
+import JoinRequests from '../components/JoinRequests';
 
 export default function Dashboard() {
   const [shopId, setShopId] = useState<string | null>(null);
@@ -74,13 +75,18 @@ export default function Dashboard() {
     try {
       const member = await searchMember(phone);
       
-      // Fetch member's wallet balance
-      const { data: wallet } = await supabase
+      // Check if member has a wallet with this shop
+      const { data: wallet, error: walletError } = await supabase
         .from('wallets')
-        .select('balance')
+        .select('*')
         .eq('member_id', member.id)
         .eq('shop_id', shopId)
         .single();
+
+      if (walletError || !wallet) {
+        alert(`${member.name} (${member.phone}) is not connected to your shop yet. They need to scan your shop QR code first to join your rewards program.`);
+        return;
+      }
       
       setSelectedMemberId(member.id);
       setMemberDetails({
@@ -146,13 +152,18 @@ export default function Dashboard() {
         return;
       }
 
-      // Fetch member's wallet balance
-      const { data: wallet } = await supabase
+      // Check if member has a wallet with this shop
+      const { data: wallet, error: walletError } = await supabase
         .from('wallets')
-        .select('balance')
+        .select('*')
         .eq('member_id', member.id)
         .eq('shop_id', shopId)
         .single();
+
+      if (walletError || !wallet) {
+        alert(`${member.name} (${member.phone}) is not connected to your shop yet. They need to scan your shop QR code first to join your rewards program.`);
+        return;
+      }
 
       setSelectedMemberId(member.id);
       setMemberDetails({
@@ -228,6 +239,7 @@ export default function Dashboard() {
         </div>
         <div className="lg:col-span-5 flex flex-col gap-6">
           <ShopQRCode shopId={shop?.id} />
+          <JoinRequests shopId={shop?.id} />
           <GrowthPromo />
         </div>
       </div>
