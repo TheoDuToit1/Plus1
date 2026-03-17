@@ -16,6 +16,7 @@ interface RewardsIssuanceToolProps {
   setPurchaseAmount: (amount: string) => void;
   selectedMemberId: string | null;
   memberDetails: MemberDetails | null;
+  commissionRate: number;
   onIssueRewards: () => void;
   onSearchMember: (phone: string) => void;
   onQRScanned: (memberId: string) => void;
@@ -30,6 +31,7 @@ export default function RewardsIssuanceTool({
   setPurchaseAmount,
   selectedMemberId,
   memberDetails,
+  commissionRate,
   onIssueRewards,
   onSearchMember,
   onQRScanned,
@@ -41,6 +43,10 @@ export default function RewardsIssuanceTool({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scanIntervalRef = useRef<number | null>(null);
+
+  // Calculate member reward: commission rate minus 2% (1% agent + 1% platform)
+  const memberRewardRate = Math.max(0, commissionRate - 2);
+  const calculatedReward = purchaseAmount ? (parseFloat(purchaseAmount) * memberRewardRate / 100) : 0;
 
   // QR Code scanning logic
   useEffect(() => {
@@ -260,10 +266,21 @@ export default function RewardsIssuanceTool({
                 style={{ borderWidth: '0.2px' }}
               />
             </div>
+            {purchaseAmount && parseFloat(purchaseAmount) > 0 && (
+              <div className="mt-2 p-3 bg-primary/10 border border-primary/30 rounded-lg" style={{ borderWidth: '0.2px' }}>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-slate-400 text-xs">Member will receive:</span>
+                  <span className="text-primary text-lg font-black">R{calculatedReward.toFixed(2)}</span>
+                </div>
+                <div className="text-slate-500 text-xs">
+                  {memberRewardRate}% of purchase (Your {commissionRate}% commission - 2% fees)
+                </div>
+              </div>
+            )}
           </div>
           <button
             onClick={onIssueRewards}
-            disabled={isLoading || !selectedMemberId || !purchaseAmount}
+            disabled={isLoading || !selectedMemberId || !purchaseAmount || parseFloat(purchaseAmount) <= 0}
             className="w-full h-14 bg-primary text-background-dark font-black text-lg rounded-xl hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
             title="Issue rewards to selected member"
           >

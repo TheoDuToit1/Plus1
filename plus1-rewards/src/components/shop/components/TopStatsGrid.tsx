@@ -12,6 +12,9 @@ interface TopStatsGridProps {
 }
 
 export default function TopStatsGrid({ stats }: TopStatsGridProps) {
+  // Member gets commission rate minus 2% (1% agent + 1% platform)
+  const memberRewardRate = Math.max(0, stats.commissionRate - 2);
+  
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <div className="flex flex-col gap-2 rounded-2xl p-6 bg-gradient-to-b from-[#1a4d2e] via-[#0f2818] to-[#0a1a10] border border-[#1a3324] shadow-2xl" style={{ borderWidth: '0.2px' }}>
@@ -31,7 +34,7 @@ export default function TopStatsGrid({ stats }: TopStatsGridProps) {
           <span className="material-symbols-outlined text-primary/60">percent</span>
         </div>
         <p className="text-white tracking-tighter text-4xl font-black">{stats.commissionRate}%</p>
-        <p className="text-slate-400 text-sm font-medium">Your members earn 11% back</p>
+        <p className="text-slate-400 text-sm font-medium">Your members earn {memberRewardRate}% back</p>
       </div>
     </div>
   );

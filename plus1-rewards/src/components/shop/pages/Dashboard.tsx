@@ -217,6 +217,7 @@ export default function Dashboard() {
             setPurchaseAmount={setPurchaseAmount}
             selectedMemberId={selectedMemberId}
             memberDetails={memberDetails}
+            commissionRate={shop?.commission_rate || 0}
             onIssueRewards={handleIssueRewards}
             onSearchMember={handleSearchMember}
             onQRScanned={handleQRScanned}
