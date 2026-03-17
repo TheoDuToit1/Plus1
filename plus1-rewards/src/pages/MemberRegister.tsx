@@ -1,7 +1,83 @@
 // plus1-rewards/src/pages/MemberRegister.tsx
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+
 export default function MemberRegister() {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    password: '',
+    terms: false
+  });
+
   const handleNavigation = (path: string) => {
-    window.location.href = path;
+    navigate(path);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.terms) {
+      alert('Please agree to the Terms of Service and Privacy Policy');
+      return;
+    }
+
+    if (formData.password.length < 8) {
+      alert('Password must be at least 8 characters long');
+      return;
+    }
+
+    setLoading(true);
+    
+    try {
+      // Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+            phone: formData.phone
+          }
+        }
+      });
+
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // Create member record
+        const { error: memberError } = await supabase
+          .from('members')
+          .insert({
+            id: authData.user.id,
+            name: formData.name,
+            phone: formData.phone,
+            qr_code: `${formData.phone}-${Date.now()}`
+          });
+
+        if (memberError) throw memberError;
+
+        alert('Account created successfully! Please check your email to verify your account.');
+        navigate('/member/login');
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      alert('Registration failed: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
   return (
     <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
@@ -81,7 +157,7 @@ export default function MemberRegister() {
               <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Create Your Account</h2>
               <p className="mt-2 text-slate-600 dark:text-slate-400">Join for free and start earning healthcare rewards.</p>
             </div>
-            <form action="#" className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="name">Full Name</label>
@@ -92,8 +168,12 @@ export default function MemberRegister() {
                     <input 
                       className="block w-full pl-11 pr-4 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
                       id="name" 
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
                       placeholder="Sarah Mitchell" 
                       type="text"
+                      required
                     />
                   </div>
                 </div>
@@ -106,8 +186,12 @@ export default function MemberRegister() {
                     <input 
                       className="block w-full pl-11 pr-4 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
                       id="phone" 
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
                       placeholder="082 555 1234" 
                       type="tel"
+                      required
                     />
                   </div>
                 </div>
@@ -122,8 +206,12 @@ export default function MemberRegister() {
                     <input 
                       className="block w-full pl-11 pr-4 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
                       id="email" 
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
                       placeholder="sarah@gmail.com" 
                       type="email"
+                      required
                     />
                   </div>
                 </div>
@@ -136,8 +224,13 @@ export default function MemberRegister() {
                     <input 
                       className="block w-full pl-11 pr-12 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
                       id="password" 
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
                       placeholder="Min. 8 characters" 
                       type="password"
+                      required
+                      minLength={8}
                     />
                     <span className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer">
                       <span className="material-symbols-outlined">visibility</span>
@@ -150,17 +243,21 @@ export default function MemberRegister() {
                   className="h-4 w-4 text-primary focus:ring-primary border-slate-300 dark:border-primary/30 rounded bg-white dark:bg-background-dark" 
                   id="terms" 
                   name="terms" 
+                  checked={formData.terms}
+                  onChange={handleInputChange}
                   type="checkbox"
+                  required
                 />
                 <label className="ml-2 block text-sm text-slate-600 dark:text-slate-400" htmlFor="terms">
                   I agree to the <a href="#" className="text-primary hover:underline">Terms of Service</a> and <a href="#" className="text-primary hover:underline">Privacy Policy</a>
                 </label>
               </div>
               <button 
-                className="w-full bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group" 
+                className="w-full bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed" 
                 type="submit"
+                disabled={loading}
               >
-                Create My Account
+                {loading ? 'Creating Account...' : 'Create My Account'}
                 <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
               </button>
             </form>
@@ -169,23 +266,8 @@ export default function MemberRegister() {
                 <div className="w-full border-t border-slate-200 dark:border-primary/10"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-background-light dark:bg-background-dark text-slate-500 uppercase tracking-widest text-xs font-bold">Or sign up with</span>
+                <span className="px-4 bg-background-light dark:bg-background-dark text-slate-500 uppercase tracking-widest text-xs font-bold">Ready to get started?</span>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <button className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 dark:border-primary/20 hover:bg-slate-50 dark:hover:bg-primary/5 transition-all">
-                <img 
-                  alt="Google" 
-                  className="size-5" 
-                  data-alt="Google colorful logo" 
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCML5hztAD2sCYGPFi5oE5EiI2O5uuLrOmgRKTYiBveKvruVR25HUvpqazjFQ1GSXhlYysjCwO_T-QhJkDUKlMIEZ-Src2WVWE3sJGbWbsWe3H1iiumuDu8aL1YhyCbA8UQdwWnAzuNu7l_gkaGVltz_zhRnb6KGMBQHSq357M3plsG25Vv0OMG5YFEo6ntXkVjUOi7beYK-_DB_cq7zKbRI9pKdnRyiiWl12i9a2P6YVrquulbDVvoaJyiNiBef9KvS4aifZObO8of" 
-                />
-                <span className="text-sm font-semibold text-slate-900 dark:text-white">Google</span>
-              </button>
-              <button className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 dark:border-primary/20 hover:bg-slate-50 dark:hover:bg-primary/5 transition-all">
-                <span className="material-symbols-outlined text-slate-900 dark:text-white text-xl">ios</span>
-                <span className="text-sm font-semibold text-slate-900 dark:text-white">Apple</span>
-              </button>
             </div>
             <p className="text-center text-slate-600 dark:text-slate-400 mt-8">
               Already have an account? <a onClick={() => handleNavigation('/member/login')} className="text-primary font-bold hover:underline cursor-pointer">Sign In</a>
