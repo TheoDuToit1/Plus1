@@ -16,10 +16,14 @@ import AgentsPage from './components/dashboard/pages/AgentsPage'
 import PolicyProvidersPage from './components/dashboard/pages/PolicyProvidersPage'
 import PoliciesPage from './components/dashboard/pages/PoliciesPage'
 import TransactionsPage from './components/dashboard/pages/TransactionsPage'
+import { MemberDashboard } from './pages/MemberDashboard'
+import { ShopDashboard } from './pages/ShopDashboard'
+import { AgentDashboard } from './pages/AgentDashboard'
+import { PolicyProviderDashboard } from './pages/PolicyProviderDashboard'
 
 export default function App() {
   return (
-    <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased font-display">
+    <div className="min-h-screen w-full bg-background-dark text-slate-900 dark:text-slate-100 antialiased font-display overflow-x-hidden">
       <Router>
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -38,6 +42,10 @@ export default function App() {
           <Route path="/admin/providers" element={<PolicyProvidersPage />} />
           <Route path="/admin/policies" element={<PoliciesPage />} />
           <Route path="/admin/transactions" element={<TransactionsPage />} />
+          <Route path="/member/dashboard" element={<MemberDashboard />} />
+          <Route path="/shop/dashboard" element={<ShopDashboard />} />
+          <Route path="/agent/dashboard" element={<AgentDashboard />} />
+          <Route path="/provider/dashboard" element={<PolicyProviderDashboard />} />
         </Routes>
       </Router>
     </div>
