@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 export default function AgentRegister() {
   const [currentStep, setCurrentStep] = useState(1);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     phoneNumber: '',
@@ -212,12 +213,18 @@ export default function AgentRegister() {
                         value={formData.password}
                         onChange={handleInputChange}
                         placeholder="Min. 8 characters" 
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         required
                       />
-                      <span className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer">
-                        <span className="material-symbols-outlined">visibility</span>
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined">
+                          {showPassword ? 'visibility_off' : 'visibility'}
+                        </span>
+                      </button>
                     </div>
                   </div>
                 </div>

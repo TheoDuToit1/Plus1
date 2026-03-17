@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 
 export function PolicyProviderRegister() {
   const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     company_name: '',
     contact_person: '',
@@ -231,14 +232,20 @@ export function PolicyProviderRegister() {
                     id="password" 
                     name="password"
                     placeholder="••••••••" 
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     value={formData.password}
                     onChange={handleChange}
                     required
                   />
-                  <span className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer">
-                    <span className="material-symbols-outlined">visibility</span>
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined">
+                      {showPassword ? 'visibility_off' : 'visibility'}
+                    </span>
+                  </button>
                 </div>
               </div>
 

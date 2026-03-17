@@ -1,5 +1,9 @@
 // plus1-rewards/src/pages/PolicyProviderLogin.tsx
+import { useState } from 'react';
+
 export default function PolicyProviderLogin() {
+  const [showPassword, setShowPassword] = useState(false);
+  
   const handleNavigation = (path: string) => {
     window.location.href = path;
   };
@@ -137,11 +141,17 @@ export default function PolicyProviderLogin() {
                     className="block w-full pl-11 pr-12 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
                     id="password" 
                     placeholder="••••••••" 
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                   />
-                  <span className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer">
-                    <span className="material-symbols-outlined">visibility</span>
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined">
+                      {showPassword ? 'visibility_off' : 'visibility'}
+                    </span>
+                  </button>
                 </div>
               </div>
               <div className="flex items-center">
