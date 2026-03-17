@@ -115,6 +115,12 @@ export function ShopScanMember() {
       setError('Member not found in the +1 Rewards network. Ask them to register first.'); 
       return; 
     }
+
+    // Check if member has an active policy
+    if (!memberData.active_policy) {
+      setError('Member must select a policy plan before receiving rewards. Ask them to choose a policy in their +1 Rewards app first.');
+      return;
+    }
     
     setMember(memberData);
     

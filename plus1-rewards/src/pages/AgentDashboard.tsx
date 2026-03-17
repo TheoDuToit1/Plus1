@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import AgentLayout from "../components/agent/AgentLayout";
 
 interface ShopWithEarnings {
   id: string; name: string; commission_rate: number;
@@ -40,87 +39,101 @@ export function AgentDashboard() {
     } catch { /* silent */ } finally { setLoading(false); }
   };
 
-  if (loading) {
-    return (
-      <div className="bg-background-dark min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-400">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="page-wrapper" style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: '3px solid var(--blue-light)', borderTopColor: 'var(--blue)', margin: '0 auto 1rem', animation: 'spin 1s linear infinite' }} />
+      <p style={{ color: 'var(--gray-text)' }}>Loading dashboard...</p>
+    </div>
+  );
 
   return (
-    <AgentLayout 
-      agent={agent}
-      onSignOut={() => { localStorage.removeItem("currentAgent"); navigate("/agent/login"); }}
-    >
-      <div className="bg-gradient-to-r from-cyan-600 to-cyan-800 rounded-2xl p-6 md:p-8 text-white">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="page-wrapper">
+      <header className="page-header" style={{ background: 'linear-gradient(135deg, #0e7490 0%, #083344 100%)' }}>
+        <div style={{ maxWidth: '56rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <p className="text-cyan-100 text-sm mb-1">Agent Commission</p>
-            <p className="text-4xl md:text-5xl font-black text-cyan-300">R{agent?.total_commission?.toFixed(2) || '0.00'}</p>
-            <p className="text-cyan-100 text-sm mt-1">Total earned to date</p>
+            <h1 style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0 }}>📊 Agent Dashboard</h1>
+            <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>{agent?.name}</p>
           </div>
-          <div className="text-right">
-            <p className="text-cyan-100 text-sm mb-1">This Month</p>
-            <p className="text-3xl md:text-4xl font-black text-emerald-300">R{monthlyTotal.toFixed(2)}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-[#193322] border border-[#1a3324] rounded-xl p-6 text-center">
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Total Shops</p>
-          <p className="text-blue-400 text-4xl font-black mb-1">{shops.length}</p>
-          <p className="text-slate-500 text-sm">Recruited</p>
-        </div>
-        <div className="bg-[#193322] border border-[#1a3324] rounded-xl p-6 text-center">
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Active Shops</p>
-          <p className="text-emerald-400 text-4xl font-black mb-1">{activeShops}</p>
-          <p className="text-slate-500 text-sm">Earning now</p>
-        </div>
-        <div className="bg-[#193322] border border-[#1a3324] rounded-xl p-6 text-center">
-          <p className="text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Suspended</p>
-          <p className="text-orange-400 text-4xl font-black mb-1">{shops.length - activeShops}</p>
-          <p className="text-slate-500 text-sm">Need attention</p>
-        </div>
-      </div>
-
-      <div className="bg-[#193322] border border-[#1a3324] rounded-2xl p-6 md:p-8">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-          <h2 className="text-white text-xl font-bold">🏪 Recruited Shops</h2>
-          <button onClick={() => navigate("/agent/add-shop")} className="bg-cyan-500 text-white px-4 py-2 rounded-lg font-bold hover:bg-cyan-600 text-sm">
-            + Add Shop
+          <button onClick={() => { localStorage.removeItem("currentAgent"); navigate("/"); }} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', borderRadius: '8px', padding: '0.375rem 0.875rem', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}>
+            Logout
           </button>
         </div>
+      </header>
 
-        {shops.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-5xl mb-3">🏪</div>
-            <p className="text-slate-400 mb-2">No shops recruited yet.</p>
-            <p className="text-slate-500 text-sm">Start recruiting shops to earn commissions!</p>
+      <main style={{ flex: 1, padding: '1.5rem 1rem' }}>
+        <div style={{ maxWidth: '56rem', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Welcome Banner */}
+          <div style={{ background: 'linear-gradient(135deg, #0e7490 0%, #164e63 100%)', borderRadius: '16px', padding: '1.5rem 1.75rem', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+            <div>
+              <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.75)', marginBottom: '0.25rem' }}>Agent Commission</p>
+              <p style={{ fontSize: '2rem', fontWeight: 900, color: '#22d3ee' }}>R{agent?.total_commission?.toFixed(2) || '0.00'}</p>
+              <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.65)' }}>Total earned to date</p>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.7)' }}>This Month</p>
+              <p style={{ fontSize: '1.625rem', fontWeight: 800, color: '#37d270' }}>R{monthlyTotal.toFixed(2)}</p>
+            </div>
           </div>
-        ) : (
-          <div className="space-y-3">
-            {shops.map(shop => (
-              <div key={shop.id} className="flex flex-col md:flex-row justify-between md:items-center p-4 bg-slate-700 rounded-lg border border-slate-600 gap-4">
-                <div>
-                  <p className="font-bold text-white">{shop.name}</p>
-                  <p className="text-sm text-slate-400">Commission rate: {shop.commission_rate}%</p>
-                </div>
-                <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-                  <p className="font-black text-cyan-400">R{shop.monthly_earnings.toFixed(2)}</p>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${shop.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-orange-500/20 text-orange-400'}`}>
-                    {shop.status === 'active' ? '✓ Active' : '⚠ Suspended'}
-                  </span>
-                </div>
+
+          {/* Stats */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+            <div className="stat-card" style={{ textAlign: 'center' }}>
+              <p className="stat-label">Total Shops</p>
+              <p className="stat-value" style={{ color: 'var(--blue)' }}>{shops.length}</p>
+              <p className="stat-sub">Recruited</p>
+            </div>
+            <div className="stat-card" style={{ textAlign: 'center' }}>
+              <p className="stat-label">Active Shops</p>
+              <p className="stat-value" style={{ color: 'var(--green-dark)' }}>{activeShops}</p>
+              <p className="stat-sub">Earning now</p>
+            </div>
+            <div className="stat-card" style={{ textAlign: 'center' }}>
+              <p className="stat-label">Suspended</p>
+              <p className="stat-value" style={{ color: 'var(--orange)' }}>{shops.length - activeShops}</p>
+              <p className="stat-sub">Need attention</p>
+            </div>
+          </div>
+
+          {/* Shops List */}
+          <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <h2 className="section-title" style={{ margin: 0 }}>🏪 Recruited Shops</h2>
+              <button onClick={() => navigate("/agent/add-shop")} className="btn btn-primary" style={{ fontSize: '0.8125rem', borderRadius: '8px', padding: '0.5rem 0.875rem' }}>
+                + Add Shop
+              </button>
+            </div>
+
+            {shops.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2.5rem 0', color: 'var(--gray-light)' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🏪</div>
+                <p>No shops recruited yet.</p>
+                <p style={{ fontSize: '0.875rem' }}>Start recruiting shops to earn commissions!</p>
               </div>
-            ))}
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {shops.map(shop => (
+                  <div key={shop.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: '#fafbff', border: '1.5px solid var(--gray-border)', borderRadius: '12px' }}>
+                    <div>
+                      <p style={{ fontWeight: 700, color: '#111827', margin: '0 0 0.25rem' }}>{shop.name}</p>
+                      <p style={{ fontSize: '0.875rem', color: 'var(--gray-text)', margin: 0 }}>Commission rate: {shop.commission_rate}%</p>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.375rem' }}>
+                      <p style={{ fontWeight: 800, color: '#0e7490', margin: 0 }}>R{shop.monthly_earnings.toFixed(2)}</p>
+                      <span className={`badge ${shop.status === 'active' ? 'badge-green' : 'badge-orange'}`}>
+                        {shop.status === 'active' ? '✓ Active' : '⚠ Suspended'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </AgentLayout>
+        </div>
+      </main>
+
+      <footer style={{ background: '#fff', borderTop: '1px solid var(--gray-border)', padding: '1rem', textAlign: 'center' }}>
+        <p style={{ color: 'var(--gray-light)', fontSize: '0.8125rem' }}>© 2026 +1 Rewards · Agent Portal</p>
+      </footer>
+    </div>
   );
 }

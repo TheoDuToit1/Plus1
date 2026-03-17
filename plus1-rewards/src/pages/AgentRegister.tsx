@@ -1,14 +1,21 @@
 // plus1-rewards/src/pages/AgentRegister.tsx
 import { useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 export default function AgentRegister() {
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     fullName: '',
+    surname: '',
     phoneNumber: '',
     email: '',
     password: '',
+    confirmPassword: '',
+    address: '',
     idNumber: '',
     documentFile: null as File | null,
     agreementSigned: false
@@ -26,13 +33,74 @@ export default function AgentRegister() {
     }));
   };
 
-  const handleNextStep = (e: React.FormEvent) => {
+  const handleNextStep = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(''); // Clear any previous errors
     if (currentStep === 1) {
       setCurrentStep(2);
     } else {
-      // Handle final submission
-      console.log('Form submitted:', formData);
+      // Handle final submission to Supabase
+      setIsSubmitting(true);
+      try {
+        // Validate passwords match
+        if (formData.password !== formData.confirmPassword) {
+          setError('Passwords do not match');
+          return;
+        }
+
+        if (formData.password.length < 8) {
+          setError('Password must be at least 8 characters long');
+          return;
+        }
+
+        // Create auth user first
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+        });
+
+        if (authError) {
+          console.error('Error creating auth user:', authError);
+          setError(`Authentication error: ${authError.message}`);
+          return;
+        }
+
+        // Create auth user with the same ID for the agent record
+        const { data, error } = await supabase
+          .from('agents')
+          .insert([
+            {
+              id: authData.user.id,
+              name: formData.fullName,
+              surname: formData.surname,
+              email: formData.email,
+              phone: formData.phoneNumber,
+              address: formData.address,
+              status: 'pending'
+            }
+          ])
+          .select();
+
+        if (error) {
+          console.error('Error registering agent:', error);
+          if (error.message.includes('email')) {
+            setError('This email address is already registered. Please use a different email address.');
+          } else if (error.message.includes('phone')) {
+            setError('This phone number is already registered. Please use a different phone number.');
+          } else {
+            setError(`Registration failed: ${error.message}`);
+          }
+        } else {
+          console.log('Agent registered successfully:', data);
+          alert('Registration submitted successfully! Your application is pending admin approval. You will be notified once approved.');
+          handleNavigation('/');
+        }
+      } catch (error) {
+        console.error('Unexpected error:', error);
+        alert('An unexpected error occurred. Please try again.');
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -145,7 +213,7 @@ export default function AgentRegister() {
               <form onSubmit={handleNextStep} className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="fullName">Full Name</label>
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="fullName">First Name</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <span className="material-symbols-outlined text-slate-400 text-xl">person</span>
@@ -156,12 +224,50 @@ export default function AgentRegister() {
                         name="fullName"
                         value={formData.fullName}
                         onChange={handleInputChange}
-                        placeholder="Michael Johnson" 
+                        placeholder="Michael" 
                         type="text"
                         required
                       />
                     </div>
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="surname">Surname</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <span className="material-symbols-outlined text-slate-400 text-xl">person</span>
+                      </div>
+                      <input 
+                        className="block w-full pl-11 pr-4 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
+                        id="surname"
+                        name="surname"
+                        value={formData.surname}
+                        onChange={handleInputChange}
+                        placeholder="Johnson" 
+                        type="text"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="address">Address</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <span className="material-symbols-outlined text-slate-400 text-xl">location_on</span>
+                    </div>
+                    <input 
+                      className="block w-full pl-11 pr-4 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
+                      id="address"
+                      name="address"
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      placeholder="123 Main Street, Johannesburg" 
+                      type="text"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="phoneNumber">Phone Number</label>
                     <div className="relative">
@@ -180,8 +286,6 @@ export default function AgentRegister() {
                       />
                     </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="email">Email</label>
                     <div className="relative">
@@ -200,33 +304,6 @@ export default function AgentRegister() {
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="password">Password</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                        <span className="material-symbols-outlined text-slate-400 text-xl">lock</span>
-                      </div>
-                      <input 
-                        className="block w-full pl-11 pr-12 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
-                        id="password"
-                        name="password"
-                        value={formData.password}
-                        onChange={handleInputChange}
-                        placeholder="Min. 8 characters" 
-                        type={showPassword ? "text" : "password"}
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer"
-                      >
-                        <span className="material-symbols-outlined">
-                          {showPassword ? 'visibility_off' : 'visibility'}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
                 </div>
                 <button 
                   className="w-full bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group" 
@@ -238,6 +315,12 @@ export default function AgentRegister() {
               </form>
             ) : (
               <form onSubmit={handleNextStep} className="space-y-6">
+                {error && (
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-xl p-4">
+                    <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="idNumber">ID Number</label>
                   <div className="relative">
@@ -274,6 +357,66 @@ export default function AgentRegister() {
                     />
                   </div>
                   <p className="text-xs text-slate-500 ml-1">Accepted formats: JPG, PNG, PDF (Max 5MB)</p>
+                </div>
+
+                {/* Password Fields */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="password">Password</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <span className="material-symbols-outlined text-slate-400 text-xl">lock</span>
+                      </div>
+                      <input 
+                        className="block w-full pl-11 pr-12 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
+                        id="password"
+                        name="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        placeholder="••••••••" 
+                        type={showPassword ? "text" : "password"}
+                        required
+                        minLength={8}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined">
+                          {showPassword ? 'visibility_off' : 'visibility'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="confirmPassword">Confirm Password</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <span className="material-symbols-outlined text-slate-400 text-xl">lock</span>
+                      </div>
+                      <input 
+                        className="block w-full pl-11 pr-12 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        value={formData.confirmPassword}
+                        onChange={handleInputChange}
+                        placeholder="••••••••" 
+                        type={showConfirmPassword ? "text" : "password"}
+                        required
+                        minLength={8}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined">
+                          {showConfirmPassword ? 'visibility_off' : 'visibility'}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Agreement Download Section */}
@@ -338,11 +481,21 @@ export default function AgentRegister() {
                     Back
                   </button>
                   <button 
-                    className="flex-1 bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group" 
+                    className="flex-1 bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed" 
                     type="submit"
+                    disabled={isSubmitting}
                   >
-                    Submit Application
-                    <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                    {isSubmitting ? (
+                      <>
+                        <span className="animate-spin material-symbols-outlined">refresh</span>
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        Submit Application
+                        <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

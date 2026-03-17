@@ -25,7 +25,37 @@ export default function ShopLogin() {
       if (signInError) throw signInError;
 
       if (data.user) {
-        navigate('/shop/dashboard');
+        // Check shop status after successful authentication
+        const { data: shopData, error: shopError } = await supabase
+          .from('shops')
+          .select('status, name')
+          .eq('email', email)
+          .single();
+
+        if (shopError) {
+          // If no shop found with this email, show error
+          setError('No shop account found with this email address. Please contact support.');
+          return;
+        }
+
+        // Check if shop is pending approval
+        if (shopData.status === 'pending') {
+          setError(`Your shop "${shopData.name}" is still pending admin approval. You will be notified once your application is reviewed and approved.`);
+          return;
+        }
+
+        // Check if shop is suspended
+        if (shopData.status === 'suspended') {
+          setError(`Your shop "${shopData.name}" has been suspended. Please contact support for assistance.`);
+          return;
+        }
+
+        // If shop is active, proceed to dashboard
+        if (shopData.status === 'active') {
+          navigate('/shop/dashboard');
+        } else {
+          setError('Your shop account status is unknown. Please contact support.');
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Failed to sign in');

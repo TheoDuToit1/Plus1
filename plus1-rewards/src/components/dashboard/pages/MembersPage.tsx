@@ -1,11 +1,13 @@
 // src/components/dashboard/pages/MembersPage.tsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../DashboardLayout';
 import StatCard from '../components/StatCard';
 import MembersTable from '../components/MembersTable';
 import { supabase } from '../../../lib/supabase';
 
 export default function MembersPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [members, setMembers] = useState<any[]>([]);
   const [stats, setStats] = useState({
@@ -73,7 +75,7 @@ export default function MembersPage() {
   };
 
   const handleLogout = () => {
-    console.log('Logout triggered');
+    navigate('/');
   };
 
   const handleFilter = () => {

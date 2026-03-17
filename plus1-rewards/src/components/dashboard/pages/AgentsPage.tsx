@@ -1,13 +1,15 @@
 // plus1-rewards/src/components/dashboard/pages/AgentsPage.tsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../DashboardLayout';
 import StatCard from '../components/StatCard';
 import { supabase } from '../../../lib/supabase';
 
 export default function AgentsPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [agents, setAgents] = useState<any[]>([]);
-  const [stats, setStats] = useState({ totalAgents: 0, verified: 0, sales: 0, commissions: 0 });
+  const [stats, setStats] = useState({ totalAgents: 0, verified: 0, pending: 0, sales: 0, commissions: 0 });
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
@@ -18,9 +20,10 @@ export default function AgentsPage() {
       
       const totalAgents = data?.length || 0;
       const verified = data?.filter(a => a.status === 'active')?.length || 0;
+      const pending = data?.filter(a => a.status === 'pending')?.length || 0;
       const commissions = data?.reduce((sum, a) => sum + (parseFloat(a.total_commission) || 0), 0) || 0;
       
-      setStats({ totalAgents, verified, sales: 0, commissions });
+      setStats({ totalAgents, verified, pending, sales: 0, commissions });
       setAgents(data || []);
     } catch (error) {
       console.error('Error fetching agents:', error);
@@ -29,12 +32,52 @@ export default function AgentsPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  const handleApproveAgent = async (agentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('agents')
+        .update({ 
+          status: 'active', 
+          approved_at: new Date().toISOString(),
+          approved_by: null
+        })
+        .eq('id', agentId);
+
+      if (error) throw error;
+      
+      alert('Agent approved successfully!');
+      fetchData();
+    } catch (error) {
+      console.error('Error approving agent:', error);
+      alert('Failed to approve agent. Please try again.');
+    }
+  };
+
+  const handleRejectAgent = async (agentId: string) => {
+    if (confirm('Are you sure you want to reject this agent application?')) {
+      try {
+        const { error } = await supabase
+          .from('agents')
+          .update({ status: 'suspended' })
+          .eq('id', agentId);
+
+        if (error) throw error;
+        
+        alert('Agent application rejected.');
+        fetchData();
+      } catch (error) {
+        console.error('Error rejecting agent:', error);
+        alert('Failed to reject agent. Please try again.');
+      }
+    }
+  };
 
   const handleRefresh = () => { fetchData(); };
 
+  useEffect(() => { fetchData(); }, []);
+
   const handleLogout = () => {
-    console.log('Logout triggered');
+    navigate('/');
   };
 
   const handleFilter = () => {
@@ -46,9 +89,9 @@ export default function AgentsPage() {
   };
 
   const statsData = [
-    { icon: 'support_agent', title: 'Total Agents', value: stats.totalAgents.toString(), change: '+0%', description: 'Sales representatives' },
-    { icon: 'verified_user', title: 'Verified', value: stats.verified.toString(), change: '+0%', description: 'Verified agents' },
-    { icon: 'trending_up', title: 'Total Sales', value: stats.sales.toString(), change: '+0%', description: 'Policies sold' },
+    { icon: 'support_agent', title: 'Total Agents', value: stats.totalAgents.toString(), change: '+0%', description: 'All agents' },
+    { icon: 'verified_user', title: 'Active', value: stats.verified.toString(), change: '+0%', description: 'Approved agents' },
+    { icon: 'pending', title: 'Pending Approval', value: stats.pending.toString(), change: '+0%', description: 'Awaiting approval' },
     { icon: 'account_balance_wallet', title: 'Commissions Paid', value: `R${stats.commissions.toFixed(2)}`, change: '+0%', description: 'Total payouts' }
   ];
 
@@ -166,9 +209,16 @@ export default function AgentsPage() {
                         <td className="px-6 py-4"><span className="text-sm font-semibold text-slate-200">{agent.name} {agent.surname}</span></td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                            agent.status === 'active' ? 'bg-primary/20 text-primary border border-primary/30' : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                            agent.status === 'active' 
+                              ? 'bg-primary/20 text-primary border border-primary/30' 
+                              : agent.status === 'pending'
+                              ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                              : 'bg-red-500/20 text-red-400 border border-red-500/30'
                           }`}>
-                            <span className={`size-1.5 rounded-full ${agent.status === 'active' ? 'bg-primary' : 'bg-yellow-400'}`}></span>
+                            <span className={`size-1.5 rounded-full ${
+                              agent.status === 'active' ? 'bg-primary' : 
+                              agent.status === 'pending' ? 'bg-yellow-400' : 'bg-red-400'
+                            }`}></span>
                             {agent.status}
                           </span>
                         </td>
@@ -176,9 +226,30 @@ export default function AgentsPage() {
                         <td className="px-6 py-4"><span className="text-sm font-bold text-slate-200">R{parseFloat(agent.total_commission || 0).toFixed(2)}</span></td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center gap-2">
-                            <button className="p-2 text-slate-500 hover:text-primary transition-colors rounded-lg bg-slate-800/50 hover:bg-primary/10" title="View Details"><span className="material-symbols-outlined text-sm">visibility</span></button>
-                            <button className="p-2 text-slate-500 hover:text-primary transition-colors rounded-lg bg-slate-800/50 hover:bg-primary/10" title="Edit Agent"><span className="material-symbols-outlined text-sm">edit</span></button>
-                            <button className="p-2 text-slate-500 hover:text-red-400 transition-colors rounded-lg bg-slate-800/50 hover:bg-red-400/10" title="Block Agent"><span className="material-symbols-outlined text-sm">block</span></button>
+                            {agent.status === 'pending' ? (
+                              <>
+                                <button 
+                                  onClick={() => handleApproveAgent(agent.id)}
+                                  className="p-2 text-slate-500 hover:text-primary transition-colors rounded-lg bg-slate-800/50 hover:bg-primary/10" 
+                                  title="Approve Agent"
+                                >
+                                  <span className="material-symbols-outlined text-sm">check_circle</span>
+                                </button>
+                                <button 
+                                  onClick={() => handleRejectAgent(agent.id)}
+                                  className="p-2 text-slate-500 hover:text-red-400 transition-colors rounded-lg bg-slate-800/50 hover:bg-red-400/10" 
+                                  title="Reject Agent"
+                                >
+                                  <span className="material-symbols-outlined text-sm">cancel</span>
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button className="p-2 text-slate-500 hover:text-primary transition-colors rounded-lg bg-slate-800/50 hover:bg-primary/10" title="View Details"><span className="material-symbols-outlined text-sm">visibility</span></button>
+                                <button className="p-2 text-slate-500 hover:text-primary transition-colors rounded-lg bg-slate-800/50 hover:bg-primary/10" title="Edit Agent"><span className="material-symbols-outlined text-sm">edit</span></button>
+                                <button className="p-2 text-slate-500 hover:text-red-400 transition-colors rounded-lg bg-slate-800/50 hover:bg-red-400/10" title="Suspend Agent"><span className="material-symbols-outlined text-sm">block</span></button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>

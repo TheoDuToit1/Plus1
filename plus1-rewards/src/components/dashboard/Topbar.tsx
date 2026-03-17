@@ -1,5 +1,23 @@
 // plus1-rewards/src/components/dashboard/Topbar.tsx
-export default function Topbar() {
+import { useNavigate } from 'react-router-dom';
+
+interface TopbarProps {
+  onRefresh?: () => void;
+}
+
+export default function Topbar({ onRefresh }: TopbarProps) {
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    navigate('/');
+  };
+
+  const handleRefresh = () => {
+    if (onRefresh) {
+      onRefresh();
+    }
+  };
+
   return (
     <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
       <div>
@@ -8,12 +26,20 @@ export default function Topbar() {
       </div>
       
       <div className="flex items-center gap-3">
-        <button className="flex items-center gap-2 px-5 py-2.5 font-bold rounded-lg border transition-all text-sm" style={{backgroundColor: '#10351c', color: '#109b43', borderColor: '#109b43', borderWidth: '0.2px'}}>
+        <button 
+          onClick={handleRefresh}
+          className="flex items-center gap-2 px-5 py-2.5 font-bold rounded-lg border transition-all text-sm hover:bg-primary/5" 
+          style={{backgroundColor: '#10351c', color: '#109b43', borderColor: '#109b43', borderWidth: '0.2px'}}
+        >
           <span className="material-symbols-outlined text-lg">refresh</span>
           Refresh All Data
         </button>
         
-        <button className="flex items-center gap-2 px-5 py-2.5 bg-primary rounded-lg hover:opacity-90 transition-all text-sm" style={{color: '#000000'}}>
+        <button 
+          onClick={handleLogout}
+          className="flex items-center gap-2 px-5 py-2.5 bg-primary rounded-lg hover:opacity-90 transition-all text-sm" 
+          style={{color: '#000000'}}
+        >
           <span className="material-symbols-outlined text-lg" style={{color: '#000000'}}>logout</span>
           Logout
         </button>

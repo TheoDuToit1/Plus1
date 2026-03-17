@@ -1,10 +1,12 @@
 // plus1-rewards/src/components/dashboard/pages/PoliciesPage.tsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../DashboardLayout';
 import StatCard from '../components/StatCard';
 import { supabase } from '../../../lib/supabase';
 
 export default function PoliciesPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [policies, setPolicies] = useState<any[]>([]);
   const [stats, setStats] = useState({ totalPolicies: 0, approved: 0, enrolled: 0, premiums: 0 });
@@ -31,7 +33,7 @@ export default function PoliciesPage() {
 
   useEffect(() => { fetchData(); }, []);
   const handleRefresh = () => { fetchData(); };
-  const handleLogout = () => console.log('Logout triggered');
+  const handleLogout = () => navigate('/');
   const handleFilter = () => console.log('Filter triggered');
   const handleExport = () => console.log('Export CSV triggered');
 

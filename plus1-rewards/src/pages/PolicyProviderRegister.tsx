@@ -5,12 +5,14 @@ import { supabase } from '../lib/supabase';
 export function PolicyProviderRegister() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formData, setFormData] = useState({
     company_name: '',
     contact_person: '',
     email: '',
     phone: '',
     password: '',
+    confirmPassword: '',
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -25,11 +27,32 @@ export function PolicyProviderRegister() {
         throw new Error('Please fill in all required fields');
       }
 
+      // Validate passwords match
+      if (formData.password !== formData.confirmPassword) {
+        throw new Error('Passwords do not match');
+      }
+
+      if (formData.password.length < 8) {
+        throw new Error('Password must be at least 8 characters long');
+      }
+
+      // Create auth user first
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (authError) {
+        throw new Error(`Authentication error: ${authError.message}`);
+      }
+
       // Insert policy provider
       const { data, error: insertError } = await supabase
         .from('policy_providers')
         .insert([{
+          id: authData.user.id,
           name: formData.company_name,
+          company_name: formData.company_name,
           email: formData.email,
           phone: formData.phone || null,
           contact_person: formData.contact_person,
@@ -42,7 +65,7 @@ export function PolicyProviderRegister() {
 
       // Show success message and redirect to login
       alert('Registration submitted successfully! Your account is pending approval. You will be contacted within 2 business days.');
-      navigate('/provider/login');
+      navigate('/');
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
@@ -244,6 +267,35 @@ export function PolicyProviderRegister() {
                   >
                     <span className="material-symbols-outlined">
                       {showPassword ? 'visibility_off' : 'visibility'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="confirmPassword">Confirm Password</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-slate-400 text-xl">lock</span>
+                  </div>
+                  <input 
+                    className="block w-full pl-11 pr-12 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
+                    id="confirmPassword" 
+                    name="confirmPassword"
+                    placeholder="••••••••" 
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    required
+                    minLength={8}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined">
+                      {showConfirmPassword ? 'visibility_off' : 'visibility'}
                     </span>
                   </button>
                 </div>

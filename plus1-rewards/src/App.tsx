@@ -27,6 +27,7 @@ import { MemberHistory } from './pages/MemberHistory'
 import { MemberProfile } from './pages/MemberProfile'
 import { MemberQR } from './pages/MemberQR'
 import { MemberFindShops } from './pages/MemberFindShops'
+import ProtectedPolicyProviderRoute from './components/ProtectedPolicyProviderRoute'
 
 export default function App() {
   return (
@@ -59,7 +60,11 @@ export default function App() {
           <Route path="/member/find-shops" element={<MemberFindShops />} />
           <Route path="/shop/dashboard" element={<ShopDashboard />} />
           <Route path="/agent/dashboard" element={<AgentDashboard />} />
-          <Route path="/provider/dashboard" element={<PolicyProviderDashboard />} />
+          <Route path="/provider/dashboard" element={
+            <ProtectedPolicyProviderRoute>
+              <PolicyProviderDashboard />
+            </ProtectedPolicyProviderRoute>
+          } />
         </Routes>
       </Router>
     </div>

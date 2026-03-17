@@ -25,7 +25,42 @@ export default function AgentLogin() {
       if (signInError) throw signInError;
 
       if (data.user) {
-        navigate('/agent/dashboard');
+        // Check agent status after successful authentication
+        const { data: agentData, error: agentError } = await supabase
+          .from('agents')
+          .select('status, name')
+          .eq('email', email)
+          .single();
+
+        if (agentError) {
+          // If no agent found with this email, show error
+          setError('No agent account found with this email address. Please contact support.');
+          return;
+        }
+
+        // Check if agent is pending approval
+        if (agentData.status === 'pending') {
+          setError(`Your agent application for "${agentData.name}" is still pending admin approval. You will be notified once your application is reviewed and approved.`);
+          return;
+        }
+
+        // Check if agent is suspended or rejected
+        if (agentData.status === 'suspended') {
+          setError(`Your agent account "${agentData.name}" has been suspended. Please contact support for assistance.`);
+          return;
+        }
+
+        if (agentData.status === 'rejected') {
+          setError(`Your agent application "${agentData.name}" has been rejected. Please contact support for more information.`);
+          return;
+        }
+
+        // If agent is active, proceed to dashboard
+        if (agentData.status === 'active') {
+          navigate('/agent/dashboard');
+        } else {
+          setError('Your agent account status is unknown. Please contact support.');
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Failed to sign in');

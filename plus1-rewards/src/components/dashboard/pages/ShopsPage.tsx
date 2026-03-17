@@ -1,15 +1,18 @@
 // plus1-rewards/src/components/dashboard/pages/ShopsPage.tsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../DashboardLayout';
 import StatCard from '../components/StatCard';
 import { supabase } from '../../../lib/supabase';
 
 export default function ShopsPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [shops, setShops] = useState<any[]>([]);
   const [stats, setStats] = useState({
     totalShops: 0,
     verified: 0,
+    pending: 0,
     transactions: 0,
     revenue: 0
   });
@@ -36,12 +39,14 @@ export default function ShopsPage() {
       // Calculate stats
       const totalShops = shopsData?.length || 0;
       const verified = shopsData?.filter(s => s.status === 'active' && s.approved_at)?.length || 0;
+      const pending = shopsData?.filter(s => s.status === 'pending')?.length || 0;
       const transactions = transactionsData?.length || 0;
       const revenue = transactionsData?.reduce((sum, t) => sum + (parseFloat(t.shop_contribution) || 0), 0) || 0;
 
       setStats({
         totalShops,
         verified,
+        pending,
         transactions,
         revenue
       });
@@ -58,12 +63,52 @@ export default function ShopsPage() {
     fetchData();
   }, []);
 
+  const handleApproveShop = async (shopId: string) => {
+    try {
+      const { error } = await supabase
+        .from('shops')
+        .update({ 
+          status: 'active', 
+          approved_at: new Date().toISOString(),
+          approved_by: null // Set to null since we don't have admin user UUIDs yet
+        })
+        .eq('id', shopId);
+
+      if (error) throw error;
+      
+      alert('Shop approved successfully!');
+      fetchData(); // Refresh the data
+    } catch (error) {
+      console.error('Error approving shop:', error);
+      alert('Failed to approve shop. Please try again.');
+    }
+  };
+
+  const handleRejectShop = async (shopId: string) => {
+    if (confirm('Are you sure you want to reject this shop application?')) {
+      try {
+        const { error } = await supabase
+          .from('shops')
+          .update({ status: 'suspended' })
+          .eq('id', shopId);
+
+        if (error) throw error;
+        
+        alert('Shop application rejected.');
+        fetchData(); // Refresh the data
+      } catch (error) {
+        console.error('Error rejecting shop:', error);
+        alert('Failed to reject shop. Please try again.');
+      }
+    }
+  };
+
   const handleRefresh = () => {
     fetchData();
   };
 
   const handleLogout = () => {
-    console.log('Logout triggered');
+    navigate('/');
   };
 
   const handleFilter = () => {
@@ -80,21 +125,21 @@ export default function ShopsPage() {
       title: 'Total Shops',
       value: stats.totalShops.toString(),
       change: '+0%',
-      description: 'Active shops'
+      description: 'All shops'
     },
     {
       icon: 'check_circle',
-      title: 'Verified',
+      title: 'Active',
       value: stats.verified.toString(),
       change: '+0%',
-      description: 'Verified shops'
+      description: 'Approved shops'
     },
     {
-      icon: 'trending_up',
-      title: 'Total Transactions',
-      value: stats.transactions.toString(),
+      icon: 'pending',
+      title: 'Pending Approval',
+      value: stats.pending.toString(),
       change: '+0%',
-      description: 'This month'
+      description: 'Awaiting approval'
     },
     {
       icon: 'payments',
@@ -235,9 +280,14 @@ export default function ShopsPage() {
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
                             shop.status === 'active' 
                               ? 'bg-primary/20 text-primary border border-primary/30'
+                              : shop.status === 'pending'
+                              ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                               : 'bg-red-500/20 text-red-400 border border-red-500/30'
                           }`}>
-                            <span className={`size-1.5 rounded-full ${shop.status === 'active' ? 'bg-primary' : 'bg-red-400'}`}></span>
+                            <span className={`size-1.5 rounded-full ${
+                              shop.status === 'active' ? 'bg-primary' : 
+                              shop.status === 'pending' ? 'bg-yellow-400' : 'bg-red-400'
+                            }`}></span>
                             {shop.status}
                           </span>
                         </td>
@@ -249,15 +299,36 @@ export default function ShopsPage() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center gap-2">
-                            <button className="p-2 text-slate-500 hover:text-primary transition-colors rounded-lg bg-slate-800/50 hover:bg-primary/10" title="View Details">
-                              <span className="material-symbols-outlined text-sm">visibility</span>
-                            </button>
-                            <button className="p-2 text-slate-500 hover:text-primary transition-colors rounded-lg bg-slate-800/50 hover:bg-primary/10" title="Edit Shop">
-                              <span className="material-symbols-outlined text-sm">edit</span>
-                            </button>
-                            <button className="p-2 text-slate-500 hover:text-red-400 transition-colors rounded-lg bg-slate-800/50 hover:bg-red-400/10" title="Block Shop">
-                              <span className="material-symbols-outlined text-sm">block</span>
-                            </button>
+                            {shop.status === 'pending' ? (
+                              <>
+                                <button 
+                                  onClick={() => handleApproveShop(shop.id)}
+                                  className="p-2 text-slate-500 hover:text-primary transition-colors rounded-lg bg-slate-800/50 hover:bg-primary/10" 
+                                  title="Approve Shop"
+                                >
+                                  <span className="material-symbols-outlined text-sm">check_circle</span>
+                                </button>
+                                <button 
+                                  onClick={() => handleRejectShop(shop.id)}
+                                  className="p-2 text-slate-500 hover:text-red-400 transition-colors rounded-lg bg-slate-800/50 hover:bg-red-400/10" 
+                                  title="Reject Shop"
+                                >
+                                  <span className="material-symbols-outlined text-sm">cancel</span>
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button className="p-2 text-slate-500 hover:text-primary transition-colors rounded-lg bg-slate-800/50 hover:bg-primary/10" title="View Details">
+                                  <span className="material-symbols-outlined text-sm">visibility</span>
+                                </button>
+                                <button className="p-2 text-slate-500 hover:text-primary transition-colors rounded-lg bg-slate-800/50 hover:bg-primary/10" title="Edit Shop">
+                                  <span className="material-symbols-outlined text-sm">edit</span>
+                                </button>
+                                <button className="p-2 text-slate-500 hover:text-red-400 transition-colors rounded-lg bg-slate-800/50 hover:bg-red-400/10" title="Suspend Shop">
+                                  <span className="material-symbols-outlined text-sm">block</span>
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>

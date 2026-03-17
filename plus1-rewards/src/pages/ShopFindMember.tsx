@@ -33,6 +33,13 @@ export function ShopFindMember() {
     try {
       const { data } = await supabase.from('members').select('id, name, phone, active_policy').eq('phone', phone.replace(/\s/g, '')).single();
       if (!data) { setError('No member found with that phone number.'); return; }
+      
+      // Check if member has an active policy
+      if (!data.active_policy) {
+        setError('Member must select a policy plan before receiving rewards. Ask them to choose a policy in their +1 Rewards app first.');
+        return;
+      }
+      
       const { data: wallet } = await supabase.from('wallets').select('policies, rewards_total').eq('member_id', data.id).eq('shop_id', shopData.id).single();
       const policies = wallet?.policies || {};
       const activePol = policies[data.active_policy] || {};

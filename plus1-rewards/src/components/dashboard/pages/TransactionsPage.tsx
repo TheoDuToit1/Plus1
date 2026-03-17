@@ -1,10 +1,12 @@
 // plus1-rewards/src/components/dashboard/pages/TransactionsPage.tsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../DashboardLayout';
 import StatCard from '../components/StatCard';
 import { supabase } from '../../../lib/supabase';
 
 export default function TransactionsPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [transactions, setTransactions] = useState<any[]>([]);
   const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0, volume: 0 });
@@ -32,7 +34,7 @@ export default function TransactionsPage() {
 
   useEffect(() => { fetchData(); }, []);
   const handleRefresh = () => { fetchData(); };
-  const handleLogout = () => console.log('Logout triggered');
+  const handleLogout = () => navigate('/');
   const handleFilter = () => console.log('Filter triggered');
   const handleExport = () => console.log('Export CSV triggered');
 

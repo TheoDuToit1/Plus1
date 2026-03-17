@@ -1,10 +1,12 @@
 // plus1-rewards/src/components/dashboard/pages/PolicyProvidersPage.tsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../DashboardLayout';
 import StatCard from '../components/StatCard';
 import { supabase } from '../../../lib/supabase';
 
 export default function PolicyProvidersPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [providers, setProviders] = useState<any[]>([]);
   const [stats, setStats] = useState({ totalProviders: 0, verified: 0, policies: 0, premiums: 0 });
@@ -37,7 +39,7 @@ export default function PolicyProvidersPage() {
   const handleRefresh = () => { fetchData(); };
 
   const handleLogout = () => {
-    console.log('Logout triggered');
+    navigate('/');
   };
 
   const handleFilter = () => {

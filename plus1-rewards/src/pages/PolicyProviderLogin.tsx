@@ -1,8 +1,11 @@
 // plus1-rewards/src/pages/PolicyProviderLogin.tsx
 import { useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 export default function PolicyProviderLogin() {
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   
   const handleNavigation = (path: string) => {
     window.location.href = path;
@@ -15,23 +18,78 @@ export default function PolicyProviderLogin() {
     const password = (form.querySelector('#password') as HTMLInputElement)?.value;
 
     if (!email || !password) {
-      alert('Please enter email and password');
+      setError('Please enter email and password');
       return;
     }
 
+    setLoading(true);
+    setError('');
+
     try {
-      // For demo purposes, use a default provider ID
-      // In production, you would authenticate against your provider database
-      const providerData = {
-        id: 'day1-health-provider', // Use a fixed ID for demo
-        name: 'Day1 Health Partner',
-        email: email,
-      };
-      localStorage.setItem('currentProvider', JSON.stringify(providerData));
-      // Redirect to provider dashboard after login
+      // First authenticate with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        setError('Invalid email or password');
+        return;
+      }
+
+      if (!authData.user) {
+        setError('Authentication failed');
+        return;
+      }
+
+      // Check if user exists in policy_providers table and get their status
+      const { data: providerData, error: providerError } = await supabase
+        .from('policy_providers')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (providerError || !providerData) {
+        setError('Provider account not found. Please contact admin.');
+        await supabase.auth.signOut();
+        return;
+      }
+
+      // Check provider status
+      if (providerData.status === 'pending') {
+        setError('Your account is pending approval. Please wait for admin approval before accessing the dashboard.');
+        await supabase.auth.signOut();
+        return;
+      }
+
+      if (providerData.status === 'suspended') {
+        setError('Your account has been suspended. Please contact admin for assistance.');
+        await supabase.auth.signOut();
+        return;
+      }
+
+      if (providerData.status !== 'active') {
+        setError('Your account is not active. Please contact admin for assistance.');
+        await supabase.auth.signOut();
+        return;
+      }
+
+      // Store provider data for dashboard use
+      localStorage.setItem('currentProvider', JSON.stringify({
+        id: providerData.id,
+        name: providerData.name,
+        email: providerData.email,
+        company_name: providerData.company_name,
+        status: providerData.status
+      }));
+
+      // Redirect to provider dashboard
       window.location.href = '/provider/dashboard';
     } catch (err) {
-      alert('Login failed');
+      console.error('Login error:', err);
+      setError('Login failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -114,6 +172,15 @@ export default function PolicyProviderLogin() {
               <p className="mt-2 text-slate-600 dark:text-slate-400">Access your policy management dashboard and member data.</p>
             </div>
             <form onSubmit={handleLogin} className="space-y-6">
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-red-500 text-xl">error</span>
+                    <span className="text-sm font-bold text-red-400">Login Failed</span>
+                  </div>
+                  <p className="text-sm text-red-300 mt-1">{error}</p>
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="email">Provider Email Address</label>
                 <div className="relative">
@@ -125,6 +192,8 @@ export default function PolicyProviderLogin() {
                     id="email" 
                     placeholder="provider@day1health.co.za" 
                     type="email"
+                    disabled={loading}
+                    required
                   />
                 </div>
               </div>
@@ -142,11 +211,14 @@ export default function PolicyProviderLogin() {
                     id="password" 
                     placeholder="••••••••" 
                     type={showPassword ? "text" : "password"}
+                    disabled={loading}
+                    required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer"
+                    disabled={loading}
                   >
                     <span className="material-symbols-outlined">
                       {showPassword ? 'visibility_off' : 'visibility'}
@@ -160,15 +232,26 @@ export default function PolicyProviderLogin() {
                   id="remember-me" 
                   name="remember-me" 
                   type="checkbox"
+                  disabled={loading}
                 />
                 <label className="ml-2 block text-sm text-slate-600 dark:text-slate-400" htmlFor="remember-me">Keep me signed in</label>
               </div>
               <button 
-                className="w-full bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group" 
+                className="w-full bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed" 
                 type="submit"
+                disabled={loading}
               >
-                Access Provider Dashboard
-                <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                {loading ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin">refresh</span>
+                    Authenticating...
+                  </>
+                ) : (
+                  <>
+                    Access Provider Dashboard
+                    <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                  </>
+                )}
               </button>
             </form>
             <div className="relative my-8">
@@ -182,11 +265,17 @@ export default function PolicyProviderLogin() {
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
               <div className="flex items-center gap-3 mb-2">
                 <span className="material-symbols-outlined text-primary text-xl">security</span>
-                <span className="text-sm font-bold text-slate-900 dark:text-white">Restricted Access</span>
+                <span className="text-sm font-bold text-slate-900 dark:text-white">Account Status Information</span>
               </div>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                This portal is exclusively for authorized Day1 Health partners. Contact admin@plus1rewards.co.za for access credentials.
+              <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">
+                This portal is exclusively for authorized policy providers. All new accounts require admin approval.
               </p>
+              <div className="text-xs text-slate-600 dark:text-slate-400">
+                <strong>Account Status:</strong><br/>
+                • <span className="text-yellow-600">Pending:</span> Awaiting admin approval<br/>
+                • <span className="text-green-600">Active:</span> Full dashboard access<br/>
+                • <span className="text-red-600">Suspended:</span> Access temporarily disabled
+              </div>
             </div>
             <p className="text-center text-slate-600 dark:text-slate-400 mt-8">
               New policy provider? <a className="text-primary font-bold hover:underline" href="/provider/register">Create an account</a>
