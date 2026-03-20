@@ -39,7 +39,7 @@ export default function Navbar() {
             style={{ backgroundColor: BLUE }}
             onClick={() => window.location.href = '/member/register'}
           >
-            Get Started
+            Start Earning Free Cover &rarr;
           </button>
           {/* Mobile hamburger */}
           <button

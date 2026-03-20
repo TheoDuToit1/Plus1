@@ -13,20 +13,38 @@ export default function Roles() {
     {
       icon: 'group',
       title: 'Members',
-      desc: 'Earn comprehensive healthcare coverage simply by doing your everyday shopping at local partner stores.',
-      features: ['R0 joining fee', 'Secure your family'],
+      headline: 'Your shopping already covers your family.',
+      desc: 'Shop at +1 Rewards partners. Earn 3% cashback in real rands on every purchase. When your cashback hits R385, your Day1Health medical cover activates automatically — with nothing extra to pay.',
+      features: ['R0 joining fee', 'No change to your shopping habits', 'Cover starts from Day 1', 'Secure your family\'s health'],
       loginPath: '/member/login',
       registerPath: '/member/register',
       highlight: true,
+      hasButtons: true,
+      buttonType: 'login-register',
     },
     {
       icon: 'storefront',
       title: 'Shop Owners',
-      desc: 'Build intense customer loyalty and attract new shoppers by offering a life-changing rewards program.',
-      features: ['Increase foot traffic', 'Better customer retention'],
+      headline: 'Give your customers a reason to come back — every single day.',
+      desc: 'Join the +1 Rewards partner network. Your customers earn cashback toward their medical cover every time they shop with you. No cost to your business. Stronger loyalty. And your shop becomes part of something that genuinely changes lives.',
+      features: ['No setup costs', 'Increase foot traffic', 'Better customer retention', 'Your shop powers the community'],
       loginPath: '/partner/login',
       registerPath: '/partner/register',
       highlight: false,
+      hasButtons: true,
+      buttonType: 'login-register',
+    },
+    {
+      icon: 'handshake',
+      title: 'Agents',
+      headline: 'Earn while you change your community.',
+      desc: 'Join our field team and earn commission for every member and partner store you sign up. You know this community — help us bring Health Cover for All to every household.',
+      features: [],
+      loginPath: '',
+      registerPath: '/agent/register',
+      highlight: false,
+      hasButtons: true,
+      buttonType: 'agent',
     },
   ]
 
@@ -42,54 +60,74 @@ export default function Roles() {
             >
               For Everyone
             </span>
-            <h2 className="text-4xl font-bold text-gray-900 mb-3">A Solution for Everyone</h2>
-            <p className="text-gray-500">+1 Rewards benefits members, retailers, and dedicated agents alike.</p>
+            <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-6">Built for every side of the community</h2>
+            <p className="text-lg text-gray-600 leading-relaxed">Whether you shop, sell, or spread the word — +1 Rewards works for you.</p>
           </div>
         </div>
 
         {/* Cards */}
-        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {roles.map((role, i) => (
             <div
               key={i}
-              className="border rounded-2xl p-7 flex flex-col transition-all duration-200 group hover:shadow-lg"
+              className="border rounded-3xl p-8 flex flex-col transition-all duration-300 group hover:-translate-y-2 hover:shadow-xl"
               style={{
                 backgroundColor: role.highlight ? BLUE_LIGHT : '#fff',
                 borderColor: role.highlight ? BLUE_BORDER : '#e5e7eb',
               }}
             >
               <div
-                className="size-14 rounded-xl flex items-center justify-center mb-5 transition-transform group-hover:scale-110"
+                className="size-16 rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110 shadow-sm"
                 style={{ backgroundColor: BLUE_ICON_BG, color: BLUE }}
               >
-                <span className="material-symbols-outlined text-3xl">{role.icon}</span>
+                <span className="material-symbols-outlined text-4xl">{role.icon}</span>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">{role.title}</h3>
-              <p className="text-gray-500 text-sm mb-6 flex-grow leading-relaxed">{role.desc}</p>
-              <ul className="space-y-2 mb-6">
-                {role.features.map((f, j) => (
-                  <li key={j} className="flex items-center gap-2 text-sm text-gray-700">
-                    <span className="material-symbols-outlined text-sm" style={{ color: BLUE }}>check_circle</span>
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <div className="flex gap-2 mt-auto">
-                <button
-                  onClick={() => handleNavigation(role.loginPath)}
-                  className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90"
-                  style={{ backgroundColor: BLUE }}
-                >
-                  Login
-                </button>
-                <button
-                  onClick={() => handleNavigation(role.registerPath)}
-                  className="flex-1 py-2.5 border rounded-xl font-bold text-sm transition-all hover:bg-blue-50"
-                  style={{ borderColor: BLUE, color: BLUE }}
-                >
-                  Register
-                </button>
-              </div>
+              <h3 className="text-sm font-bold uppercase tracking-widest mb-2" style={{color: BLUE}}>{role.title}</h3>
+              <h4 className="text-xl font-bold text-gray-900 mb-4">{role.headline}</h4>
+              <p className="text-gray-600 text-sm mb-6 flex-grow leading-relaxed">{role.desc}</p>
+              
+              {role.features.length > 0 && (
+                <ul className="space-y-3 mb-8">
+                  {role.features.map((f, j) => (
+                    <li key={j} className="flex items-start gap-3 text-sm text-gray-700 font-medium">
+                      <span className="material-symbols-outlined text-base mt-0.5" style={{ color: BLUE }}>check_circle</span>
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              
+              {role.hasButtons && role.buttonType === 'login-register' && (
+                <div className="flex gap-3 mt-auto pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => handleNavigation(role.loginPath)}
+                    className="flex-1 py-3 rounded-xl font-bold text-sm text-white transition-all shadow-md hover:shadow-lg hover:opacity-90"
+                    style={{ backgroundColor: BLUE }}
+                  >
+                    Login
+                  </button>
+                  <button
+                    onClick={() => handleNavigation(role.registerPath)}
+                    className="flex-1 py-3 border-2 rounded-xl font-bold text-sm transition-all hover:bg-blue-50"
+                    style={{ borderColor: BLUE, color: BLUE }}
+                  >
+                    Register
+                  </button>
+                </div>
+              )}
+
+              {role.hasButtons && role.buttonType === 'agent' && (
+                <div className="flex gap-3 mt-auto pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => handleNavigation(role.registerPath)}
+                    className="w-full py-3 rounded-xl font-bold text-sm text-white transition-all shadow-md hover:shadow-lg hover:opacity-90 flex items-center justify-center gap-2"
+                    style={{ backgroundColor: BLUE }}
+                  >
+                    <span>Become an Agent</span>
+                    <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

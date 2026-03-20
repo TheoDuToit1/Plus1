@@ -38,13 +38,22 @@ export default function OfflineFeature() {
           </span>
           <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">No data?<br />No problem.</h2>
           <p className="text-lg text-gray-500 leading-relaxed">
-            Our proprietary QR technology is built for the African market. We know data can be expensive or unavailable. That&apos;s why our system works perfectly even when you&apos;re completely offline.
+            Data is expensive. We know. That's why +1 Rewards was built to work completely offline. Our QR technology validates instantly without an internet connection — and syncs automatically the next time your device finds a signal. You can also sign up, chat, and stay connected through Zii Chat, our free Bluetooth messaging app. No SIM, no data, no problem.
           </p>
           <div className="space-y-4">
             {[
-              'Instant validation without an active internet connection.',
-              'Syncs automatically when your device finds a signal.',
-              'Secure, encrypted transactions that protect your data.',
+              {
+                title: 'Instant QR validation, no internet needed',
+                desc: 'Works at checkout, every time',
+              },
+              {
+                title: 'Syncs automatically when signal is available',
+                desc: 'Your cashback is never lost',
+              },
+              {
+                title: 'Zii Chat — free Bluetooth messaging',
+                desc: 'Sign up and connect without any data',
+              },
             ].map((item, i) => (
               <div key={i} className="flex gap-4 items-start">
                 <div
@@ -53,7 +62,10 @@ export default function OfflineFeature() {
                 >
                   <span className="material-symbols-outlined text-sm" style={{ color: BLUE }}>check</span>
                 </div>
-                <p className="text-gray-600">{item}</p>
+                <div>
+                  <p className="text-gray-900 font-bold">{item.title}</p>
+                  <p className="text-gray-600 text-sm mt-0.5">{item.desc}</p>
+                </div>
               </div>
             ))}
           </div>

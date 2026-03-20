@@ -13,8 +13,8 @@ html {
   overflow-x: clip;
 }
 
-body { 
-  font-family: 'Inter', sans-serif; 
+body {
+  font-family: 'Inter', sans-serif;
   background-color: #ffffff;
   color: #111827;
   min-height: 100vh;
@@ -32,8 +32,8 @@ body {
   overflow-x: clip;
 }
 
-.material-symbols-outlined { 
-  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; 
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
 .material-symbols-outlined.fill-1 {
@@ -279,11 +279,11 @@ body {
 
 /* Input field styling - transparent background with ultra-thin green border (only for auth/member pages) */
 .auth-page input[type="text"],
-.auth-page input[type="email"], 
+.auth-page input[type="email"],
 .auth-page input[type="password"],
 .auth-page input[type="tel"],
 .member-page input[type="text"],
-.member-page input[type="email"], 
+.member-page input[type="email"],
 .member-page input[type="password"],
 .member-page input[type="tel"],
 .member-page select {
@@ -792,17 +792,130 @@ input.member-input-override:-webkit-autofill:active {
   stroke: #1a558b;
 }
 
-.checkbox-container input[type="checkbox"]:checked + .check svg {
+.checkbox-container input[type="checkbox"]:checked+.check svg {
   stroke: #1a558b;
 }
 
-.checkbox-container input[type="checkbox"]:checked + .check svg path {
+.checkbox-container input[type="checkbox"]:checked+.check svg path {
   stroke-dashoffset: 60;
   transition: all 0.3s linear;
 }
 
-.checkbox-container input[type="checkbox"]:checked + .check svg polyline {
+.checkbox-container input[type="checkbox"]:checked+.check svg polyline {
   stroke-dashoffset: 42;
   transition: all 0.2s linear;
   transition-delay: 0.15s;
 }
+
+/* Animated button style from Uiverse.io */
+.uiverse-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: none;
+  background: #1a558b;
+  color: white;
+  font-family: inherit;
+  text-align: center;
+  font-size: 1.125rem;
+  font-weight: 700;
+  box-shadow: 0px 14px 56px -11px rgba(26, 85, 139, 0.5);
+  transition: all 0.4s;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  height: 52px;
+  padding: 5px 25px;
+}
+
+.uiverse-button span {
+  cursor: pointer;
+  display: inline-block;
+  position: relative;
+  transition: 0.4s;
+}
+
+.uiverse-button span:after {
+  content: 'its free';
+  position: absolute;
+  opacity: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  right: -20px;
+  transition: 0.7s;
+  font-size: 0.875rem;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.uiverse-button:hover {
+  opacity: 0.95;
+  transform: translateY(-2px);
+  box-shadow: 0px 20px 60px -10px rgba(26, 85, 139, 0.6);
+}
+
+.uiverse-button:hover span {
+  padding-right: 4.2rem;
+}
+
+.uiverse-button:hover span:after {
+  opacity: 1;
+  right: 0;
+}
+
+/* Explore Button style from Uiverse.io */
+.Explore-Button {
+  width: fit-content;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 25px;
+  gap: 12px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  background: #16a34a;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(22, 163, 74, 0.2);
+}
+
+.Explore-Button:hover {
+  background: #15803d;
+  box-shadow: 0 6px 20px rgba(22, 163, 74, 0.3);
+  transform: translateY(-2px);
+}
+
+.IconContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+}
+
+.telescope {
+  width: 100%;
+  height: auto;
+  transform-origin: center;
+  transition: all 1s;
+  transform: rotate(20deg);
+}
+
+.tripod {
+  width: 60%;
+  height: auto;
+}
+
+.Explore-Button .text {
+  color: rgb(240, 240, 240);
+  font-weight: 700;
+  font-size: 1.125rem;
+  letter-spacing: 0.5px;
+}
+
+.Explore-Button:hover .telescope {
+  transform: rotate(-35deg);
+}

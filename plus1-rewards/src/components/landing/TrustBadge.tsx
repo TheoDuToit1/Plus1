@@ -34,8 +34,8 @@ export default function TrustBadge() {
 
           <div className="hidden md:block h-16 w-px" style={{ backgroundColor: '#e5e7eb' }} />
 
-          <p className="text-sm text-gray-500 max-w-sm leading-relaxed italic text-center md:text-left">
-            &ldquo;+1 Rewards acts as a facilitator for community-based rewards. All healthcare policies are underwritten and managed by Day1 Health (Pty) Ltd, an authorized financial services provider.&rdquo;
+          <p className="text-sm text-gray-500 max-w-lg leading-relaxed text-center md:text-left">
+            +1 Rewards is a community cashback programme that facilitates access to healthcare. All medical cover policies are underwritten and managed by Day1Health (Pty) Ltd, an authorised financial services provider regulated by the FSCA. +1 Rewards is not a medical aid scheme. Your cashback rands are applied directly to your Day1Health premium each month.
           </p>
         </div>
       </div>

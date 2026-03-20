@@ -13,7 +13,7 @@ export default function Footer() {
               <span className="text-xl font-extrabold tracking-tight text-gray-900">+1Rewards</span>
             </div>
             <p className="text-gray-500 max-w-sm mb-6 text-sm leading-relaxed">
-              Bridging the gap between daily commerce and universal healthcare access for all South Africans.
+              Health Cover for All. Because your shopping should work as hard as you do.
             </p>
             <div className="flex gap-3">
               <a
@@ -46,7 +46,9 @@ export default function Footer() {
               <li><a className="hover:text-blue-800 transition-colors" href="#how-it-works">How it Works</a></li>
               <li><a className="hover:text-blue-800 transition-colors" href="#roles">Partner Stores</a></li>
               <li><a className="hover:text-blue-800 transition-colors" href="/agent/register">Become an Agent</a></li>
-              <li><a className="hover:text-blue-800 transition-colors" href="#faq">Day1 Health Details</a></li>
+              <li><a className="hover:text-blue-800 transition-colors" href="#faq">Day1Health Details</a></li>
+              <li><a className="hover:text-blue-800 transition-colors" href="#">Zii Chat</a></li>
+              <li><a className="hover:text-blue-800 transition-colors" href="#">Contact Us</a></li>
             </ul>
           </div>
 
@@ -63,9 +65,8 @@ export default function Footer() {
         </div>
 
         {/* Bottom */}
-        <div className="border-t pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-gray-400" style={{ borderColor: '#e5e7eb' }}>
-          <p>&copy; {new Date().getFullYear()} +1 Rewards (Pty) Ltd. All rights reserved.</p>
-          <p>Healthcare policies underwritten by Day1 Health (Pty) Ltd — FSP Licensed</p>
+        <div className="border-t pt-8 flex flex-col items-center justify-between gap-4 text-xs text-gray-400 text-center" style={{ borderColor: '#e5e7eb' }}>
+          <p>&copy; {new Date().getFullYear()} +1 Rewards (Pty) Ltd. All rights reserved. &middot; Healthcare policies underwritten by Day1Health (Pty) Ltd — Authorised Financial Services Provider, FSP Licensed, Regulated by the FSCA. &middot; +1 Rewards is not a medical aid scheme.</p>
         </div>
       </div>
     </footer>
