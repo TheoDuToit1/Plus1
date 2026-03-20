@@ -26,10 +26,10 @@ export function AgentDashboard() {
       const parsedAgent = JSON.parse(agentData);
       const { data: agentDetails } = await supabase.from("agents").select("*").eq("id", parsedAgent.id).single();
       if (agentDetails) setAgent(agentDetails);
-      const { data: shopsData } = await supabase.from("shops").select("*").eq("agent_id", parsedAgent.id);
-      if (shopsData) {
-        const shopsWithEarnings = await Promise.all(shopsData.map(async shop => {
-          const { data: invoices } = await supabase.from("monthly_invoices").select("agent_commission_total").eq("shop_id", shop.id).order("invoice_month", { ascending: false }).limit(1);
+      const { data: partnersData } = await supabase.from("partners").select("*").eq("agent_id", parsedAgent.id);
+      if (partnersData) {
+        const shopsWithEarnings = await Promise.all(partnersData.map(async shop => {
+          const { data: invoices } = await supabase.from("monthly_invoices").select("agent_commission_total").eq("partner_id", partner.id).order("invoice_month", { ascending: false }).limit(1);
           return { ...shop, monthly_earnings: invoices?.[0]?.agent_commission_total || 0 };
         }));
         setShops(shopsWithEarnings);
@@ -112,15 +112,15 @@ export function AgentDashboard() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {shops.map(shop => (
-                  <div key={shop.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: '#fafbff', border: '1.5px solid var(--gray-border)', borderRadius: '12px' }}>
+                  <div key={partner.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: '#fafbff', border: '1.5px solid var(--gray-border)', borderRadius: '12px' }}>
                     <div>
-                      <p style={{ fontWeight: 700, color: '#111827', margin: '0 0 0.25rem' }}>{shop.name}</p>
-                      <p style={{ fontSize: '0.875rem', color: 'var(--gray-text)', margin: 0 }}>Commission rate: {shop.commission_rate}%</p>
+                      <p style={{ fontWeight: 700, color: '#111827', margin: '0 0 0.25rem' }}>{partner.name}</p>
+                      <p style={{ fontSize: '0.875rem', color: 'var(--gray-text)', margin: 0 }}>Commission rate: {partner.commission_rate}%</p>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.375rem' }}>
-                      <p style={{ fontWeight: 800, color: '#0e7490', margin: 0 }}>R{shop.monthly_earnings.toFixed(2)}</p>
-                      <span className={`badge ${shop.status === 'active' ? 'badge-green' : 'badge-orange'}`}>
-                        {shop.status === 'active' ? '✓ Active' : '⚠ Suspended'}
+                      <p style={{ fontWeight: 800, color: '#0e7490', margin: 0 }}>R{partner.monthly_earnings.toFixed(2)}</p>
+                      <span className={`badge ${partner.status === 'active' ? 'badge-green' : 'badge-orange'}`}>
+                        {partner.status === 'active' ? '✓ Active' : '⚠ Suspended'}
                       </span>
                     </div>
                   </div>

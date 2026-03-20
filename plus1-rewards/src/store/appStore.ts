@@ -5,7 +5,7 @@ interface User {
   name: string
   phone?: string
   dob?: string
-  role: 'member' | 'shop' | 'agent' | 'admin'
+  role: 'member' | 'partner' | 'agent' | 'admin'
   qrCode?: string
 }
 

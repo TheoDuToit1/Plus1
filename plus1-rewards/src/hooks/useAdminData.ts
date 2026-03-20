@@ -6,7 +6,7 @@ export const useAdminData = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({
     members: [] as any[],
-    shops: [] as any[],
+    partners: [] as any[],
     agents: [] as any[],
     providers: [] as any[],
     policies: [] as any[],
@@ -16,9 +16,9 @@ export const useAdminData = () => {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [members, shops, agents, providers, policies, transactions] = await Promise.all([
+      const [members, partners, agents, providers, policies, transactions] = await Promise.all([
         supabase.from('members').select('*, wallets(balance, rewards_total)'),
-        supabase.from('shops').select('*'),
+        supabase.from('partners').select('*'),
         supabase.from('agents').select('*'),
         supabase.from('policy_providers').select('*'),
         supabase.from('policy_holders').select('*, policy_plans(*), policy_providers(*), members(*)'),
@@ -27,7 +27,7 @@ export const useAdminData = () => {
 
       setData({
         members: members.data || [],
-        shops: shops.data || [],
+        partners: partners.data || [],
         agents: agents.data || [],
         providers: providers.data || [],
         policies: policies.data || [],

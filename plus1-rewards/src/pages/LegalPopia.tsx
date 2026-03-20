@@ -66,7 +66,7 @@ export function LegalPopia() {
               title: '3. Information Sharing',
               content: [
                 '**Day1 Health (Policy Provider)**: Policy funding data is shared monthly (Day 10) to activate your health benefits.',
-                '**Sales Agents**: Your shop visit counts may be shared with your recruiting agent (no personal details).',
+                '**Sales Agents**: Your Business visit counts may be shared with your recruiting agent (no personal details).',
                 '**Legal Requirements**: We may disclose data if required by South African law or regulatory authorities.',
                 'We do NOT sell, rent, or trade your personal information to third parties.',
               ],

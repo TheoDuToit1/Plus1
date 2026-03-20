@@ -33,6 +33,16 @@ export default function PolicySelectionModal({ isOpen, onClose, onPolicySelected
     }
   }, [isOpen]);
 
+  // Auto-select the R385 plan when policies are loaded
+  useEffect(() => {
+    if (policies.length > 0 && !selectedPolicy) {
+      const r385Plan = policies.find(p => p.monthly_target === 385);
+      if (r385Plan) {
+        setSelectedPolicy(r385Plan.id);
+      }
+    }
+  }, [policies, selectedPolicy]);
+
   const fetchPolicies = async () => {
     try {
       setLoading(true);
@@ -59,22 +69,39 @@ export default function PolicySelectionModal({ isOpen, onClose, onPolicySelected
       return;
     }
 
+    if (!memberId) {
+      alert('Member ID not found. Please refresh the page and try again.');
+      return;
+    }
+
     try {
       setSubmitting(true);
       
+      console.log('Updating member policy:', { memberId, selectedPolicy });
+      
       // Update member's active_policy
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('members')
         .update({ active_policy: selectedPolicy })
-        .eq('id', memberId);
+        .eq('id', memberId)
+        .select();
 
-      if (error) throw error;
+      console.log('Update result:', { data, error });
+
+      if (error) {
+        console.error('Policy update error:', error);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error('No member found with the provided ID');
+      }
 
       onPolicySelected(selectedPolicy);
       onClose();
     } catch (error) {
       console.error('Error selecting policy:', error);
-      alert('Failed to select policy. Please try again.');
+      alert(`Failed to select policy: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setSubmitting(false);
     }
@@ -187,43 +214,50 @@ export default function PolicySelectionModal({ isOpen, onClose, onPolicySelected
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filteredPolicies.map((policy) => (
-                  <div
-                    key={policy.id}
-                    onClick={() => setSelectedPolicy(policy.id)}
-                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                      selectedPolicy === policy.id
-                        ? 'border-primary bg-primary/10'
-                        : 'border-white/10 bg-white/5 hover:border-white/20'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className={`px-2 py-1 rounded text-xs font-bold uppercase border ${getFamilyColor(policy.family)}`}>
-                        {policy.family.replace('_', ' ')}
+                {filteredPolicies.map((policy) => {
+                  const isR385 = policy.monthly_target === 385;
+                  const isSelected = selectedPolicy === policy.id;
+                  
+                  return (
+                    <div
+                      key={policy.id}
+                      onClick={() => isR385 && setSelectedPolicy(policy.id)}
+                      className={`p-4 rounded-xl border-2 transition-all ${
+                        !isR385 
+                          ? 'border-white/10 bg-white/5 opacity-50 cursor-not-allowed'
+                          : isSelected
+                          ? 'border-primary bg-primary/10 cursor-pointer'
+                          : 'border-white/10 bg-white/5 hover:border-white/20 cursor-pointer'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className={`px-2 py-1 rounded text-xs font-bold uppercase border ${getFamilyColor(policy.family)}`}>
+                          {policy.family.replace('_', ' ')}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-white">{formatCurrency(policy.monthly_target)}</p>
+                          <p className="text-xs text-slate-400">monthly target</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-lg font-bold text-white">{formatCurrency(policy.monthly_target)}</p>
-                        <p className="text-xs text-slate-400">monthly target</p>
+                      
+                      <h3 className="font-bold text-white mb-1">{policy.description}</h3>
+                      
+                      <div className="flex items-center gap-4 text-sm text-slate-400">
+                        <span>{policy.adults} Adult{policy.adults > 1 ? 's' : ''}</span>
+                        {policy.children > 0 && (
+                          <span>{policy.children} Child{policy.children > 1 ? 'ren' : ''}</span>
+                        )}
                       </div>
-                    </div>
-                    
-                    <h3 className="font-bold text-white mb-1">{policy.description}</h3>
-                    
-                    <div className="flex items-center gap-4 text-sm text-slate-400">
-                      <span>{policy.adults} Adult{policy.adults > 1 ? 's' : ''}</span>
-                      {policy.children > 0 && (
-                        <span>{policy.children} Child{policy.children > 1 ? 'ren' : ''}</span>
+
+                      {isSelected && (
+                        <div className="mt-3 flex items-center gap-2 text-primary">
+                          <span className="material-symbols-outlined text-sm">check_circle</span>
+                          <span className="text-sm font-medium">Selected</span>
+                        </div>
                       )}
                     </div>
-
-                    {selectedPolicy === policy.id && (
-                      <div className="mt-3 flex items-center gap-2 text-primary">
-                        <span className="material-symbols-outlined text-sm">check_circle</span>
-                        <span className="text-sm font-medium">Selected</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -243,7 +277,7 @@ export default function PolicySelectionModal({ isOpen, onClose, onPolicySelected
               className="px-6 py-3 rounded-xl bg-primary text-background-dark font-bold hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center gap-2"
             >
               {submitting && <span className="material-symbols-outlined animate-spin">refresh</span>}
-              {submitting ? 'Selecting...' : 'Select Policy'}
+              {submitting ? 'Confirming...' : 'Confirm'}
             </button>
           </div>
         </div>

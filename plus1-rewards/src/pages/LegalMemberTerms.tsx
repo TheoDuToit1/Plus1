@@ -42,7 +42,7 @@ export function LegalMemberTerms() {
                 'Rewards are earned as a percentage of your purchase at participating partner shops.',
                 'The commission split is fixed: 1% to your Sales Agent, 1% to the +1 Rewards platform, and the remainder goes directly to your Day1 Health policy.',
                 'Rewards are applied to your active policy bucket and cannot be withdrawn as cash.',
-                'You may "spend" your Rewards Total at partner shops as a discount (minimum R10 per transaction).',
+                'You may "spend" your Rewards Total at partner businesses as a discount (minimum R10 per transaction).',
                 'You may not spend more than 50% of your Rewards Total in a single transaction.',
               ],
             },
@@ -60,7 +60,7 @@ export function LegalMemberTerms() {
             {
               icon: '⚠️', title: 'Shop Suspensions',
               points: [
-                'If a partner shop does not pay their monthly invoice, the shop will be suspended.',
+                'If a partner shop does not pay their monthly invoice, the partner will be suspended.',
                 'During suspension, rewards from that shop are paused (not deleted) and you will be notified.',
                 'Your accumulated rewards remain safe and will be restored upon shop reactivation.',
                 'The suspension popup message will read: "Shop temporarily suspended. Rewards safe."',

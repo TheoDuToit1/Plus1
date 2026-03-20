@@ -7,6 +7,8 @@ interface PolicyBatch {
   plan_name: string; monthly_target: number; amount_funded: number; status: 'activated' | 'in_progress';
 }
 
+const BLUE = '#1a558b';
+
 export function PolicyProviderDashboard() {
   const navigate = useNavigate();
   const [batches, setBatches] = useState<PolicyBatch[]>([]);
@@ -19,41 +21,30 @@ export function PolicyProviderDashboard() {
     checkAuthAndLoadData(); 
   }, []);
 
-  const checkAuthAndLoadData = async () => {
+  const checkAuthAndLoadData = () => {
     try {
-      // Check if user is authenticated
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      // Check if Day1Health provider is logged in via localStorage
+      const providerData = localStorage.getItem('currentProvider');
       
-      if (authError || !user) {
+      if (!providerData) {
         navigate('/provider/login');
         return;
       }
 
-      // Check provider status in database
-      const { data: providerData, error: providerError } = await supabase
-        .from('policy_providers')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (providerError || !providerData) {
+      const providerInfo = JSON.parse(providerData);
+      
+      // Verify it's Day1Health and status is active
+      if (providerInfo.id !== 'day1health' || providerInfo.status !== 'active') {
         localStorage.removeItem('currentProvider');
         navigate('/provider/login');
         return;
       }
 
-      // Check if provider is still active
-      if (providerData.status !== 'active') {
-        localStorage.removeItem('currentProvider');
-        await supabase.auth.signOut();
-        navigate('/provider/login');
-        return;
-      }
-
-      setProvider(providerData);
+      setProvider(providerInfo);
       loadData();
     } catch (error) {
       console.error('Auth check failed:', error);
+      localStorage.removeItem('currentProvider');
       navigate('/provider/login');
     }
   };
@@ -61,25 +52,42 @@ export function PolicyProviderDashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const { data: wallets } = await supabase.from('wallets').select('member_id, policies');
-      const { data: members } = await supabase.from('members').select('id, name, phone');
-      const memberMap = new Map(members?.map(m => [m.id, m]) || []);
-      const batchData: PolicyBatch[] = [];
-      (wallets || []).forEach(wallet => {
-        const member = memberMap.get(wallet.member_id);
-        if (!member) return;
-        const policies = wallet.policies || {};
-        Object.entries(policies).forEach(([key, pol]: [string, any]) => {
-          if (!pol.target) return;
-          batchData.push({
-            member_id: wallet.member_id, member_name: member.name, member_phone: member.phone,
-            plan_name: pol.name || key, monthly_target: pol.target || 0, amount_funded: pol.current || 0,
-            status: (pol.current || 0) >= (pol.target || 1) ? 'activated' : 'in_progress',
-          });
-        });
-      });
+      // Query policy_holders with related data
+      const { data: policyHolders, error } = await supabase
+        .from('policy_holders')
+        .select(`
+          *,
+          members(id, name, phone),
+          policy_plans(name, monthly_target)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading policy holders:', error);
+        setBatches([]);
+        return;
+      }
+
+      // Transform the data into the batch format
+      const batchData: PolicyBatch[] = (policyHolders || []).map((holder: any) => ({
+        member_id: holder.member_id,
+        member_name: holder.members?.name || 'Unknown',
+        member_phone: holder.members?.phone || 'N/A',
+        plan_name: holder.policy_plans?.name || 'Unknown Plan',
+        monthly_target: parseFloat(holder.monthly_premium || holder.policy_plans?.monthly_target || 0),
+        amount_funded: parseFloat(holder.amount_funded || 0),
+        status: (parseFloat(holder.amount_funded || 0) >= parseFloat(holder.monthly_premium || holder.policy_plans?.monthly_target || 1)) 
+          ? 'activated' 
+          : 'in_progress',
+      }));
+
       setBatches(batchData);
-    } catch { /* silent */ } finally { setLoading(false); }
+    } catch (error) {
+      console.error('Error loading data:', error);
+      setBatches([]);
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const exportCSV = () => {
@@ -95,97 +103,179 @@ export function PolicyProviderDashboard() {
     setExporting(false);
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem('currentProvider');
+    navigate('/provider/login');
+  };
+
   const activated = batches.filter(b => b.status === 'activated');
   const inProgress = batches.filter(b => b.status === 'in_progress');
   const totalValue = activated.reduce((s, b) => s + b.monthly_target, 0);
 
   return (
-    <div className="page-wrapper">
-      <header style={{ background: 'linear-gradient(135deg, #064e3b, #065f46)', color: '#fff', padding: '1rem 1.5rem' }}>
-        <div style={{ maxWidth: '80rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ width: '36px', height: '36px', background: 'rgba(255,255,255,0.15)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem' }}>🏥</div>
+    <div className="min-h-screen bg-[#f5f8fc]">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="size-12 rounded-xl flex items-center justify-center text-white" style={{ backgroundColor: BLUE }}>
+              <span className="material-symbols-outlined text-2xl">health_and_safety</span>
+            </div>
             <div>
-              <div style={{ fontWeight: 800, fontSize: '1rem' }}>{provider?.company_name || provider?.name || 'Policy Provider'} — Partner Dashboard</div>
-              <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.7)' }}>Policy batch data · {currentMonth}</div>
+              <h1 className="text-xl font-black text-gray-900">{provider?.company_name || 'Day1Health'}</h1>
+              <p className="text-sm text-gray-600">Policy Provider Dashboard · {currentMonth}</p>
             </div>
           </div>
-          <button onClick={async () => { 
-            localStorage.removeItem('currentProvider'); 
-            await supabase.auth.signOut();
-            navigate('/provider/login'); 
-          }} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: '8px', padding: '0.375rem 0.875rem', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-all text-sm font-semibold"
+          >
+            <span className="material-symbols-outlined text-lg">logout</span>
             Logout
           </button>
         </div>
       </header>
 
-      <main style={{ flex: 1, padding: '1.5rem 1rem' }}>
-        <div style={{ maxWidth: '80rem', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-            {[
-              { label: 'Activated Policies', value: String(activated.length), sub: 'Ready for coverage', color: 'var(--green-dark)' },
-              { label: 'In Progress', value: String(inProgress.length), sub: 'Still accumulating', color: 'var(--blue)' },
-              { label: 'Monthly Premium', value: `R${totalValue.toFixed(2)}`, sub: 'From activated only', color: '#064e3b' },
-              { label: 'Day1 Receives (90%)', value: `R${(totalValue * 0.9).toFixed(2)}`, sub: 'Net of platform fee', color: '#0e7490' },
-            ].map((s, i) => (
-              <div key={i} className="stat-card" style={{ borderLeft: `3px solid ${s.color}` }}>
-                <p className="stat-label">{s.label}</p>
-                <p className="stat-value" style={{ color: s.color }}>{s.value}</p>
-                <p className="stat-sub">{s.sub}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="alert alert-info">
-            📅 Batch submitted by +1 Rewards on the <strong>10th of each month</strong>. Please download your CSV for integration into your policy management system.
-          </div>
-
-          {/* Export */}
-          <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-            <div>
-              <h2 className="section-title" style={{ margin: '0 0 0.25rem' }}>Monthly Batch Export</h2>
-              <p style={{ color: 'var(--gray-text)', fontSize: '0.875rem', margin: 0 }}>{activated.length} activated members · {currentMonth}</p>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="material-symbols-outlined text-green-600 text-2xl">check_circle</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Activated</span>
             </div>
-            <button onClick={exportCSV} disabled={exporting || activated.length === 0} style={{ background: 'linear-gradient(135deg, #064e3b, #065f46)', color: '#fff', border: 'none', borderRadius: '12px', padding: '0.875rem 1.5rem', fontWeight: 800, fontSize: '0.9375rem', cursor: 'pointer', minWidth: '180px' }}>
-              {exporting ? '⏳ Exporting...' : `📥 Export CSV (${activated.length} members)`}
+            <p className="text-3xl font-black text-gray-900 mb-1">{activated.length}</p>
+            <p className="text-sm text-gray-600">Ready for coverage</p>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="material-symbols-outlined text-yellow-600 text-2xl">pending</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">In Progress</span>
+            </div>
+            <p className="text-3xl font-black text-gray-900 mb-1">{inProgress.length}</p>
+            <p className="text-sm text-gray-600">Still accumulating</p>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="material-symbols-outlined text-2xl" style={{ color: BLUE }}>payments</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Premium</span>
+            </div>
+            <p className="text-3xl font-black mb-1" style={{ color: BLUE }}>R{totalValue.toFixed(2)}</p>
+            <p className="text-sm text-gray-600">From activated only</p>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="material-symbols-outlined text-cyan-600 text-2xl">account_balance</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Day1 Receives</span>
+            </div>
+            <p className="text-3xl font-black text-cyan-600 mb-1">R{(totalValue * 0.9).toFixed(2)}</p>
+            <p className="text-sm text-gray-600">Net of platform fee (90%)</p>
+          </div>
+        </div>
+
+        {/* Info Alert */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+          <span className="material-symbols-outlined text-blue-600 text-xl flex-shrink-0">info</span>
+          <div className="text-sm text-blue-900">
+            <p className="font-semibold mb-1">Monthly Batch Submission</p>
+            <p>Batch submitted by +1 Rewards on the <strong>10th of each month</strong>. Please download your CSV for integration into your policy management system.</p>
+          </div>
+        </div>
+
+        {/* Export Section */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 className="text-xl font-black text-gray-900 mb-1">Monthly Batch Export</h2>
+              <p className="text-sm text-gray-600">{activated.length} activated members · {currentMonth}</p>
+            </div>
+            <button
+              onClick={exportCSV}
+              disabled={exporting || activated.length === 0}
+              className="flex items-center gap-2 px-6 py-3 text-white rounded-lg font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
+              style={{ backgroundColor: BLUE }}
+            >
+              <span className="material-symbols-outlined text-lg">download</span>
+              {exporting ? 'Exporting...' : `Export CSV (${activated.length} members)`}
+            </button>
+          </div>
+        </div>
+
+        {/* Activated Policies Table */}
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <span className="material-symbols-outlined" style={{ color: BLUE }}>verified</span>
+              Activated Policies ({activated.length})
+            </h3>
+            <button
+              onClick={loadData}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-all text-sm font-semibold"
+            >
+              <span className="material-symbols-outlined text-lg">refresh</span>
+              Refresh
             </button>
           </div>
 
-          {/* Activated policies */}
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--gray-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 className="section-title" style={{ margin: 0 }}>✅ Activated Policies ({activated.length})</h2>
-              <button onClick={loadData} style={{ background: '#f3f4f6', border: 'none', borderRadius: '8px', padding: '0.375rem 0.875rem', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}>🔄 Refresh</button>
+          {loading ? (
+            <div className="px-6 py-12 text-center">
+              <div className="w-10 h-10 border-4 border-gray-200 border-t-[#1a558b] rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading policies...</p>
             </div>
-            {loading ? (
-              <div style={{ padding: '3rem', textAlign: 'center' }}><div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '3px solid #a7f3d0', borderTopColor: '#064e3b', margin: '0 auto', animation: 'spin 1s linear infinite' }} /></div>
-            ) : (
-              <div className="table-wrapper">
-                <table className="data-table">
-                  <thead>
-                    <tr><th>Member</th><th>Plan</th><th>Monthly Premium</th><th>Funded</th><th>Status</th></tr>
-                  </thead>
-                  <tbody>
-                    {activated.length === 0 ? (
-                      <tr><td colSpan={5} style={{ textAlign: 'center', padding: '3rem', color: 'var(--gray-light)' }}>No activated policies yet this month</td></tr>
-                    ) : activated.map((b, i) => (
-                      <tr key={i}>
-                        <td>
-                          <p style={{ fontWeight: 700, margin: '0 0 2px' }}>{b.member_name}</p>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--gray-light)', margin: 0 }}>{b.member_phone}</p>
-                        </td>
-                        <td style={{ fontWeight: 600 }}>{b.plan_name}</td>
-                        <td style={{ fontWeight: 700 }}>R{b.monthly_target.toFixed(2)}</td>
-                        <td style={{ fontWeight: 700, color: 'var(--green-dark)' }}>R{b.amount_funded.toFixed(2)}</td>
-                        <td><span className="badge badge-green">✓ Activated</span></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+          ) : activated.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <span className="material-symbols-outlined text-gray-300 text-6xl mb-4">policy</span>
+              <p className="text-gray-600">No activated policies yet this month</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-gray-50">
+                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Member</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Plan</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Monthly Premium</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Funded</th>
+                    <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {activated.map((b, i) => (
+                    <tr key={i} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-4">
+                        <p className="text-sm font-semibold text-gray-900">{b.member_name}</p>
+                        <p className="text-xs text-gray-600">{b.member_phone}</p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="text-sm font-semibold text-gray-900">{b.plan_name}</span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="text-sm font-bold text-gray-900">R{b.monthly_target.toFixed(2)}</span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="text-sm font-bold text-green-600">R{b.amount_funded.toFixed(2)}</span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-green-500/20 text-green-600 border border-green-500/30">
+                          <span className="size-1.5 rounded-full bg-green-600"></span>
+                          Activated
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
+            <p className="text-[10px] text-gray-600 font-medium uppercase tracking-widest text-center">
+              Showing {activated.length} activated policies for {currentMonth}
+            </p>
           </div>
         </div>
       </main>

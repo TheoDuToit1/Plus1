@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../lib/supabase";
+import { supabaseAdmin } from "../lib/supabase";
+import IncompleteProfileAlerts from "../components/admin/IncompleteProfileAlerts";
 
 interface Entity {
   id: string; name: string; email?: string; phone?: string; status: string; 
@@ -14,7 +15,7 @@ interface PolicyData {
 }
 
 interface TransactionData {
-  id: string; shop_name: string; member_name: string; agent_name?: string;
+  id: string; partner_name: string; member_name: string; agent_name?: string;
   purchase_amount: number; member_reward: number; agent_commission: number;
   platform_fee: number; status: string; created_at: string;
 }
@@ -37,6 +38,7 @@ interface ComprehensiveStats {
 }
 
 export function AdminDashboard() {
+  console.log('🚀 AdminDashboard component loaded!');
   const navigate = useNavigate();
   const [stats, setStats] = useState<ComprehensiveStats>({
     totalMembers: 0, activeMembers: 0, totalShops: 0, activeShops: 0, suspendedShops: 0,
@@ -56,9 +58,93 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<'overview' | 'members' | 'shops' | 'agents' | 'providers' | 'policies' | 'transactions'>('overview');
 
-  useEffect(() => { loadComprehensiveData(); }, []);
+  useEffect(() => { 
+    console.log('🎯 useEffect triggered - calling loadComprehensiveData');
+    loadComprehensiveData(); 
+  }, []);
+
+  const checkMembersNeedingProfileCompletion = async (members: any[]) => {
+    try {
+      const membersNeedingAttention = [];
+      
+      console.log('🔍 Checking members for profile completion:', members.length);
+      if (members.length > 0) {
+        console.log('📋 First member sample:', JSON.stringify(members[0], null, 2));
+      }
+      
+      for (const member of members) {
+        try {
+          // Check if profile is incomplete (temp email or no SA ID)
+          const hasIncompleteProfile = 
+            !member.email || 
+            member.email.includes('@plus1rewards.local') || 
+            !member.sa_id;
+          
+          console.log(`Member ${member.name}: incomplete=${hasIncompleteProfile}, has_policy=${!!member.active_policy}, email=${member.email}`);
+          
+          // Skip if profile is complete OR no active policy
+          if (!hasIncompleteProfile || !member.active_policy) continue;
+          
+          // Get member's policy plan to check target
+          const { data: policyPlan, error: planError } = await supabaseAdmin
+            .from('policy_plans')
+            .select('monthly_target')
+            .eq('id', member.active_policy)
+            .single();
+          
+          if (planError) {
+            console.log(`Error fetching policy plan for member ${member.name}:`, planError);
+            continue;
+          }
+          
+          if (!policyPlan) {
+            console.log(`No policy plan found for member ${member.name}`);
+            continue;
+          }
+          
+          // Get member's total rewards
+          const { data: wallets, error: walletsError } = await supabaseAdmin
+            .from('wallets')
+            .select('rewards_total')
+            .eq('member_id', member.id);
+          
+          if (walletsError) {
+            console.log(`Error fetching wallets for member ${member.name}:`, walletsError);
+            continue;
+          }
+          
+          const totalRewards = (wallets || []).reduce((sum, w) => sum + (w.rewards_total || 0), 0);
+          const percentComplete = (totalRewards / policyPlan.monthly_target) * 100;
+          
+          console.log(`Member ${member.name}: ${percentComplete.toFixed(1)}% complete (R${totalRewards}/R${policyPlan.monthly_target})`);
+          
+          // Alert if 90% or more complete
+          if (percentComplete >= 90) {
+            console.log(`⚠️ ALERT: Member ${member.name} needs profile verification!`);
+            membersNeedingAttention.push({
+              id: member.id,
+              name: member.name,
+              phone: member.phone,
+              percentComplete: percentComplete.toFixed(1),
+              amountFunded: totalRewards,
+              target: policyPlan.monthly_target
+            });
+          }
+        } catch (memberError) {
+          console.error(`Error processing member ${member.name}:`, memberError);
+        }
+      }
+      
+      console.log('✅ Members needing attention:', membersNeedingAttention);
+      return membersNeedingAttention;
+    } catch (error) {
+      console.error('❌ Error in checkMembersNeedingProfileCompletion:', error);
+      return [];
+    }
+  };
 
   const loadComprehensiveData = async () => {
+    console.log('🔄 loadComprehensiveData started');
     setLoading(true);
     try {
       // Load all entity data in parallel
@@ -66,10 +152,28 @@ export function AdminDashboard() {
         membersResult, shopsResult, agentsResult, providersResult,
         policiesResult, transactionsResult, invoicesResult
       ] = await Promise.all([
-        supabase.from("members").select("*").order('created_at', { ascending: false }),
-        supabase.from("shops").select("*").order('created_at', { ascending: false }),
-        supabase.from("agents").select("*").order('created_at', { ascending: false }),
-        supabase.from("policy_providers").select("*").order('created_at', { ascending: false }).then(result => {
+        supabaseAdmin.from("members").select("*").order('created_at', { ascending: false }).then(result => {
+          if (result.error) {
+            console.error('members query error:', result.error);
+            return { data: [], error: null };
+          }
+          return result;
+        }),
+        supabaseAdmin.from("partners").select("*").order('created_at', { ascending: false }).then(result => {
+          if (result.error) {
+            console.error('partners query error:', result.error);
+            return { data: [], error: null };
+          }
+          return result;
+        }),
+        supabaseAdmin.from("agents").select("*").order('created_at', { ascending: false }).then(result => {
+          if (result.error) {
+            console.error('agents query error:', result.error);
+            return { data: [], error: null };
+          }
+          return result;
+        }),
+        supabaseAdmin.from("policy_providers").select("*").order('created_at', { ascending: false }).then(result => {
           // Handle case where policy_providers table doesn't exist
           if (result.error && result.error.code === 'PGRST116') {
             console.warn('policy_providers table does not exist yet');
@@ -77,7 +181,7 @@ export function AdminDashboard() {
           }
           return result;
         }),
-        supabase.from("policy_holders").select(`
+        supabaseAdmin.from("policy_holders").select(`
           *, policy_plans(name, monthly_target), 
           policy_providers(name), members(name)
         `).order('created_at', { ascending: false }).then(result => {
@@ -88,10 +192,24 @@ export function AdminDashboard() {
           }
           return result;
         }),
-        supabase.from("transactions").select(`
-          *, shops(name), members(name), agents(name)
-        `).order('created_at', { ascending: false }).limit(50),
-        supabase.from("monthly_invoices").select("*")
+        supabaseAdmin.from("transactions").select(`
+          *, partners(name), members(name), agents(name)
+        `).order('created_at', { ascending: false }).limit(50).then(result => {
+          // Handle case where transactions table has issues
+          if (result.error) {
+            console.warn('transactions query error:', result.error);
+            return { data: [], error: null };
+          }
+          return result;
+        }),
+        supabaseAdmin.from("monthly_invoices").select("*").then(result => {
+          // Handle case where monthly_invoices table doesn't exist
+          if (result.error && result.error.code === 'PGRST116') {
+            console.warn('monthly_invoices table does not exist yet');
+            return { data: [], error: null };
+          }
+          return result;
+        })
       ]);
 
       const members = membersResult.data || [];
@@ -159,7 +277,7 @@ export function AdminDashboard() {
 
       setRecentTransactions(transactions.slice(0, 20).map(t => ({
         id: t.id,
-        shop_name: t.shops?.name || 'Unknown Shop',
+        partner_name: t.partners?.name || 'Unknown Partner',
         member_name: t.members?.name || 'Unknown Member',
         agent_name: t.agents?.name,
         purchase_amount: t.purchase_amount || 0,
@@ -172,6 +290,20 @@ export function AdminDashboard() {
 
       // Generate alerts
       const newAlerts = [];
+      
+      console.log('🔍 About to check members needing profile completion...');
+      // Check for members at 90%+ policy completion with incomplete profiles
+      const membersNeedingProfileCompletion = await checkMembersNeedingProfileCompletion(members);
+      console.log('✅ checkMembersNeedingProfileCompletion returned:', membersNeedingProfileCompletion);
+      if (membersNeedingProfileCompletion.length > 0) {
+        newAlerts.push({
+          id: 'incomplete-profiles-90',
+          type: 'warning' as const,
+          message: `${membersNeedingProfileCompletion.length} member(s) at 90%+ policy completion need profile verification`,
+          action: () => navigate('/admin/members')
+        });
+      }
+      
       if (comprehensiveStats.suspendedShops > 0) {
         newAlerts.push({
           id: 'suspended-shops',
@@ -205,9 +337,11 @@ export function AdminDashboard() {
       }
 
       setAlerts(newAlerts);
+      console.log('✅ Alerts set:', newAlerts);
 
     } catch (error) {
-      console.error('Failed to load dashboard data:', error);
+      console.error('❌ Failed to load dashboard data:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       setAlerts([{
         id: 'load-error',
         type: 'error',
@@ -220,7 +354,7 @@ export function AdminDashboard() {
 
   const updateEntityStatus = async (entityType: string, id: string, newStatus: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from(entityType)
         .update({ status: newStatus })
         .eq('id', id);
@@ -238,7 +372,7 @@ export function AdminDashboard() {
     if (!confirm('Are you sure you want to delete this record? This action cannot be undone.')) return;
     
     try {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from(entityType)
         .delete()
         .eq('id', id);
@@ -327,6 +461,9 @@ export function AdminDashboard() {
               ))}
             </div>
           )}
+
+          {/* Incomplete Profile Alerts */}
+          <IncompleteProfileAlerts />
 
           {/* Navigation Tabs */}
           <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '2px solid var(--gray-border)', paddingBottom: '0.5rem' }}>
@@ -851,7 +988,7 @@ export function AdminDashboard() {
                     {recentTransactions.map(transaction => (
                       <tr key={transaction.id}>
                         <td>
-                          <div style={{ fontWeight: 600 }}>{transaction.shop_name}</div>
+                          <div style={{ fontWeight: 600 }}>{transaction.partner_name}</div>
                         </td>
                         <td>
                           <div style={{ fontWeight: 600 }}>{transaction.member_name}</div>

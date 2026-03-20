@@ -9,8 +9,8 @@ export default function Sidebar() {
 
   const getLinkClasses = (path: string) => {
     return isActive(path)
-      ? "flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 text-primary group"
-      : "flex items-center gap-3 px-3 py-2 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-primary/5 hover:text-primary transition-colors";
+      ? "flex items-center gap-3 px-3 py-2 rounded-lg bg-[#1a558b]/10 text-[#1a558b] group"
+      : "flex items-center gap-3 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-[#1a558b] transition-colors";
   };
 
   const getTextClasses = (path: string) => {
@@ -18,12 +18,12 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="w-64 flex-shrink-0 bg-slate-50 dark:bg-background-dark/50 overflow-y-auto hidden md:block" style={{borderRight: '0.2px solid rgba(17, 212, 82, 0.1)'}}>
+    <aside className="w-64 flex-shrink-0 bg-white border-r border-gray-200 overflow-y-auto hidden md:block">
       <div className="flex items-center gap-3 px-6 py-8">
-        <div className="size-8 bg-primary rounded-lg flex items-center justify-center text-background-dark">
+        <div className="size-8 bg-[#1a558b] rounded-lg flex items-center justify-center text-white">
           <span className="material-symbols-outlined font-bold">add</span>
         </div>
-        <h2 className="text-xl font-extrabold tracking-tight">+1 Rewards</h2>
+        <h2 className="text-xl font-extrabold tracking-tight text-gray-900">+1 Rewards</h2>
       </div>
       
       <nav className="px-4 space-y-1">
@@ -37,19 +37,14 @@ export default function Sidebar() {
           <span className={getTextClasses('/admin/members')}>Members</span>
         </a>
         
-        <a className={getLinkClasses('/admin/shops')} href="/admin/shops">
+        <a className={getLinkClasses('/admin/partners')} href="/admin/partners">
           <span className="material-symbols-outlined">storefront</span>
-          <span className={getTextClasses('/admin/shops')}>Shops</span>
+          <span className={getTextClasses('/admin/partners')}>Partners</span>
         </a>
         
         <a className={getLinkClasses('/admin/agents')} href="/admin/agents">
           <span className="material-symbols-outlined">support_agent</span>
           <span className={getTextClasses('/admin/agents')}>Agents</span>
-        </a>
-        
-        <a className={getLinkClasses('/admin/providers')} href="/admin/providers">
-          <span className="material-symbols-outlined">handshake</span>
-          <span className={getTextClasses('/admin/providers')}>Policy Providers</span>
         </a>
         
         <a className={getLinkClasses('/admin/policies')} href="/admin/policies">
@@ -64,14 +59,14 @@ export default function Sidebar() {
       </nav>
       
       <div className="mt-10 px-4">
-        <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
-          <p className="text-xs font-bold uppercase tracking-wider text-primary mb-2">System Health</p>
+        <div className="p-4 rounded-xl bg-[#1a558b]/5 border border-[#1a558b]/10">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#1a558b] mb-2">System Health</p>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-slate-500">All Entities Active</span>
-            <span className="text-xs font-bold text-primary">100%</span>
+            <span className="text-xs text-gray-600">All Entities Active</span>
+            <span className="text-xs font-bold text-[#1a558b]">100%</span>
           </div>
-          <div className="w-full bg-primary/10 rounded-full h-1.5">
-            <div className="bg-primary h-1.5 rounded-full w-full"></div>
+          <div className="w-full bg-[#1a558b]/10 rounded-full h-1.5">
+            <div className="bg-[#1a558b] h-1.5 rounded-full w-full"></div>
           </div>
         </div>
       </div>

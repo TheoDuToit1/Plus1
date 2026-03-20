@@ -1,37 +1,76 @@
 // plus1-rewards/src/components/landing/Hero.tsx
+const BLUE = '#1a558b'
+const BLUE_LIGHT = 'rgba(26,85,139,0.10)'
+const BLUE_BORDER = 'rgba(26,85,139,0.25)'
+
 export default function Hero() {
   return (
-    <section className="relative flex items-center justify-center overflow-hidden px-6 lg:px-20 min-h-screen" style={{ backgroundColor: '#0f172a' }}>
-      <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-r from-background-dark via-background-dark/80 to-transparent z-10"></div>
-        <img 
-          alt="Diverse South African community interaction" 
-          className="w-full h-full object-cover" 
-          data-alt="Group of diverse South Africans smiling together" 
-          src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfha4EBtr84DEQA3YUQQlyyGe9JSEYyv2QGO_dbyr4evkRYCmACGBW1m-NAIk_6WliSU0YtVSXBJ3k40ojpkqsN_ACJQdbO747qnhGTF7tD_juouqyHB0bKcj6SJPg-qWe4h_wdZsuZ4-YdY8R_PtBnzT7n4_sSqH_dGgii_EiXBvJZzFPeIKkaE4Cw3HMrtOKMs3QfKP6sddvqtgoKq34z3i2EJ7V5aNyZlfJNbGvEFgR7sRq_UDp9n41TnNif2xffMJfEPReOiui" 
+    <section
+      className="relative flex items-center overflow-hidden px-6 lg:px-20 min-h-[90vh] pt-20"
+      style={{ backgroundColor: '#f5f8fc' }}
+    >
+      {/* Right image panel */}
+      <div className="absolute top-0 right-0 w-[52%] h-full z-0 overflow-hidden rounded-bl-[80px]">
+        <img
+          alt="Diverse South African community interaction"
+          className="w-full h-full object-cover"
+          src="/background hero section.png"
         />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#f5f8fc] via-[#f5f8fc]/20 to-transparent" />
       </div>
-      <div className="relative z-20 max-w-7xl w-full grid md:grid-cols-2 gap-12 items-center">
-        <div className="flex flex-col gap-8">
-          <div className="space-y-4">
-            <span className="inline-block px-4 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold uppercase tracking-widest border border-primary/20">
-              Revolutionizing Healthcare
-            </span>
-            <h1 className="text-5xl lg:text-7xl font-black leading-[1.1] tracking-tight text-white">
-              Shop. Earn. <br/><span className="text-primary underline decoration-primary/30 underline-offset-8">Cover your health.</span>
-            </h1>
-            <p className="text-lg lg:text-xl text-slate-300 max-w-lg leading-relaxed">
-              The innovative rewards program that turns your everyday grocery shopping into comprehensive healthcare coverage for your family.
-            </p>
-          </div>
+
+      <div className="relative z-10 w-full max-w-7xl mx-auto py-24">
+        <div className="flex flex-col gap-8 max-w-2xl">
+          {/* Badge */}
+          <span
+            className="inline-flex w-fit items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border"
+            style={{ backgroundColor: BLUE_LIGHT, color: BLUE, borderColor: BLUE_BORDER }}
+          >
+            <span className="material-symbols-outlined text-sm" style={{ color: BLUE }}>health_and_safety</span>
+            Revolutionizing Healthcare Access
+          </span>
+
+          {/* Headline */}
+          <h1 className="text-5xl lg:text-6xl font-black leading-tight tracking-tight text-gray-900">
+            Health Cover for All.<br />
+            <span style={{ color: BLUE }}>Shop local. </span>
+            <span style={{ color: BLUE }}>Earn rands. </span>
+            <br />
+            <span style={{ color: BLUE }}>Get covered.</span>
+          </h1>
+
+          {/* Subtext */}
+          <p className="text-lg text-gray-600 max-w-lg leading-relaxed">
+            Join +1 Rewards and earn cashback in rands — not points — at participating businesses near you. Your cashback pays directly toward your Day1Health medical cover plan.
+          </p>
+
+          {/* CTAs */}
           <div className="flex flex-col sm:flex-row gap-4">
-            <button className="bg-primary hover:bg-primary/90 text-background-dark px-8 py-4 rounded-xl font-bold text-lg transition-all flex items-center justify-center gap-2">
+            <button
+              className="flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-bold text-lg transition-all shadow-md text-white hover:opacity-90"
+              style={{ backgroundColor: BLUE }}
+              onClick={() => window.location.href = '/member/register'}
+            >
               Get Started Now
               <span className="material-symbols-outlined">arrow_forward</span>
             </button>
-            <button className="bg-white/5 hover:bg-white/10 border border-white/10 text-white px-8 py-4 rounded-xl font-bold text-lg transition-all">
+            <button
+              className="px-8 py-4 rounded-xl font-bold text-lg transition-all border-2 hover:bg-blue-50"
+              style={{ borderColor: BLUE, color: BLUE }}
+              onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })}
+            >
               Learn More
             </button>
+          </div>
+
+          {/* Trust indicators */}
+          <div className="flex flex-wrap items-center gap-6 mt-1">
+            {['No joining fee', 'Works 100% offline', 'FSP Licensed'].map((item) => (
+              <div key={item} className="flex items-center gap-2 text-sm text-gray-500">
+                <span className="material-symbols-outlined text-base" style={{ color: BLUE }}>check_circle</span>
+                {item}
+              </div>
+            ))}
           </div>
         </div>
       </div>

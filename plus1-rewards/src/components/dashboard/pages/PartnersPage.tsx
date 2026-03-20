@@ -1,0 +1,925 @@
+// plus1-rewards/src/components/dashboard/pages/PartnersPage.tsx
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import DashboardLayout from '../DashboardLayout';
+import StatCard from '../components/StatCard';
+import { supabaseAdmin } from '../../../lib/supabase';
+
+export default function PartnersPage() {
+  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [partners, setPartners] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    totalPartners: 0,
+    verified: 0,
+    pending: 0,
+    transactions: 0,
+    revenue: 0
+  });
+  const [loading, setLoading] = useState(true);
+  const [selectedPartner, setSelectedPartner] = useState<any>(null);
+  const [partnerDetails, setPartnerDetails] = useState<any>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    status: '',
+    businessType: '',
+    location: ''
+  });
+
+  useEffect(() => {
+    console.log('selectedPartner changed:', selectedPartner);
+  }, [selectedPartner]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Fetch partners
+      const { data: partnersData, error: shopsError } = await supabaseAdmin
+        .from('partners')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (shopsError) throw shopsError;
+
+      // Fetch transactions for revenue calculation
+      const { data: transactionsData, error: transError} = await supabaseAdmin
+        .from('transactions')
+        .select('partner_id, partner_contribution');
+
+      if (transError) throw transError;
+
+      // Calculate stats
+      const totalPartners = partnersData?.length || 0;
+      const verified = partnersData?.filter(s => s.status === 'active' && s.approved_at)?.length || 0;
+      const pending = partnersData?.filter(s => s.status === 'pending')?.length || 0;
+      const transactions = transactionsData?.length || 0;
+      const revenue = transactionsData?.reduce((sum, t) => sum + (parseFloat(t.partner_contribution) || 0), 0) || 0;
+
+      setStats({
+        totalPartners,
+        verified,
+        pending,
+        transactions,
+        revenue
+      });
+
+      setPartners(partnersData || []);
+    } catch (error) {
+      console.error('Error fetching partners:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleApprovePartner = async (partnerId: string) => {
+    try {
+      const { error } = await supabaseAdmin
+        .from('partners')
+        .update({ 
+          status: 'active', 
+          approved_at: new Date().toISOString(),
+          approved_by: null
+        })
+        .eq('id', partnerId);
+
+      if (error) throw error;
+      
+      alert('Partner approved successfully!');
+      fetchData();
+    } catch (error) {
+      console.error('Error approving partner:', error);
+      alert('Failed to approve partner. Please try again.');
+    }
+  };
+
+  const handleRejectPartner = async (partnerId: string) => {
+    if (confirm('Are you sure you want to reject this partner application?')) {
+      try {
+        const { error } = await supabaseAdmin
+          .from('partners')
+          .update({ status: 'suspended' })
+          .eq('id', partnerId);
+
+        if (error) throw error;
+        
+        alert('Partner application rejected.');
+        fetchData();
+      } catch (error) {
+        console.error('Error rejecting partner:', error);
+        alert('Failed to reject partner. Please try again.');
+      }
+    }
+  };
+
+  const fetchPartnerDetails = async (partnerId: string) => {
+    setDetailsLoading(true);
+    try {
+      const { data: partner } = await supabaseAdmin
+        .from('partners')
+        .select('*')
+        .eq('id', partnerId)
+        .single();
+
+      const { data: wallets } = await supabaseAdmin
+        .from('wallets')
+        .select('*, members(name, phone)')
+        .eq('partner_id', partnerId);
+
+      const { data: transactions } = await supabaseAdmin
+        .from('transactions')
+        .select(`
+          *,
+          members(name, phone),
+          agents(name)
+        `)
+        .eq('partner_id', partnerId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      const { data: invoices } = await supabaseAdmin
+        .from('monthly_invoices')
+        .select('*')
+        .eq('partner_id', partnerId)
+        .order('invoice_month', { ascending: false });
+
+      setPartnerDetails({
+        partner,
+        wallets: wallets || [],
+        transactions: transactions || [],
+        invoices: invoices || []
+      });
+    } catch (error) {
+      console.error('Error fetching partner details:', error);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const handleViewDetails = (partner: any) => {
+    console.log('View Details clicked for partner:', partner.name);
+    setSelectedPartner(partner);
+    fetchPartnerDetails(partner.id);
+  };
+
+  const closeDetailsModal = () => {
+    setSelectedPartner(null);
+    setPartnerDetails(null);
+  };
+
+  const filteredPartners = partners.filter(s => {
+    // Advanced Search
+    const searchLower = searchTerm.toLowerCase().trim();
+    const searchTerms = searchLower.split(/\s+/);
+    
+    const matchesSearch = searchLower === '' || searchTerms.every(term => 
+      s.name?.toLowerCase().includes(term) ||
+      s.phone?.includes(term) ||
+      s.email?.toLowerCase().includes(term) ||
+      s.id?.toLowerCase().includes(term) ||
+      s.location?.toLowerCase().includes(term) ||
+      s.business_type?.toLowerCase().includes(term) ||
+      s.suburb?.toLowerCase().includes(term) ||
+      s.city?.toLowerCase().includes(term)
+    );
+
+    // Filters
+    const matchesStatus = filters.status === '' || s.status === filters.status;
+    const matchesType = filters.businessType === '' || s.business_type === filters.businessType;
+    const matchesLocation = filters.location === '' || 
+      s.location?.toLowerCase().includes(filters.location.toLowerCase()) ||
+      s.city?.toLowerCase().includes(filters.location.toLowerCase()) ||
+      s.suburb?.toLowerCase().includes(filters.location.toLowerCase());
+
+    return matchesSearch && matchesStatus && matchesType && matchesLocation;
+  });
+
+  const handleExport = () => {
+    const csv = [
+      ['ID', 'Name', 'Phone', 'Email', 'Commission Rate', 'Status', 'Location', 'Bank Name', 'Account', 'Joined'].join(','),
+      ...partners.map(s => [
+        s.id,
+        s.name,
+        s.phone || '',
+        s.email || '',
+        s.commission_rate || '',
+        s.status,
+        s.location || '',
+        s.bank_name || '',
+        s.bank_account || '',
+        new Date(s.created_at).toLocaleDateString()
+      ].join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `partners-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  };
+
+  const handleRefresh = () => {
+    fetchData();
+  };
+
+  const handleFilter = () => {
+    setShowFilters(!showFilters);
+  };
+
+  const handleLogout = () => {
+    navigate('/');
+  };
+
+  const statsData = [
+    {
+      icon: 'storefront',
+      title: 'Total partners',
+      value: stats.totalPartners.toString(),
+      change: '+0%',
+      description: 'All partners'
+    },
+    {
+      icon: 'check_circle',
+      title: 'Active',
+      value: stats.verified.toString(),
+      change: '+0%',
+      description: 'Approved partners'
+    },
+    {
+      icon: 'pending',
+      title: 'Pending Approval',
+      value: stats.pending.toString(),
+      change: '+0%',
+      description: 'Awaiting approval'
+    },
+    {
+      icon: 'payments',
+      title: 'Revenue',
+      value: `R${stats.revenue.toFixed(2)}`,
+      change: '+0%',
+      description: 'Total collected'
+    }
+  ];
+
+  return (
+    <>
+      <DashboardLayout>
+        <main className="flex-1 overflow-y-auto bg-[#f5f8fc]">
+          {/* Topbar */}
+          <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 md:p-10 pb-6">
+            <div className="flex-1 max-w-2xl">
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xl">
+                  search
+                </span>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-white border border-gray-200 rounded-lg py-2.5 pl-10 pr-4 text-sm text-gray-900 focus:ring-2 focus:ring-[#1a558b] focus:border-[#1a558b] outline-none transition-all placeholder:text-gray-400"
+                  placeholder="Search partners, transactions or IDs..."
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleRefresh}
+                className="flex items-center gap-2 px-5 py-2.5 font-bold rounded-lg border border-[#1a558b] bg-white text-[#1a558b] hover:bg-[#1a558b] hover:text-white transition-all text-sm"
+              >
+                <span className="material-symbols-outlined text-lg">refresh</span>
+                Refresh
+              </button>
+
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-5 py-2.5 bg-[#1a558b] text-white rounded-lg hover:opacity-90 transition-all text-sm"
+              >
+                <span className="material-symbols-outlined text-lg">logout</span>
+                Logout
+              </button>
+            </div>
+          </header>
+
+          <div className="px-6 md:px-10 pb-10">
+            {/* Page Title */}
+            <div className="mb-8">
+              <h2 className="text-3xl font-black text-gray-900 tracking-tight">Partners Management</h2>
+              <p className="text-gray-600 mt-1">Manage partner shops and their transactions</p>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+              {statsData.map((stat, index) => (
+                <StatCard
+                  key={index}
+                  icon={stat.icon}
+                  title={stat.title}
+                  value={stat.value}
+                  change={stat.change}
+                  description={stat.description}
+                />
+              ))}
+            </div>
+
+            {/* partners List Table */}
+            <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-2xl">
+              <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#1a558b]">list_alt</span>
+                  All partners ({filteredPartners.length})
+                </h3>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={handleFilter}
+                    className={`text-xs flex items-center gap-1 font-medium transition-colors ${showFilters ? 'text-[#1a558b]' : 'text-gray-600 hover:text-[#1a558b]'}`}
+                  >
+                    <span className="material-symbols-outlined text-sm">{showFilters ? 'filter_list_off' : 'filter_list'}</span>
+                    {showFilters ? 'Hide Filters' : 'Filter'}
+                  </button>
+                  <button 
+                    onClick={handleExport}
+                    className="text-xs text-gray-600 hover:text-[#1a558b] flex items-center gap-1 font-medium transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-sm">download</span>
+                    Export CSV
+                  </button>
+                </div>
+              </div>
+
+              {/* Advanced Filter Bar */}
+              {showFilters && (
+                <div className="px-6 py-4 border-b border-gray-200 bg-white grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-top duration-200">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Partner Status</label>
+                    <select 
+                      value={filters.status}
+                      onChange={(e) => setFilters({...filters, status: e.target.value})}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-3 text-xs text-gray-900 focus:ring-1 focus:ring-[#1a558b] outline-none"
+                    >
+                      <option value="">All Statuses</option>
+                      <option value="active">Active</option>
+                      <option value="pending">Pending</option>
+                      <option value="suspended">Suspended</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Business Type</label>
+                    <select 
+                      value={filters.businessType}
+                      onChange={(e) => setFilters({...filters, businessType: e.target.value})}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-3 text-xs text-gray-900 focus:ring-1 focus:ring-[#1a558b] outline-none"
+                    >
+                      <option value="">All Types</option>
+                      <option value="Retail">Retail</option>
+                      <option value="Service">Service</option>
+                      <option value="Food & Beverage">Food & Beverage</option>
+                      <option value="Pharmacy">Pharmacy</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Location Search</label>
+                    <input 
+                      type="text"
+                      placeholder="City, suburb or address..."
+                      value={filters.location}
+                      onChange={(e) => setFilters({...filters, location: e.target.value})}
+                      className="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-3 text-xs text-gray-900 focus:ring-1 focus:ring-[#1a558b] outline-none"
+                    />
+                  </div>
+                  <div className="md:col-span-3 flex justify-end">
+                    <button 
+                      onClick={() => setFilters({ status: '', businessType: '', location: '' })}
+                      className="text-[10px] font-bold text-[#1a558b] hover:underline uppercase tracking-widest"
+                    >
+                      Reset All Filters
+                    </button>
+                  </div>
+                </div>
+              )}
+              {loading ? (
+                <div className="px-6 py-12 text-center">
+                  <p className="text-gray-600">Loading partners...</p>
+                </div>
+              ) : filteredPartners.length === 0 ? (
+                <div className="px-6 py-12 text-center">
+                  <p className="text-gray-600">No partners found</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Partner</th>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Contact</th>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Location</th>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Owner</th>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Commission</th>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Status</th>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Bank Details</th>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Registration</th>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Approval</th>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {filteredPartners.map((partner) => (
+                        <tr key={partner.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-4">
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900">{partner.name}</div>
+                              <div className="text-[10px] font-mono text-gray-600">{partner.id.substring(0, 8)}</div>
+                              {partner.business_type && (
+                                <div className="text-[10px] text-gray-600 mt-0.5">{partner.business_type}</div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="text-xs text-slate-300">{partner.phone || 'No phone'}</div>
+                            <div className="text-[10px] text-gray-600">{partner.email || 'No email'}</div>
+                            {partner.website && (
+                              <div className="text-[10px] text-blue-400 mt-0.5">{partner.website}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="text-xs text-slate-300">{partner.location || '-'}</div>
+                            {partner.address && (
+                              <div className="text-[10px] text-gray-600 mt-0.5">{partner.address}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="text-xs text-slate-300">{partner.owner_name || '-'}</div>
+                            {partner.owner_id_number && (
+                              <div className="text-[10px] text-gray-600 mt-0.5">ID: {partner.owner_id_number}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className="text-sm font-bold text-[#1a558b]">{partner.commission_rate}%</span>
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                              partner.status === 'active' 
+                                ? 'bg-[#1a558b]/20 text-[#1a558b] border border-[#1a558b]/30'
+                                : partner.status === 'pending'
+                                ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                                : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                            }`}>
+                              <span className={`size-1.5 rounded-full ${
+                                partner.status === 'active' ? 'bg-[#1a558b]' : 
+                                partner.status === 'pending' ? 'bg-yellow-400' : 'bg-red-400'
+                              }`}></span>
+                              {partner.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="text-xs text-slate-300">{partner.bank_name || '-'}</div>
+                            <div className="text-[10px] text-gray-600">{partner.bank_account || '-'}</div>
+                            {partner.branch_code && (
+                              <div className="text-[10px] text-gray-600 mt-0.5">Branch: {partner.branch_code}</div>
+                            )}
+                          </td>
+                          <td className="px-4 py-4">
+                            <div className="text-xs text-gray-600">{new Date(partner.created_at).toLocaleDateString()}</div>
+                            <div className="text-[10px] text-gray-600">{new Date(partner.created_at).toLocaleTimeString()}</div>
+                          </td>
+                          <td className="px-4 py-4">
+                            {partner.approved_at ? (
+                              <>
+                                <div className="text-xs text-green-400">{new Date(partner.approved_at).toLocaleDateString()}</div>
+                                {partner.approved_by && (
+                                  <div className="text-[10px] text-gray-600">By: {partner.approved_by}</div>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-xs text-gray-600">Not approved</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4">
+                            <button
+                              onClick={() => handleViewDetails(partner)}
+                              className="px-3 py-1.5 bg-[#1a558b] text-white rounded-lg text-xs font-bold hover:opacity-80 transition-opacity"
+                            >
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
+                <p className="text-[10px] text-gray-600 font-medium uppercase tracking-widest text-center">
+                  Showing {filteredPartners.length} of {partners.length} total partners
+                </p>
+              </div>
+            </div>
+
+            {/* Footer Copyright */}
+            <div className="mt-12 text-center">
+              <p className="text-[10px] text-gray-600 font-bold tracking-[0.2em] uppercase">
+                © 2024 +1 Rewards Platform Management • Secured Admin Access
+              </p>
+            </div>
+          </div>
+        </main>
+      </DashboardLayout>
+
+      {/* Detailed Shop Modal */}
+      {selectedPartner && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)' }}>
+          <div className="border border-gray-200 rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col" style={{ backgroundColor: '#ffffff' }}>
+            {/* Modal Header */}
+            <div className="border-b border-gray-200 px-8 py-6 flex items-center justify-between flex-shrink-0" style={{ backgroundColor: '#ffffff' }}>
+              <div>
+                <h2 className="text-2xl font-black text-gray-900">{selectedPartner.name}</h2>
+                <p className="text-sm text-gray-600 mt-1">Complete Partner Information</p>
+              </div>
+              <button
+                onClick={closeDetailsModal}
+                className="size-10 rounded-full bg-red-100 hover:bg-red-200 text-red-600 flex items-center justify-center transition-colors"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            {/* Modal Content - Scrollable */}
+            <div className="overflow-y-auto flex-1">
+              {detailsLoading ? (
+                <div className="px-8 py-12 text-center bg-gray-50">
+                  <p className="text-gray-600">Loading partner details...</p>
+                </div>
+              ) : partnerDetails ? (
+                <div className="px-8 py-6 space-y-8 bg-gray-50">
+                {/* Basic Information */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">info</span>
+                    Basic Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Partner ID</p>
+                      <p className="text-sm text-gray-900 font-mono">{partnerDetails.partner.id}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Partner Name</p>
+                      <p className="text-sm text-gray-900 font-semibold">{partnerDetails.partner.name}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Business Type</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.business_type || 'Not specified'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Status</p>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase ${
+                        partnerDetails.partner.status === 'active' 
+                          ? 'bg-[#1a558b]/20 text-[#1a558b] border border-[#1a558b]/30'
+                          : partnerDetails.partner.status === 'pending'
+                          ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                          : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                      }`}>
+                        {partnerDetails.partner.status}
+                      </span>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Commission Rate</p>
+                      <p className="text-lg text-[#1a558b] font-bold">{partnerDetails.partner.commission_rate}%</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Registration Number</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.registration_number || 'Not provided'}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Contact Information */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">contact_phone</span>
+                    Contact Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Phone Number</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.phone || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Email Address</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.email || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Website</p>
+                      <p className="text-sm text-blue-400">{partnerDetails.partner.website || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Location</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.location || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4 md:col-span-2">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Physical Address</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.address || 'Not provided'}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Owner Information */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">person</span>
+                    Owner Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Owner Name</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.owner_name || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Owner ID Number</p>
+                      <p className="text-sm text-gray-900 font-mono">{partnerDetails.partner.owner_id_number || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Owner Phone</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.owner_phone || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4 md:col-span-2">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Owner Email</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.owner_email || 'Not provided'}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Banking Information */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">account_balance</span>
+                    Banking Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Bank Name</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.bank_name || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Account Number</p>
+                      <p className="text-sm text-gray-900 font-mono">{partnerDetails.partner.bank_account || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Branch Code</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.branch_code || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Account Type</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.account_type || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4 md:col-span-2">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Account Holder Name</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.account_holder_name || 'Not provided'}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Registration & Approval Details */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">verified</span>
+                    Registration & Approval
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Created At</p>
+                      <p className="text-sm text-gray-900">{new Date(partnerDetails.partner.created_at).toLocaleString()}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Updated At</p>
+                      <p className="text-sm text-gray-900">{new Date(partnerDetails.partner.updated_at).toLocaleString()}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Approved At</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.approved_at ? new Date(partnerDetails.partner.approved_at).toLocaleString() : 'Not approved yet'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Approved By</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.approved_by || 'N/A'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">User ID</p>
+                      <p className="text-sm text-gray-900 font-mono">{partnerDetails.partner.user_id || 'Not linked'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">QR Code</p>
+                      <p className="text-sm text-gray-900 font-mono">{partnerDetails.partner.qr_code || 'Not generated'}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Additional Details */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">description</span>
+                    Additional Details
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Description</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.description || 'No description provided'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Operating Hours</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.operating_hours || 'Not specified'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Tax Number</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.tax_number || 'Not provided'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">VAT Number</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.vat_number || 'Not provided'}</p>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Connected Members (Wallets) */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">group</span>
+                    Connected Members ({partnerDetails.wallets.length})
+                  </h3>
+                  {partnerDetails.wallets.length > 0 ? (
+                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-[#1a558b]/10">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Member</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Phone</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Balance</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Status</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Joined</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {partnerDetails.wallets.map((wallet: any) => (
+                              <tr key={wallet.id} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 text-sm text-gray-900">{wallet.members?.name || 'Unknown'}</td>
+                                <td className="px-4 py-3 text-sm text-slate-300">{wallet.members?.phone || 'N/A'}</td>
+                                <td className="px-4 py-3 text-sm text-[#1a558b] font-bold">R{wallet.balance?.toFixed(2) || '0.00'}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                    wallet.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'
+                                  }`}>
+                                    {wallet.status}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600">{new Date(wallet.created_at).toLocaleDateString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                      <p className="text-gray-600">No members connected to this partner yet</p>
+                    </div>
+                  )}
+                </section>
+
+                {/* Recent Transactions */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">receipt_long</span>
+                    Recent Transactions ({partnerDetails.transactions.length})
+                  </h3>
+                  {partnerDetails.transactions.length > 0 ? (
+                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-[#1a558b]/10">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Date</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Member</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Amount</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Partner Contribution</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Type</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {partnerDetails.transactions.map((transaction: any) => (
+                              <tr key={transaction.id} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 text-sm text-slate-300">{new Date(transaction.created_at).toLocaleString()}</td>
+                                <td className="px-4 py-3 text-sm text-gray-900">{transaction.members?.name || 'Unknown'}</td>
+                                <td className="px-4 py-3 text-sm text-gray-900 font-bold">R{transaction.amount?.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-sm text-[#1a558b] font-bold">R{transaction.partner_contribution?.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-sm text-slate-300">{transaction.transaction_type}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                    transaction.status === 'completed' ? 'bg-green-500/20 text-green-400' : 
+                                    transaction.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                                    'bg-red-500/20 text-red-400'
+                                  }`}>
+                                    {transaction.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                      <p className="text-gray-600">No transactions recorded yet</p>
+                    </div>
+                  )}
+                </section>
+
+                {/* Monthly Invoices */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">request_quote</span>
+                    Monthly Invoices ({partnerDetails.invoices.length})
+                  </h3>
+                  {partnerDetails.invoices.length > 0 ? (
+                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-[#1a558b]/10">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Month</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Amount Due</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Amount Paid</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Status</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Due Date</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {partnerDetails.invoices.map((invoice: any) => (
+                              <tr key={invoice.id} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 text-sm text-gray-900">{invoice.invoice_month}</td>
+                                <td className="px-4 py-3 text-sm text-gray-900 font-bold">R{invoice.amount_due?.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-sm text-[#1a558b] font-bold">R{invoice.amount_paid?.toFixed(2) || '0.00'}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                    invoice.status === 'paid' ? 'bg-green-500/20 text-green-400' : 
+                                    invoice.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                                    'bg-red-500/20 text-red-400'
+                                  }`}>
+                                    {invoice.status}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-600">{new Date(invoice.due_date).toLocaleDateString()}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                      <p className="text-gray-600">No invoices generated yet</p>
+                    </div>
+                  )}
+                </section>
+
+                {/* Action Buttons */}
+                {partnerDetails.partner.status === 'pending' && (
+                  <section className="flex gap-4 justify-center pt-4">
+                    <button
+                      onClick={() => {
+                        handleApprovePartner(partnerDetails.partner.id);
+                        closeDetailsModal();
+                      }}
+                      className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">check_circle</span>
+                      Approve Partner
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleRejectPartner(partnerDetails.partner.id);
+                        closeDetailsModal();
+                      }}
+                      className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">cancel</span>
+                      Reject Partner
+                    </button>
+                  </section>
+                )}
+              </div>
+            ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

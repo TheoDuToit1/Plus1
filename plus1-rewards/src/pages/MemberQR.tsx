@@ -79,7 +79,7 @@ export function MemberQR() {
         {/* Name */}
         <div style={{ textAlign: 'center' }}>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', margin: '0 0 0.25rem' }}>{memberData?.name || 'Member'}</h1>
-          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9375rem' }}>Show this QR code at partner shops</p>
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9375rem' }}>Show this QR code at partner businesses</p>
         </div>
 
         {/* QR Card */}

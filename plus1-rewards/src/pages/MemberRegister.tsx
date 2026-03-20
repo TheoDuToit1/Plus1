@@ -2,286 +2,210 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import AuthLayout from '../components/auth/AuthLayout';
+import { AuthInput, AuthButton, AuthError, AuthLink } from '../components/auth/AuthComponents';
+
+const BLUE = '#1a558b'
 
 export default function MemberRegister() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
-    email: '',
     password: '',
     terms: false
   });
 
-  const handleNavigation = (path: string) => {
-    navigate(path);
-  };
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formData.terms) {
-      alert('Please agree to the Terms of Service and Privacy Policy');
-      return;
-    }
+    setError('');
 
-    if (formData.password.length < 8) {
-      alert('Password must be at least 8 characters long');
-      return;
-    }
+    if (!formData.terms) { setError('Please agree to the Terms of Service and Privacy Policy'); return; }
+    if (formData.password.length < 8) { setError('Password must be at least 8 characters long'); return; }
+
+    const phoneDigits = formData.phone.replace(/\D/g, '');
+    if (phoneDigits.length !== 10) { setError('Phone number must be exactly 10 digits'); return; }
 
     setLoading(true);
-    
+
     try {
-      // Create auth user
+      const { data: existingPhone } = await supabase
+        .from('members').select('id').eq('phone', phoneDigits).maybeSingle();
+
+      if (existingPhone) { setError('This phone number is already registered'); setLoading(false); return; }
+
+      const tempEmail = `member_${phoneDigits}_${Date.now()}@plus1rewards.local`;
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
+        email: tempEmail,
         password: formData.password,
-        options: {
-          data: {
-            name: formData.name,
-            phone: formData.phone
-          }
-        }
+        options: { data: { name: formData.name, phone: formData.phone } }
       });
 
       if (authError) throw authError;
 
       if (authData.user) {
-        // Create member record
-        const { error: memberError } = await supabase
-          .from('members')
-          .insert({
-            id: authData.user.id,
-            name: formData.name,
-            phone: formData.phone,
-            qr_code: `${formData.phone}-${Date.now()}`
-          });
+        const { data: planData, error: planError } = await supabase
+          .from('policy_plans').select('id').eq('name', 'day_to_day_single').eq('monthly_target', 385).single();
+        if (planError) throw new Error('Could not find default plan');
+
+        const { data: providerData } = await supabase
+          .from('policy_providers').select('id').eq('company_name', 'Day1Health').single();
+
+        const { error: memberError } = await supabase.from('members').insert({
+          id: authData.user.id,
+          name: formData.name,
+          phone: phoneDigits,
+          email: tempEmail,
+          qr_code: `${phoneDigits}-${Date.now()}`,
+          active_policy: planData.id
+        });
 
         if (memberError) throw memberError;
 
-        alert('Account created successfully! Please check your email to verify your account.');
-        navigate('/member/login');
+        if (providerData) {
+          await supabase.from('policy_holders').insert({
+            member_id: authData.user.id,
+            policy_plan_id: planData.id,
+            policy_provider_id: providerData.id,
+            policy_number: `POL-${phoneDigits}-${Date.now()}`,
+            status: 'active',
+            start_date: new Date().toISOString().split('T')[0],
+            monthly_premium: 385,
+            amount_funded: 0
+          });
+        }
+
+        alert('Account created successfully!');
+        navigate('/member/dashboard');
       }
-    } catch (error: any) {
-      console.error('Registration error:', error);
-      alert('Registration failed: ' + error.message);
+    } catch (err: any) {
+      if (err.message?.includes('already registered') || err.message?.includes('User already exists')) {
+        setError('This email is already registered');
+      } else if (err.message?.includes('phone')) {
+        setError('This phone number is already registered');
+      } else {
+        setError('Registration failed: ' + err.message);
+      }
     } finally {
       setLoading(false);
     }
   };
+
   return (
-    <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
-      <div className="flex min-h-screen">
-        {/* Left Side: Value Proposition & Branding */}
-        <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden">
-          {/* Background Image with Overlay */}
-          <div className="absolute inset-0 z-0">
-            <div className="absolute inset-0 bg-gradient-to-br from-background-dark/90 via-background-dark/60 to-transparent z-10"></div>
-            <img 
-              alt="Happy family shopping together" 
-              className="w-full h-full object-cover" 
-              data-alt="Family enjoying shopping with rewards benefits" 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBs0NJvdFopFrHzhlnAatUu3wtcZ5HH0frFV3JuGfICUVtpraRhtig6O1WHOTnpmsLzDyNUFW6WWhY4a3_V8J-_iy2rIhwd_ifsQs_w6bs4TR9w_aVmCUzGY65N4y02OuDtcVM6Fu7q6RsIOUGD87zx6YktI6Xe478iBBrEcMjQcPpMZt-_D2DjIw4TtN6lm5KmVXR74LblHmi3jIWkP4_dBbQFhN6W-CnxQGljxRaRESt0AN8e1FaKgAs2uKKWBPQJ3Hoi2TCSPz50" 
-            />
-          </div>
-          <div className="relative z-20">
-            <div className="flex items-center gap-3">
-              <div className="size-10 bg-primary rounded-lg flex items-center justify-center text-background-dark">
-                <span className="material-symbols-outlined text-3xl font-bold">add_circle</span>
-              </div>
-              <h2 className="text-2xl font-black tracking-tighter text-white uppercase italic">+1 Rewards</h2>
-            </div>
-          </div>
-          <div className="relative z-20 max-w-lg">
-            <h1 className="text-5xl font-black leading-tight tracking-tight text-white mb-6">
-              Start earning <span className="text-primary italic">healthcare</span> rewards today.
-            </h1>
-            <p className="text-xl text-slate-300 leading-relaxed">
-              Join thousands of members who fund their health insurance through everyday shopping at local partners.
-            </p>
-          </div>
-          <div className="relative z-20 flex gap-8">
-            <div className="flex flex-col">
-              <span className="text-primary text-2xl font-bold">R0</span>
-              <span className="text-slate-400 text-sm">Joining Fee</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-primary text-2xl font-bold">3%</span>
-              <span className="text-slate-400 text-sm">Rewards Rate</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-primary text-2xl font-bold">R385</span>
-              <span className="text-slate-400 text-sm">Monthly Target</span>
-            </div>
-          </div>
+    <AuthLayout
+      portalIcon="add_circle"
+      portalName="+1 Rewards"
+      headline={<>Start earning <span style={{ color: '#93c5fd' }}>healthcare</span> rewards today.</>}
+      subheadline="Join thousands of members who fund their health insurance through everyday shopping at local partners."
+      stats={[
+        { value: 'R0', label: 'Joining Fee' },
+        { value: '3%', label: 'Rewards Rate' },
+        { value: 'R385', label: 'Monthly Target' },
+      ]}
+    >
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-black text-gray-900">Create your account</h2>
+          <p className="text-sm text-gray-500 mt-1">Free to join — no credit card required</p>
         </div>
 
-        {/* Right Side: Registration Form */}
-        <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 bg-background-light dark:bg-background-dark border-l border-white/5">
-          {/* Back Button */}
-          <div className="w-full max-w-md mb-6">
-            <button 
-              onClick={() => handleNavigation('/')}
-              className="bg-custom-dark text-center w-48 rounded-2xl h-14 relative text-white text-xl font-semibold group shadow-lg" 
-              type="button"
-            >
-              <div className="bg-primary rounded-xl h-12 w-1/4 flex items-center justify-center absolute left-1 top-[4px] group-hover:w-[184px] z-10 duration-500">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" height="25px" width="25px">
-                  <path d="M224 480h640a32 32 0 1 1 0 64H224a32 32 0 0 1 0-64z" fill="#000000"></path>
-                  <path d="m237.248 512 265.408 265.344a32 32 0 0 1-45.312 45.312l-288-288a32 32 0 0 1 0-45.312l288-288a32 32 0 1 1 45.312 45.312L237.248 512z" fill="#000000"></path>
-                </svg>
-              </div>
-              <p className="translate-x-2 text-white">Go Back</p>
-            </button>
-          </div>
-          
-          <div className="w-full max-w-md space-y-8">
-            {/* Mobile Logo */}
-            <div className="lg:hidden flex items-center gap-3 mb-12">
-              <div className="size-8 bg-primary rounded-lg flex items-center justify-center text-background-dark">
-                <span className="material-symbols-outlined text-xl font-bold">add_circle</span>
-              </div>
-              <h2 className="text-xl font-black tracking-tighter text-slate-900 dark:text-white uppercase italic">+1 Rewards</h2>
+        {/* Benefits strip */}
+        <div className="grid grid-cols-3 gap-2">
+          {['R0 Fee', 'Works Offline', 'Day1 Health'].map((b) => (
+            <div key={b} className="flex flex-col items-center gap-1 py-3 rounded-xl text-center" style={{ backgroundColor: 'rgba(26,85,139,0.06)' }}>
+              <span className="text-xs font-bold" style={{ color: BLUE }}>{b}</span>
             </div>
-            <div>
-              <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Create Your Account</h2>
-              <p className="mt-2 text-slate-600 dark:text-slate-400">Join for free and start earning healthcare rewards.</p>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="name">Full Name</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <span className="material-symbols-outlined text-slate-400 text-xl">person</span>
-                    </div>
-                    <input 
-                      className="block w-full pl-11 pr-4 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
-                      id="name" 
-                      name="name"
-                      value={formData.name}
-                      onChange={handleInputChange}
-                      placeholder="Sarah Mitchell" 
-                      type="text"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="phone">Phone Number</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <span className="material-symbols-outlined text-slate-400 text-xl">phone</span>
-                    </div>
-                    <input 
-                      className="block w-full pl-11 pr-4 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
-                      id="phone" 
-                      name="phone"
-                      value={formData.phone}
-                      onChange={handleInputChange}
-                      placeholder="082 555 1234" 
-                      type="tel"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="email">Email</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <span className="material-symbols-outlined text-slate-400 text-xl">mail</span>
-                    </div>
-                    <input 
-                      className="block w-full pl-11 pr-4 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
-                      id="email" 
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      placeholder="sarah@gmail.com" 
-                      type="email"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="password">Password</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <span className="material-symbols-outlined text-slate-400 text-xl">lock</span>
-                    </div>
-                    <input 
-                      className="block w-full pl-11 pr-12 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
-                      id="password" 
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      placeholder="Min. 8 characters" 
-                      type={showPassword ? "text" : "password"}
-                      required
-                      minLength={8}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined">
-                        {showPassword ? 'visibility_off' : 'visibility'}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center">
-                <input 
-                  className="h-4 w-4 text-primary focus:ring-primary border-slate-300 dark:border-primary/30 rounded bg-white dark:bg-background-dark" 
-                  id="terms" 
-                  name="terms" 
-                  checked={formData.terms}
-                  onChange={handleInputChange}
-                  type="checkbox"
-                  required
-                />
-                <label className="ml-2 block text-sm text-slate-600 dark:text-slate-400" htmlFor="terms">
-                  I agree to the <a href="#" className="text-primary hover:underline">Terms of Service</a> and <a href="#" className="text-primary hover:underline">Privacy Policy</a>
-                </label>
-              </div>
-              <button 
-                className="w-full bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed" 
-                type="submit"
-                disabled={loading}
-              >
-                {loading ? 'Creating Account...' : 'Create My Account'}
-                <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
-              </button>
-            </form>
-            <div className="relative my-8">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200 dark:border-primary/10"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-background-light dark:bg-background-dark text-slate-500 uppercase tracking-widest text-xs font-bold">Ready to get started?</span>
-              </div>
-            </div>
-            <p className="text-center text-slate-600 dark:text-slate-400 mt-8">
-              Already have an account? <a onClick={() => handleNavigation('/member/login')} className="text-primary font-bold hover:underline cursor-pointer">Sign In</a>
-            </p>
-          </div>
+          ))}
         </div>
+
+        <AuthError message={error} />
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <AuthInput
+            label="Full Name"
+            icon="person"
+            id="name"
+            name="name"
+            type="text"
+            placeholder="Sarah Dlamini"
+            value={formData.name}
+            onChange={handleInputChange}
+            required
+          />
+          <AuthInput
+            label="Cell Phone Number (10 digits)"
+            icon="phone"
+            id="phone"
+            name="phone"
+            type="tel"
+            placeholder="082 555 1234"
+            value={formData.phone}
+            onChange={handleInputChange}
+            required
+          />
+          <AuthInput
+            label="Password"
+            icon="lock"
+            id="password"
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            placeholder="Min. 8 characters"
+            value={formData.password}
+            onChange={handleInputChange}
+            required
+            minLength={8}
+            suffix={
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-gray-600">
+                <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
+              </button>
+            }
+          />
+
+          <label className="flex items-start gap-2.5 text-sm text-gray-600 cursor-pointer">
+            <div className="checkbox-container mt-0.5">
+              <input
+                type="checkbox"
+                id="member-terms-cbx"
+                name="terms"
+                checked={formData.terms}
+                onChange={handleInputChange}
+                style={{ display: 'none' }}
+                required
+              />
+              <label htmlFor="member-terms-cbx" className="check">
+                <svg width="18px" height="18px" viewBox="0 0 18 18">
+                  <path d="M1,9 L1,3.5 C1,2 2,1 3.5,1 L14.5,1 C16,1 17,2 17,3.5 L17,14.5 C17,16 16,17 14.5,17 L3.5,17 C2,17 1,16 1,14.5 L1,9 Z"></path>
+                  <polyline points="1 9 7 14 15 4"></polyline>
+                </svg>
+              </label>
+            </div>
+            <span>
+              I agree to the{' '}
+              <a href="#" className="font-semibold" style={{ color: BLUE }}>Terms of Service</a>
+              {' '}and{' '}
+              <a href="#" className="font-semibold" style={{ color: BLUE }}>Privacy Policy</a>
+            </span>
+          </label>
+
+          <AuthButton type="submit" loading={loading} loadingText="Creating Account...">
+            Create My Account
+            <span className="material-symbols-outlined text-base">arrow_forward</span>
+          </AuthButton>
+        </form>
+
+        <p className="text-center text-sm text-gray-500 pt-2">
+          Already have an account?{' '}
+          <AuthLink onClick={() => navigate('/member/login')}>Sign In</AuthLink>
+        </p>
       </div>
-    </div>
-  )
+    </AuthLayout>
+  );
 }

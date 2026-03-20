@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
 interface Invoice {
-  id: string; shop_id: string; shop_name: string; invoice_month: string;
+  id: string; partner_id: string; partner_name: string; invoice_month: string;
   total_due: number; due_date: string;
   status: "generated" | "sent" | "overdue" | "paid" | "suspended";
   paid_date?: string; penalty_amount: number;
@@ -43,10 +43,10 @@ export function AdminInvoices() {
   const loadInvoices = async () => {
     setLoading(true);
     try {
-      const { data: invoicesData } = await supabase.from("monthly_invoices").select("id, shop_id, invoice_month, total_due, due_date, status, paid_date, penalty_amount");
-      const { data: shopsData } = await supabase.from("shops").select("id, name");
-      const shopMap = new Map(shopsData?.map(s => [s.id, s.name]) || []);
-      setInvoices((invoicesData || []).map(inv => ({ ...inv, shop_name: shopMap.get(inv.shop_id) || "Unknown Shop" })));
+      const { data: invoicesData } = await supabase.from("monthly_invoices").select("id, partner_id, invoice_month, total_due, due_date, status, paid_date, penalty_amount");
+      const { data: partnersData } = await supabase.from("partners").select("id, name");
+      const partnerMap = new Map(partnersData?.map(s => [s.id, s.name]) || []);
+      setInvoices((invoicesData || []).map(inv => ({ ...inv, partner_name: partnerMap.get(inv.partner_id) || "Unknown Partner" })));
     } catch { /* silent */ } finally { setLoading(false); }
   };
 
@@ -55,18 +55,18 @@ export function AdminInvoices() {
     if (monthFilter === "current") { const m = new Date().toISOString().slice(0, 7); f = f.filter(inv => inv.invoice_month === m); }
     else { const d = new Date(); d.setMonth(d.getMonth() - 1); f = f.filter(inv => inv.invoice_month === d.toISOString().slice(0, 7)); }
     if (statusFilter !== "all") f = f.filter(inv => inv.status === statusFilter);
-    if (searchTerm) f = f.filter(inv => inv.shop_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    if (searchTerm) f = f.filter(inv => inv.partner_name.toLowerCase().includes(searchTerm.toLowerCase()));
     setFilteredInvoices(f);
   };
 
   const markAsPaid = async (id: string) => { await supabase.from("monthly_invoices").update({ status: "paid", paid_date: new Date().toISOString() }).eq("id", id); loadInvoices(); };
   const markMultiplePaid = async () => { await supabase.from("monthly_invoices").update({ status: "paid", paid_date: new Date().toISOString() }).in("id", Array.from(selectedInvoices)); setSelectedInvoices(new Set()); loadInvoices(); };
   const addPenalty = async (id: string) => { const inv = invoices.find(i => i.id === id); if (!inv) return; await supabase.from("monthly_invoices").update({ penalty_amount: inv.total_due * 0.02 }).eq("id", id); loadInvoices(); };
-  const suspendShop = async (inv: Invoice) => { await supabase.from("monthly_invoices").update({ status: "suspended" }).eq("id", inv.id); await supabase.from("shops").update({ status: "suspended" }).eq("id", inv.shop_id); loadInvoices(); };
+  const suspendShop = async (inv: Invoice) => { await supabase.from("monthly_invoices").update({ status: "suspended" }).eq("id", inv.id); await supabase.from("partners").update({ status: "suspended" }).eq("id", inv.partner_id); loadInvoices(); };
 
   const exportCSV = () => {
-    const rows = filteredInvoices.map(inv => [inv.shop_name, `R${inv.total_due.toFixed(2)}`, inv.due_date, inv.status, `R${inv.penalty_amount.toFixed(2)}`].join(","));
-    const blob = new Blob([["Shop,Amount,Due Date,Status,Penalty", ...rows].join("\n")], { type: "text/csv" });
+    const rows = filteredInvoices.map(inv => [inv.partner_name, `R${inv.total_due.toFixed(2)}`, inv.due_date, inv.status, `R${inv.penalty_amount.toFixed(2)}`].join(","));
+    const blob = new Blob([["Partner,Amount,Due Date,Status,Penalty", ...rows].join("\n")], { type: "text/csv" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `invoices-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
   };
 
@@ -142,7 +142,7 @@ export function AdminInvoices() {
               </div>
               <div>
                 <label className="input-label">Search</label>
-                <input type="text" placeholder="Shop name..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="input" />
+                <input type="text" placeholder="Partner name..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="input" />
               </div>
             </div>
           </div>
@@ -176,7 +176,7 @@ export function AdminInvoices() {
                 ) : filteredInvoices.map(invoice => (
                   <tr key={invoice.id}>
                     <td><input type="checkbox" checked={selectedInvoices.has(invoice.id)} onChange={() => { const n = new Set(selectedInvoices); n.has(invoice.id) ? n.delete(invoice.id) : n.add(invoice.id); setSelectedInvoices(n); }} style={{ cursor: 'pointer' }} /></td>
-                    <td style={{ fontWeight: 600 }}>{invoice.shop_name}</td>
+                    <td style={{ fontWeight: 600 }}>{invoice.partner_name}</td>
                     <td>R{invoice.total_due.toFixed(2)}</td>
                     <td style={{ color: 'var(--gray-text)', fontSize: '0.875rem' }}>{invoice.due_date}</td>
                     <td><span className={`badge ${statusConfig[invoice.status]?.badge || 'badge-gray'}`}>{statusConfig[invoice.status]?.label || invoice.status}</span></td>

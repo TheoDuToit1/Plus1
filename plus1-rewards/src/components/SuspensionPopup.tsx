@@ -39,7 +39,7 @@ export function SuspensionPopup({ shopName, invoiceAmount, dueDate, onClose, onF
               🔒 Rewards Paused — Not Deleted
             </p>
             <p style={{ color: '#78350f', fontSize: '0.875rem', margin: 0, lineHeight: 1.5 }}>
-              Your accumulated rewards at this shop are <strong>safe</strong> and will be fully restored once the shop pays their invoice.
+              Your accumulated rewards at this partner are <strong>safe</strong> and will be fully restored once the partner pays their invoice.
             </p>
           </div>
 
@@ -62,7 +62,7 @@ export function SuspensionPopup({ shopName, invoiceAmount, dueDate, onClose, onF
           )}
 
           <p style={{ fontSize: '0.875rem', color: 'var(--gray-text)', textAlign: 'center', lineHeight: 1.6, marginBottom: '1.25rem' }}>
-            You can continue earning rewards at <strong>other active shops</strong> while this shop resolves their payment.
+            You can continue earning rewards at <strong>other active shops</strong> while this partner resolves their payment.
           </p>
 
           {/* Actions */}

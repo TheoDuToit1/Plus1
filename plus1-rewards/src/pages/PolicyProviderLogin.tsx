@@ -1,15 +1,22 @@
 // plus1-rewards/src/pages/PolicyProviderLogin.tsx
 import { useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { useNavigate } from 'react-router-dom';
+import AuthLayout from '../components/auth/AuthLayout';
+import { AuthInput, AuthButton, AuthError } from '../components/auth/AuthComponents';
+
+const BLUE = '#1a558b'
+const BLUE_LIGHT = 'rgba(26,85,139,0.08)'
+
+// Hardcoded Day1Health credentials
+const DAY1_HEALTH_EMAIL = 'provider@day1health.co.za';
+const DAY1_HEALTH_PASSWORD = 'Day1Health2024!';
 
 export default function PolicyProviderLogin() {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  const handleNavigation = (path: string) => {
-    window.location.href = path;
-  };
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -17,272 +24,122 @@ export default function PolicyProviderLogin() {
     const email = (form.querySelector('#email') as HTMLInputElement)?.value;
     const password = (form.querySelector('#password') as HTMLInputElement)?.value;
 
-    if (!email || !password) {
-      setError('Please enter email and password');
-      return;
+    if (!email || !password) { 
+      setError('Please enter email and password'); 
+      return; 
     }
 
     setLoading(true);
     setError('');
 
     try {
-      // First authenticate with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // Check against hardcoded Day1Health credentials
+      if (email === DAY1_HEALTH_EMAIL && password === DAY1_HEALTH_PASSWORD) {
+        // Store Day1Health provider info
+        localStorage.setItem('currentProvider', JSON.stringify({
+          id: 'day1health',
+          name: 'Day1Health',
+          email: DAY1_HEALTH_EMAIL,
+          company_name: 'Day1Health',
+          status: 'active'
+        }));
 
-      if (authError) {
-        setError('Invalid email or password');
-        return;
+        // Navigate to provider dashboard
+        navigate('/provider/dashboard');
+      } else {
+        setError('Invalid email or password. Only Day1Health is authorized.');
       }
-
-      if (!authData.user) {
-        setError('Authentication failed');
-        return;
-      }
-
-      // Check if user exists in policy_providers table and get their status
-      const { data: providerData, error: providerError } = await supabase
-        .from('policy_providers')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single();
-
-      if (providerError || !providerData) {
-        setError('Provider account not found. Please contact admin.');
-        await supabase.auth.signOut();
-        return;
-      }
-
-      // Check provider status
-      if (providerData.status === 'pending') {
-        setError('Your account is pending approval. Please wait for admin approval before accessing the dashboard.');
-        await supabase.auth.signOut();
-        return;
-      }
-
-      if (providerData.status === 'suspended') {
-        setError('Your account has been suspended. Please contact admin for assistance.');
-        await supabase.auth.signOut();
-        return;
-      }
-
-      if (providerData.status !== 'active') {
-        setError('Your account is not active. Please contact admin for assistance.');
-        await supabase.auth.signOut();
-        return;
-      }
-
-      // Store provider data for dashboard use
-      localStorage.setItem('currentProvider', JSON.stringify({
-        id: providerData.id,
-        name: providerData.name,
-        email: providerData.email,
-        company_name: providerData.company_name,
-        status: providerData.status
-      }));
-
-      // Redirect to provider dashboard
-      window.location.href = '/provider/dashboard';
-    } catch (err) {
-      console.error('Login error:', err);
+    } catch {
       setError('Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
-  
+
   return (
-    <div className="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col font-display">
-      <div className="flex min-h-screen">
-        {/* Left Side: Value Proposition & Branding */}
-        <div className="hidden lg:flex lg:w-1/2 relative flex-col justify-between p-12 overflow-hidden">
-          {/* Background Image with Overlay */}
-          <div className="absolute inset-0 z-0">
-            <div className="absolute inset-0 bg-gradient-to-br from-background-dark/90 via-background-dark/60 to-transparent z-10"></div>
-            <img 
-              alt="Healthcare professionals collaborating" 
-              className="w-full h-full object-cover" 
-              data-alt="Medical professionals working with digital health systems" 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBs0NJvdFopFrHzhlnAatUu3wtcZ5HH0frFV3JuGfICUVtpraRhtig6O1WHOTnpmsLzDyNUFW6WWhY4a3_V8J-_iy2rIhwd_ifsQs_w6bs4TR9w_aVmCUzGY65N4y02OuDtcVM6Fu7q6RsIOUGD87zx6YktI6Xe478iBBrEcMjQcPpMZt-_D2DjIw4TtN6lm5KmVXR74LblHmi3jIWkP4_dBbQFhN6W-CnxQGljxRaRESt0AN8e1FaKgAs2uKKWBPQJ3Hoi2TCSPz50" 
-            />
-          </div>
-          <div className="relative z-20">
-            <div className="flex items-center gap-3">
-              <div className="size-10 bg-primary rounded-lg flex items-center justify-center text-background-dark">
-                <span className="material-symbols-outlined text-3xl font-bold">health_and_safety</span>
-              </div>
-              <h2 className="text-2xl font-black tracking-tighter text-white uppercase italic">Provider Portal</h2>
-            </div>
-          </div>
-          <div className="relative z-20 max-w-lg">
-            <h1 className="text-5xl font-black leading-tight tracking-tight text-white mb-6">
-              Partner with <span className="text-primary italic">innovative</span> healthcare rewards.
-            </h1>
-            <p className="text-xl text-slate-300 leading-relaxed">
-              Access comprehensive policy management tools and track member activations through our integrated platform.
-            </p>
-          </div>
-          <div className="relative z-20 flex gap-8">
-            <div className="flex flex-col">
-              <span className="text-primary text-2xl font-bold">R385</span>
-              <span className="text-slate-400 text-sm">Monthly Premium</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-primary text-2xl font-bold">Auto</span>
-              <span className="text-slate-400 text-sm">Policy Activation</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-primary text-2xl font-bold">24/7</span>
-              <span className="text-slate-400 text-sm">System Access</span>
-            </div>
-          </div>
+    <AuthLayout
+      portalIcon="health_and_safety"
+      portalName="Provider Portal"
+      headline={<>Partner with <span style={{ color: '#93c5fd' }}>innovative</span> healthcare rewards.</>}
+      subheadline="Access comprehensive policy management tools and track member activations through our integrated platform."
+      stats={[
+        { value: 'R385', label: 'Monthly Premium' },
+        { value: 'Auto', label: 'Policy Activation' },
+        { value: '24/7', label: 'System Access' },
+      ]}
+    >
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-black text-gray-900">Policy Provider Login</h2>
+          <p className="text-sm text-gray-500 mt-1">Day1Health - Access your policy management dashboard.</p>
         </div>
 
-        {/* Right Side: Login Form */}
-        <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-8 bg-background-light dark:bg-background-dark border-l border-white/5">
-          {/* Back Button */}
-          <div className="w-full max-w-md mb-6">
-            <button 
-              onClick={() => handleNavigation('/')}
-              className="bg-custom-dark text-center w-48 rounded-2xl h-14 relative text-white text-xl font-semibold group shadow-lg" 
-              type="button"
-            >
-              <div className="bg-primary rounded-xl h-12 w-1/4 flex items-center justify-center absolute left-1 top-[4px] group-hover:w-[184px] z-10 duration-500">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" height="25px" width="25px">
-                  <path d="M224 480h640a32 32 0 1 1 0 64H224a32 32 0 0 1 0-64z" fill="#000000"></path>
-                  <path d="m237.248 512 265.408 265.344a32 32 0 0 1-45.312 45.312l-288-288a32 32 0 0 1 0-45.312l288-288a32 32 0 1 1 45.312 45.312L237.248 512z" fill="#000000"></path>
-                </svg>
-              </div>
-              <p className="translate-x-2 text-white">Go Back</p>
-            </button>
-          </div>
-          
-          <div className="w-full max-w-md space-y-8">
-            {/* Mobile Logo */}
-            <div className="lg:hidden flex items-center gap-3 mb-12">
-              <div className="size-8 bg-primary rounded-lg flex items-center justify-center text-background-dark">
-                <span className="material-symbols-outlined text-xl font-bold">health_and_safety</span>
-              </div>
-              <h2 className="text-xl font-black tracking-tighter text-slate-900 dark:text-white uppercase italic">Provider Portal</h2>
-            </div>
-            <div>
-              <h2 className="text-3xl font-bold text-slate-900 dark:text-white">Policy Provider Login</h2>
-              <p className="mt-2 text-slate-600 dark:text-slate-400">Access your policy management dashboard and member data.</p>
-            </div>
-            <form onSubmit={handleLogin} className="space-y-6">
-              {error && (
-                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-                  <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-red-500 text-xl">error</span>
-                    <span className="text-sm font-bold text-red-400">Login Failed</span>
-                  </div>
-                  <p className="text-sm text-red-300 mt-1">{error}</p>
-                </div>
-              )}
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 dark:text-slate-300 ml-1" htmlFor="email">Provider Email Address</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <span className="material-symbols-outlined text-slate-400 text-xl">health_and_safety</span>
-                  </div>
-                  <input 
-                    className="block w-full pl-11 pr-4 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
-                    id="email" 
-                    placeholder="provider@day1health.co.za" 
-                    type="email"
-                    disabled={loading}
-                    required
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between ml-1">
-                  <label className="text-sm font-semibold text-slate-700 dark:text-slate-300" htmlFor="password">Password</label>
-                  <a className="text-sm font-semibold text-primary hover:text-primary/80 transition-colors" href="#">Forgot password?</a>
-                </div>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <span className="material-symbols-outlined text-slate-400 text-xl">lock</span>
-                  </div>
-                  <input 
-                    className="block w-full pl-11 pr-12 py-4 bg-transparent border-2 border-primary rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none text-white placeholder-white/60" 
-                    id="password" 
-                    placeholder="••••••••" 
-                    type={showPassword ? "text" : "password"}
-                    disabled={loading}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-slate-300 cursor-pointer"
-                    disabled={loading}
-                  >
-                    <span className="material-symbols-outlined">
-                      {showPassword ? 'visibility_off' : 'visibility'}
-                    </span>
-                  </button>
-                </div>
-              </div>
-              <div className="flex items-center">
-                <input 
-                  className="h-4 w-4 text-primary focus:ring-primary border-slate-300 dark:border-primary/30 rounded bg-white dark:bg-background-dark" 
-                  id="remember-me" 
-                  name="remember-me" 
-                  type="checkbox"
-                  disabled={loading}
-                />
-                <label className="ml-2 block text-sm text-slate-600 dark:text-slate-400" htmlFor="remember-me">Keep me signed in</label>
-              </div>
-              <button 
-                className="w-full bg-primary hover:bg-primary/90 text-background-dark font-bold py-4 px-6 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed" 
-                type="submit"
-                disabled={loading}
-              >
-                {loading ? (
-                  <>
-                    <span className="material-symbols-outlined animate-spin">refresh</span>
-                    Authenticating...
-                  </>
-                ) : (
-                  <>
-                    Access Provider Dashboard
-                    <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
-                  </>
-                )}
+        <AuthError message={error} />
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <AuthInput
+            label="Provider Email Address"
+            icon="health_and_safety"
+            id="email"
+            type="email"
+            placeholder="provider@day1health.co.za"
+            disabled={loading}
+            required
+          />
+
+          <AuthInput
+            label="Password"
+            icon="lock"
+            id="password"
+            type={showPassword ? 'text' : 'password'}
+            placeholder="••••••••"
+            disabled={loading}
+            required
+            suffix={
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-gray-600" disabled={loading}>
+                <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
               </button>
-            </form>
-            <div className="relative my-8">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200 dark:border-primary/10"></div>
+            }
+          />
+
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <div className="checkbox-container">
+                <input
+                  type="checkbox"
+                  id="provider-remember-cbx"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  disabled={loading}
+                  style={{ display: 'none' }}
+                />
+                <label htmlFor="provider-remember-cbx" className="check">
+                  <svg width="18px" height="18px" viewBox="0 0 18 18">
+                    <path d="M1,9 L1,3.5 C1,2 2,1 3.5,1 L14.5,1 C16,1 17,2 17,3.5 L17,14.5 C17,16 16,17 14.5,17 L3.5,17 C2,17 1,16 1,14.5 L1,9 Z"></path>
+                    <polyline points="1 9 7 14 15 4"></polyline>
+                  </svg>
+                </label>
               </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-background-light dark:bg-background-dark text-slate-500 uppercase tracking-widest text-xs font-bold">Authorized Access Only</span>
-              </div>
-            </div>
-            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-              <div className="flex items-center gap-3 mb-2">
-                <span className="material-symbols-outlined text-primary text-xl">security</span>
-                <span className="text-sm font-bold text-slate-900 dark:text-white">Account Status Information</span>
-              </div>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mb-2">
-                This portal is exclusively for authorized policy providers. All new accounts require admin approval.
-              </p>
-              <div className="text-xs text-slate-600 dark:text-slate-400">
-                <strong>Account Status:</strong><br/>
-                • <span className="text-yellow-600">Pending:</span> Awaiting admin approval<br/>
-                • <span className="text-green-600">Active:</span> Full dashboard access<br/>
-                • <span className="text-red-600">Suspended:</span> Access temporarily disabled
-              </div>
-            </div>
-            <p className="text-center text-slate-600 dark:text-slate-400 mt-8">
-              New policy provider? <a className="text-primary font-bold hover:underline" href="/provider/register">Create an account</a>
-            </p>
+              Keep me signed in
+            </label>
+            <a href="#" className="text-sm font-semibold" style={{ color: BLUE }}>Forgot password?</a>
           </div>
+
+          <AuthButton type="submit" loading={loading} loadingText="Authenticating...">
+            Access Provider Dashboard
+            <span className="material-symbols-outlined text-base">arrow_forward</span>
+          </AuthButton>
+        </form>
+
+        {/* Info box */}
+        <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: '#e5e7eb', backgroundColor: BLUE_LIGHT }}>
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-xl" style={{ color: BLUE }}>security</span>
+            <span className="font-bold text-sm text-gray-900">Day1Health Authorized Access</span>
+          </div>
+          <p className="text-xs text-gray-500">This portal is exclusively for Day1Health policy provider. Contact admin for access credentials.</p>
         </div>
       </div>
-    </div>
-  )
+    </AuthLayout>
+  );
 }

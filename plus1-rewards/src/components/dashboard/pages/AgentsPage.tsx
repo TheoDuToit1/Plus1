@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DashboardLayout from '../DashboardLayout';
 import StatCard from '../components/StatCard';
-import { supabase } from '../../../lib/supabase';
+import { supabaseAdmin } from '../../../lib/supabase';
 
 export default function AgentsPage() {
   const navigate = useNavigate();
@@ -11,11 +11,15 @@ export default function AgentsPage() {
   const [agents, setAgents] = useState<any[]>([]);
   const [stats, setStats] = useState({ totalAgents: 0, verified: 0, pending: 0, sales: 0, commissions: 0 });
   const [loading, setLoading] = useState(true);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    status: ''
+  });
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('agents').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabaseAdmin.from('agents').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       
       const totalAgents = data?.length || 0;
@@ -34,7 +38,7 @@ export default function AgentsPage() {
 
   const handleApproveAgent = async (agentId: string) => {
     try {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('agents')
         .update({ 
           status: 'active', 
@@ -56,7 +60,7 @@ export default function AgentsPage() {
   const handleRejectAgent = async (agentId: string) => {
     if (confirm('Are you sure you want to reject this agent application?')) {
       try {
-        const { error } = await supabase
+        const { error } = await supabaseAdmin
           .from('agents')
           .update({ status: 'suspended' })
           .eq('id', agentId);
@@ -80,14 +84,6 @@ export default function AgentsPage() {
     navigate('/');
   };
 
-  const handleFilter = () => {
-    console.log('Filter triggered');
-  };
-
-  const handleExport = () => {
-    console.log('Export CSV triggered');
-  };
-
   const statsData = [
     { icon: 'support_agent', title: 'Total Agents', value: stats.totalAgents.toString(), change: '+0%', description: 'All agents' },
     { icon: 'verified_user', title: 'Active', value: stats.verified.toString(), change: '+0%', description: 'Approved agents' },
@@ -95,22 +91,41 @@ export default function AgentsPage() {
     { icon: 'account_balance_wallet', title: 'Commissions Paid', value: `R${stats.commissions.toFixed(2)}`, change: '+0%', description: 'Total payouts' }
   ];
 
+  const filteredAgents = agents.filter(a => {
+    // Advanced Search
+    const searchLower = searchTerm.toLowerCase().trim();
+    const searchTerms = searchLower.split(/\s+/);
+    
+    const matchesSearch = searchLower === '' || searchTerms.every(term => 
+      a.name?.toLowerCase().includes(term) ||
+      a.surname?.toLowerCase().includes(term) ||
+      a.email?.toLowerCase().includes(term) ||
+      a.id?.toLowerCase().includes(term) ||
+      a.phone?.includes(term)
+    );
+
+    // Filters
+    const matchesStatus = filters.status === '' || a.status === filters.status;
+
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <DashboardLayout>
-      <main className="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark">
+      <main className="flex-1 overflow-y-auto bg-[#f5f8fc]">
         {/* Topbar */}
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 md:p-10 pb-6">
           <div className="flex-1 max-w-2xl">
             <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xl">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xl">
                 search
               </span>
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-primary/5 border border-primary/10 rounded-lg py-2.5 pl-10 pr-4 text-sm text-slate-200 focus:ring-1 focus:ring-primary focus:border-primary outline-none transition-all placeholder:text-slate-600"
-                placeholder="Search agents, sales or IDs..."
+                className="w-full bg-white border border-gray-200 rounded-lg py-2.5 pl-10 pr-4 text-sm text-gray-900 focus:ring-2 focus:ring-[#1a558b] focus:border-[#1a558b] outline-none transition-all placeholder:text-gray-400"
+                placeholder="Search agents, contact info or IDs..."
               />
             </div>
           </div>
@@ -118,33 +133,27 @@ export default function AgentsPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={handleRefresh}
-              className="flex items-center gap-2 px-5 py-2.5 font-bold rounded-lg border transition-all text-sm"
-              style={{backgroundColor: '#10351c', color: '#109b43', borderColor: '#109b43', borderWidth: '0.2px'}}
+              className="flex items-center gap-2 px-5 py-2.5 font-bold rounded-lg border border-[#1a558b] bg-white text-[#1a558b] hover:bg-[#1a558b] hover:text-white transition-all text-sm"
             >
               <span className="material-symbols-outlined text-lg">refresh</span>
-              Refresh All Data
+              Refresh
             </button>
 
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-5 py-2.5 bg-primary rounded-lg hover:opacity-90 transition-all text-sm"
-              style={{color: '#000000'}}
+              className="flex items-center gap-2 px-5 py-2.5 bg-[#1a558b] text-white rounded-lg hover:opacity-90 transition-all text-sm"
             >
-              <span className="material-symbols-outlined text-lg" style={{color: '#000000'}}>logout</span>
+              <span className="material-symbols-outlined text-lg">logout</span>
               Logout
             </button>
-
-            <div className="size-11 rounded-full border-2 border-primary p-0.5 ml-2">
-              <div className="w-full h-full rounded-full bg-cover bg-center" style={{backgroundImage: "url('https://lh3.googleusercontent.com/aida-public/AB6AXuBZTVGWF5d9bUsTI1U_LA3u4Y-VW_tV7rVaCbr2bBcopKZ6aUEHak7Ad9ln4DGdmBcA4N_9IKOEwo_ZTgYugg0o3iWvRKoqrWDyBrw7mtjHatTwJ33VZI6nS8OIhyQl1DNFVnLMy5g9mboPCvWqWHPBke7YtYx4A7Ny8R8SF3z24w7nM33LYsSZVYbQQMyEhfI9bUKhfbdf6UBFROSXG5deW8I1Twmv3QDRJbOGQADi06UdXRXlEIqzBN95vQGSGpy4mn-lBnbfZr0r')"}}></div>
-            </div>
           </div>
         </header>
 
         <div className="px-6 md:px-10 pb-10">
           {/* Page Title */}
           <div className="mb-8">
-            <h2 className="text-3xl font-black text-slate-100 tracking-tight">Agents Management</h2>
-            <p className="text-slate-400 mt-1">Manage sales agents and their commissions</p>
+            <h2 className="text-3xl font-black text-gray-900 tracking-tight">Agents Management</h2>
+            <p className="text-gray-600 mt-1">Manage sales agents and their commissions</p>
           </div>
 
           {/* Stats Cards */}
@@ -162,82 +171,110 @@ export default function AgentsPage() {
           </div>
 
           {/* Agents List Table */}
-          <div className="bg-primary/5 border border-primary/10 rounded-xl overflow-hidden shadow-2xl">
-            <div className="px-6 py-5 border-b border-primary/10 flex items-center justify-between bg-primary/5">
-              <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">list_alt</span>
-                Agents List
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-2xl">
+            <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#1a558b]">list_alt</span>
+                All Agents ({filteredAgents.length})
               </h3>
               <div className="flex items-center gap-3">
                 <button 
-                  onClick={handleFilter}
-                  className="text-xs text-slate-400 hover:text-primary flex items-center gap-1 font-medium transition-colors"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`text-xs flex items-center gap-1 font-medium transition-colors ${showFilters ? 'text-[#1a558b]' : 'text-gray-600 hover:text-[#1a558b]'}`}
                 >
-                  <span className="material-symbols-outlined text-sm">filter_list</span>
-                  Filter
+                  <span className="material-symbols-outlined text-sm">{showFilters ? 'filter_list_off' : 'filter_list'}</span>
+                  {showFilters ? 'Hide Filters' : 'Filter'}
                 </button>
                 <button 
-                  onClick={handleExport}
-                  className="text-xs text-slate-400 hover:text-primary flex items-center gap-1 font-medium transition-colors"
+                  onClick={() => {}} 
+                  className="text-xs text-gray-600 hover:text-[#1a558b] flex items-center gap-1 font-medium transition-colors"
                 >
                   <span className="material-symbols-outlined text-sm">download</span>
                   Export CSV
                 </button>
               </div>
             </div>
+
+            {/* Advanced Filter Bar */}
+            {showFilters && (
+              <div className="px-6 py-4 border-b border-gray-200 bg-white grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-top duration-200">
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Agent Status</label>
+                  <select 
+                    value={filters.status}
+                    onChange={(e) => setFilters({...filters, status: e.target.value})}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-3 text-xs text-gray-900 focus:ring-1 focus:ring-[#1a558b] outline-none"
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="active">Active</option>
+                    <option value="pending">Pending</option>
+                    <option value="suspended">Suspended</option>
+                  </select>
+                </div>
+                <div className="md:col-span-3 flex justify-end">
+                  <button 
+                    onClick={() => setFilters({ status: '' })}
+                    className="text-[10px] font-bold text-[#1a558b] hover:underline uppercase tracking-widest"
+                  >
+                    Reset Filter
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-primary/5">
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Agent ID</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Name</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Sales</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500">Commission</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-500 text-center">Actions</th>
+                  <tr className="bg-gray-50">
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600">Agent ID</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600">Name</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600">Status</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600 font-center">Sales</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600 font-center">Commission</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600 text-center">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-primary/5">
+                <tbody className="divide-y divide-gray-200">
                   {loading ? (
-                    <tr><td className="px-6 py-12 text-center" colSpan={6}><p className="text-slate-400">Loading agents...</p></td></tr>
-                  ) : agents.length === 0 ? (
-                    <tr><td className="px-6 py-4" colSpan={6}><p className="text-sm text-slate-400 text-center">No agents yet</p></td></tr>
+                    <tr><td className="px-6 py-12 text-center" colSpan={6}><p className="text-gray-600">Loading agents...</p></td></tr>
+                  ) : filteredAgents.length === 0 ? (
+                    <tr><td className="px-6 py-4" colSpan={6}><p className="text-sm text-gray-600 text-center">No agents found</p></td></tr>
                   ) : (
-                    agents.map((agent) => (
-                      <tr key={agent.id} className="hover:bg-primary/10 transition-colors group">
-                        <td className="px-6 py-4"><span className="text-xs font-mono font-bold text-primary px-2 py-1 bg-primary/10 rounded">{agent.id.substring(0, 8).toUpperCase()}</span></td>
-                        <td className="px-6 py-4"><span className="text-sm font-semibold text-slate-200">{agent.name} {agent.surname}</span></td>
+                    filteredAgents.map((agent) => (
+                      <tr key={agent.id} className="hover:bg-gray-50 transition-colors group">
+                        <td className="px-6 py-4"><span className="text-xs font-mono font-bold text-[#1a558b] px-2 py-1 bg-[#1a558b]/10 rounded">{agent.id.substring(0, 8).toUpperCase()}</span></td>
+                        <td className="px-6 py-4"><span className="text-sm font-semibold text-gray-900">{agent.name} {agent.surname}</span></td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
                             agent.status === 'active' 
-                              ? 'bg-primary/20 text-primary border border-primary/30' 
+                              ? 'bg-[#1a558b]/20 text-[#1a558b] border border-[#1a558b]/30' 
                               : agent.status === 'pending'
-                              ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                              : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                              ? 'bg-yellow-500/20 text-yellow-600 border border-yellow-500/30'
+                              : 'bg-red-500/20 text-red-600 border border-red-500/30'
                           }`}>
                             <span className={`size-1.5 rounded-full ${
-                              agent.status === 'active' ? 'bg-primary' : 
-                              agent.status === 'pending' ? 'bg-yellow-400' : 'bg-red-400'
+                              agent.status === 'active' ? 'bg-[#1a558b]' : 
+                              agent.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
                             }`}></span>
                             {agent.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4"><span className="text-sm font-bold text-slate-200">0</span></td>
-                        <td className="px-6 py-4"><span className="text-sm font-bold text-slate-200">R{parseFloat(agent.total_commission || 0).toFixed(2)}</span></td>
+                        <td className="px-6 py-4 text-center"><span className="text-sm font-bold text-gray-900">0</span></td>
+                        <td className="px-6 py-4 text-center"><span className="text-sm font-bold text-gray-900">R{parseFloat(agent.total_commission || 0).toFixed(2)}</span></td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center gap-2">
                             {agent.status === 'pending' ? (
                               <>
                                 <button 
                                   onClick={() => handleApproveAgent(agent.id)}
-                                  className="p-2 text-slate-500 hover:text-primary transition-colors rounded-lg bg-slate-800/50 hover:bg-primary/10" 
+                                  className="p-2 text-gray-600 hover:text-[#1a558b] transition-colors rounded-lg bg-gray-100 hover:bg-[#1a558b]/10" 
                                   title="Approve Agent"
                                 >
                                   <span className="material-symbols-outlined text-sm">check_circle</span>
                                 </button>
                                 <button 
                                   onClick={() => handleRejectAgent(agent.id)}
-                                  className="p-2 text-slate-500 hover:text-red-400 transition-colors rounded-lg bg-slate-800/50 hover:bg-red-400/10" 
+                                  className="p-2 text-gray-600 hover:text-red-500 transition-colors rounded-lg bg-gray-100 hover:bg-red-50" 
                                   title="Reject Agent"
                                 >
                                   <span className="material-symbols-outlined text-sm">cancel</span>
@@ -245,9 +282,9 @@ export default function AgentsPage() {
                               </>
                             ) : (
                               <>
-                                <button className="p-2 text-slate-500 hover:text-primary transition-colors rounded-lg bg-slate-800/50 hover:bg-primary/10" title="View Details"><span className="material-symbols-outlined text-sm">visibility</span></button>
-                                <button className="p-2 text-slate-500 hover:text-primary transition-colors rounded-lg bg-slate-800/50 hover:bg-primary/10" title="Edit Agent"><span className="material-symbols-outlined text-sm">edit</span></button>
-                                <button className="p-2 text-slate-500 hover:text-red-400 transition-colors rounded-lg bg-slate-800/50 hover:bg-red-400/10" title="Suspend Agent"><span className="material-symbols-outlined text-sm">block</span></button>
+                                <button className="p-2 text-gray-600 hover:text-[#1a558b] transition-colors rounded-lg bg-gray-100 hover:bg-[#1a558b]/10" title="View Details"><span className="material-symbols-outlined text-sm">visibility</span></button>
+                                <button className="p-2 text-gray-600 hover:text-[#1a558b] transition-colors rounded-lg bg-gray-100 hover:bg-[#1a558b]/10" title="Edit Agent"><span className="material-symbols-outlined text-sm">edit</span></button>
+                                <button className="p-2 text-gray-600 hover:text-red-500 transition-colors rounded-lg bg-gray-100 hover:bg-red-50" title="Suspend Agent"><span className="material-symbols-outlined text-sm">block</span></button>
                               </>
                             )}
                           </div>
@@ -255,9 +292,9 @@ export default function AgentsPage() {
                       </tr>
                     ))
                   )}
-                  <tr className="bg-primary/5">
+                  <tr className="bg-gray-50">
                     <td className="px-6 py-3 text-center" colSpan={6}>
-                      <p className="text-[10px] text-slate-600 font-medium uppercase tracking-widest">Showing {agents.length} of {agents.length} total records</p>
+                      <p className="text-[10px] text-gray-600 font-medium uppercase tracking-widest">Showing {filteredAgents.length} of {agents.length} total records</p>
                     </td>
                   </tr>
                 </tbody>
@@ -265,9 +302,8 @@ export default function AgentsPage() {
             </div>
           </div>
 
-          {/* Footer Copyright */}
           <div className="mt-12 text-center">
-            <p className="text-[10px] text-slate-600 font-bold tracking-[0.2em] uppercase">
+            <p className="text-[10px] text-gray-600 font-bold tracking-[0.2em] uppercase">
               © 2024 +1 Rewards Platform Management • Secured Admin Access
             </p>
           </div>

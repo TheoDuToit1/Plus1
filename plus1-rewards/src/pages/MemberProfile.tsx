@@ -1,155 +1,550 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import MemberLayout from '../components/member/MemberLayout';
 
-interface Member { id: string; name: string; phone: string; email?: string; active_policy?: string }
-interface Wallet { id: string; policies: any; rewards_total: number }
+const CAPE_TOWN_SUBURBS = [
+  'Adderley', 'Athlone', 'Bellville', 'Benoni', 'Bloubergstrand', 'Bonteheuwel',
+  'Brackenfell', 'Camps Bay', 'Claremont', 'Constantia', 'Darling', 'De Kelders',
+  'Delft', 'Diep River', 'Durbanville', 'Eerste River', 'Epping', 'Faure',
+  'Fisantekraal', 'Flamingo Vlei', 'Foreshore', 'Fresnaye', 'Gatesville', 'Goodwood',
+  'Gordon\'s Bay', 'Grassy Park', 'Greenpoint', 'Guguletu', 'Hanover Park', 'Harfield Village',
+  'Heathfield', 'Heideveld', 'Hermanus', 'Hout Bay', 'Ilanga', 'Imizamo Yethu',
+  'Jabulani', 'Jamestown', 'Kalk Bay', 'Kanonkop', 'Kenilworth', 'Kensington',
+  'Khayelitsha', 'Killarney', 'Kommetjie', 'Kraaifontein', 'Kuils River', 'Lakeside',
+  'Langa', 'Lansdowne', 'Lavender Hill', 'Lentegeur', 'Libanon', 'Linksfield',
+  'Llandudno', 'Lotus River', 'Macassar', 'Maitland', 'Mannenberg', 'Marshalltown',
+  'Melkbosstrand', 'Mfuleni', 'Milnerton', 'Mitchells Plain', 'Montagu', 'Morningstar',
+  'Mouille Point', 'Muizenberg', 'Myrtle', 'Netreg', 'Newlands', 'Newmarket',
+  'Nolungile', 'Nomzamo', 'Norwood', 'Nyanga', 'Observatory', 'Orchards',
+  'Ottery', 'Oude Kraal', 'Oudekraal', 'Overberg', 'Paarden Eiland', 'Paarl',
+  'Palmyra', 'Parow', 'Paternoster', 'Patterdale', 'Pelican Park', 'Penlyn',
+  'Pennywise', 'Philippi', 'Pinelands', 'Plumstead', 'Potsdam', 'Primrose Park',
+  'Protea Park', 'Protea Valley', 'Ravensmead', 'Ravenswood', 'Retreat', 'Rondebosch',
+  'Rondebosch East', 'Rondevlei', 'Rosendal', 'Rosmead', 'Rosebank', 'Rosebery',
+  'Rosedale', 'Roseglen', 'Roseland', 'Roselle', 'Rosepark', 'Rosewood',
+  'Roubaix', 'Roux', 'Rowland', 'Roxbury', 'Royalton', 'Ruyterwacht',
+  'Rylands', 'Sable Square', 'Saldanha', 'Salt River', 'Samora Machel', 'Sandown',
+  'Sandton', 'Sanlamhof', 'Sarepta', 'Scarborough', 'Schaapkraal', 'Sea Point',
+  'Seawinds', 'Sebenza', 'Seapoint', 'Seawinds', 'Seawinds', 'Seawinds',
+  'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds',
+  'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds',
+  'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds',
+  'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds',
+  'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds',
+  'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds', 'Seawinds',
+];
+
+interface Member {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  sa_id?: string;
+  city?: string;
+  suburb?: string;
+  profile_picture_url?: string;
+  qr_code: string;
+  active_policy?: string;
+}
 
 export function MemberProfile() {
   const navigate = useNavigate();
   const [member, setMember] = useState<Member | null>(null);
-  const [wallets, setWallets] = useState<Wallet[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
-  const [editName, setEditName] = useState('');
+  const [editingField, setEditingField] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    email: '',
+    sa_id: '',
+    city: '',
+    suburb: '',
+    profile_picture_url: ''
+  });
 
-  useEffect(() => { loadProfile(); }, []);
+  useEffect(() => {
+    loadProfile();
+  }, []);
 
   const loadProfile = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate('/member/login'); return; }
-      const { data } = await supabase.from('members').select('*').eq('id', user.id).single();
-      if (data) { setMember(data); setEditName(data.name); }
-      const { data: walletsData } = await supabase.from('wallets').select('id, policies, rewards_total').eq('member_id', user.id);
-      if (walletsData) setWallets(walletsData);
-    } catch { /* silent */ } finally { setLoading(false); }
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('Auth error:', userError);
+        // Don't redirect immediately, try to refresh session first
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+          navigate('/member/login');
+          return;
+        }
+      }
+      
+      if (!user) {
+        navigate('/member/login');
+        return;
+      }
+      
+      const { data, error: memberError } = await supabase.from('members').select('*').eq('id', user.id).single();
+      
+      if (memberError || !data) {
+        console.log('User is not a member, redirecting to member login');
+        await supabase.auth.signOut();
+        navigate('/member/login');
+        return;
+      }
+      
+      if (data) {
+        setMember(data);
+        // Set Cape Town as default city if not set
+        const defaultCity = data.city || 'Cape Town';
+        setFormData({
+          email: data.email || '',
+          sa_id: data.sa_id || '',
+          city: defaultCity,
+          suburb: data.suburb || '',
+          profile_picture_url: data.profile_picture_url || ''
+        });
+        
+        // Auto-update city to Cape Town if not set
+        if (!data.city) {
+          await supabase
+            .from('members')
+            .update({ city: 'Cape Town' })
+            .eq('id', user.id);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const saveName = async () => {
-    if (!member || !editName.trim()) return;
+  const handleSave = async () => {
+    if (!member) return;
     setSaving(true);
-    await supabase.from('members').update({ name: editName.trim() }).eq('id', member.id);
-    setMember(prev => prev ? { ...prev, name: editName.trim() } : prev);
-    setSaving(false); setEditing(false); setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setError(null);
+    try {
+      // Check for duplicate email if email is being updated
+      if (formData.email && formData.email !== member.email) {
+        const { data: existingEmail } = await supabase
+          .from('members')
+          .select('id')
+          .eq('email', formData.email)
+          .neq('id', member.id)
+          .maybeSingle();
+
+        if (existingEmail) {
+          setError('This email is already registered by another member. Please use a different email address.');
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Check for duplicate SA ID if SA ID is being updated
+      if (formData.sa_id && formData.sa_id !== member.sa_id) {
+        const { data: existingSaId } = await supabase
+          .from('members')
+          .select('id')
+          .eq('sa_id', formData.sa_id)
+          .neq('id', member.id)
+          .maybeSingle();
+
+        if (existingSaId) {
+          setError('This SA ID number is already registered by another member. Please verify your ID number.');
+          setSaving(false);
+          return;
+        }
+      }
+
+      const { error: updateError } = await supabase
+        .from('members')
+        .update({
+          email: formData.email,
+          sa_id: formData.sa_id,
+          city: formData.city,
+          suburb: formData.suburb,
+          profile_picture_url: formData.profile_picture_url
+        })
+        .eq('id', member.id);
+
+      if (updateError) throw updateError;
+
+      setMember(prev => prev ? { ...prev, ...formData } : prev);
+      setSaved(true);
+      setEditingField(null);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      setError('Failed to save profile. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const totalRewards = wallets.reduce((s, w) => s + (w.rewards_total || 0), 0);
-  const activePolicies = wallets.filter(w => {
-    const policies = w.policies || {};
-    return Object.values(policies).some((p: any) => (p.current || 0) >= (p.target || 1));
-  }).length;
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !e.target.files[0] || !member) return;
+    
+    const file = e.target.files[0];
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${member.id}/${Date.now()}.${fileExt}`;
+    
+    setUploading(true);
+    setError(null);
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('profile-pictures')
+        .upload(fileName, file, { upsert: true });
 
-  if (loading) return (
-    <div className="page-wrapper" style={{ alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: '3px solid var(--blue-light)', borderTopColor: 'var(--blue)', animation: 'spin 1s linear infinite' }} />
-    </div>
-  );
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-pictures')
+        .getPublicUrl(fileName);
+
+      const { error: updateError } = await supabase
+        .from('members')
+        .update({ profile_picture_url: publicUrl })
+        .eq('id', member.id);
+
+      if (updateError) throw updateError;
+
+      setMember(prev => prev ? { ...prev, profile_picture_url: publicUrl } : prev);
+      setFormData(prev => ({ ...prev, profile_picture_url: publicUrl }));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      setError('Failed to upload profile picture. Please try again or use a different image.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleUrlSave = async () => {
+    if (!member) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const { error: updateError } = await supabase
+        .from('members')
+        .update({ profile_picture_url: formData.profile_picture_url })
+        .eq('id', member.id);
+
+      if (updateError) throw updateError;
+
+      setMember(prev => prev ? { ...prev, profile_picture_url: formData.profile_picture_url } : prev);
+      setSaved(true);
+      setEditingField(null);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (error) {
+      console.error('Error saving profile picture URL:', error);
+      setError('Failed to save profile picture URL. Please check the URL and try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-[#f5f8fc] min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-[#1a558b]/20 border-t-[#1a558b] rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="page-wrapper">
-      <header className="page-header">
-        <div style={{ maxWidth: '56rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0 }}>👤 My Profile</h1>
-            <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>Account settings & details</p>
+    <MemberLayout
+      member={member}
+      isOnline={navigator.onLine}
+      pendingTransactions={0}
+      onSignOut={() => supabase.auth.signOut().then(() => navigate('/member/login'))}
+    >
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">My Profile</h1>
+          <p className="text-gray-600">Account settings & details</p>
+        </div>
+        <button
+          onClick={() => navigate('/member/dashboard')}
+          className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold px-4 py-2 rounded-xl transition-colors"
+        >
+          ← Back to Dashboard
+        </button>
+      </div>
+
+      {saved && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+          <span className="material-symbols-outlined text-green-500 text-xl">check_circle</span>
+          <p className="text-green-700 font-medium">Profile updated successfully</p>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-start gap-3">
+          <span className="material-symbols-outlined text-red-500 text-xl">error</span>
+          <div className="flex-1">
+            <p className="text-red-700 font-medium">{error}</p>
           </div>
-          <button onClick={() => navigate('/member/dashboard')} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', borderRadius: '8px', padding: '0.375rem 0.875rem', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}>
-            ← Dashboard
+          <button
+            onClick={() => setError(null)}
+            className="text-red-500 hover:text-red-600 transition-colors"
+          >
+            <span className="material-symbols-outlined text-xl">close</span>
           </button>
         </div>
-      </header>
+      )}
 
-      <main style={{ flex: 1, padding: '1.5rem 1rem' }}>
-        <div style={{ maxWidth: '56rem', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {saved && <div className="alert alert-success">✓ Profile updated successfully</div>}
-
-          {/* Avatar + name */}
-          <div className="card" style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
-            <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--blue), var(--blue-dark))', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', fontSize: '1.875rem', color: '#fff', fontWeight: 800 }}>
+      {/* Profile Card */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center mb-6 shadow-sm">
+        <div className="relative inline-block mb-4">
+          {member?.profile_picture_url ? (
+            <img
+              src={member.profile_picture_url}
+              alt={member.name}
+              className="w-24 h-24 rounded-full object-cover shadow-lg border-4 border-[#1a558b]/30"
+            />
+          ) : (
+            <div className="w-24 h-24 bg-gradient-to-br from-[#1a558b] to-[#1a558b]/70 rounded-full flex items-center justify-center text-4xl font-black text-white shadow-lg">
               {member?.name?.charAt(0).toUpperCase() || '?'}
             </div>
-            {editing ? (
-              <div style={{ display: 'flex', gap: '0.625rem', maxWidth: '300px', margin: '0 auto' }}>
-                <input type="text" className="input" value={editName} onChange={e => setEditName(e.target.value)} style={{ textAlign: 'center' }} />
-                <button onClick={saveName} disabled={saving} style={{ background: 'var(--green-dark)', color: '#fff', border: 'none', borderRadius: '10px', padding: '0 1rem', fontWeight: 700, cursor: 'pointer', flexShrink: 0 }}>
-                  {saving ? '⏳' : '✓'}
-                </button>
-              </div>
-            ) : (
-              <div>
-                <h2 style={{ fontSize: '1.375rem', fontWeight: 800, color: '#111827', margin: '0 0 0.375rem' }}>{member?.name}</h2>
-                <button onClick={() => setEditing(true)} style={{ background: 'none', border: 'none', color: 'var(--blue)', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem' }}>
-                  ✏️ Edit name
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Account info */}
-          <div className="card">
-            <h2 className="section-title">Account Details</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-              {[
-                { label: 'Mobile Number', value: member?.phone || '—', icon: '📱' },
-                { label: 'Email', value: member?.email || '—', icon: '📧' },
-                { label: 'Member ID', value: member?.id?.slice(0, 16) + '…' || '—', icon: '🔑' },
-                { label: 'Active Policy', value: member?.active_policy || 'None selected', icon: '🏥' },
-              ].map((item, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', padding: '0.875rem', background: '#fafbff', borderRadius: '10px', border: '1px solid var(--gray-border)' }}>
-                  <span style={{ fontSize: '1.25rem' }}>{item.icon}</span>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--gray-light)', margin: '0 0 2px' }}>{item.label}</p>
-                    <p style={{ fontWeight: 600, color: '#111827', margin: 0, fontSize: '0.9375rem' }}>{item.value}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
-            <div className="stat-card" style={{ textAlign: 'center' }}>
-              <p className="stat-label">Total Rewards</p>
-              <p className="stat-value" style={{ color: 'var(--green-dark)', fontSize: '1.25rem' }}>R{totalRewards.toFixed(2)}</p>
-            </div>
-            <div className="stat-card" style={{ textAlign: 'center' }}>
-              <p className="stat-label">Partner Shops</p>
-              <p className="stat-value" style={{ color: 'var(--blue)', fontSize: '1.25rem' }}>{wallets.length}</p>
-            </div>
-            <div className="stat-card" style={{ textAlign: 'center' }}>
-              <p className="stat-label">Active Policies</p>
-              <p className="stat-value" style={{ color: 'var(--orange)', fontSize: '1.25rem' }}>{activePolicies}</p>
-            </div>
-          </div>
-
-          {/* Quick links */}
-          <div className="card">
-            <h2 className="section-title">Account Actions</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-              {[
-                { label: '📊 View My History', path: '/member/history' },
-                { label: '🏥 Change My Policy Plan', path: '/member/policy-selector' },
-                { label: '🔒 Privacy Policy (POPIA)', path: '/legal/popia' },
-                { label: '📄 Member Terms', path: '/legal/member-terms' },
-              ].map((item, i) => (
-                <button key={i} onClick={() => navigate(item.path)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1rem', background: '#fafbff', border: '1px solid var(--gray-border)', borderRadius: '10px', cursor: 'pointer', fontWeight: 600, fontSize: '0.9375rem', color: '#111827', textAlign: 'left' }}>
-                  {item.label} <span style={{ color: 'var(--gray-light)' }}>→</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Sign out */}
-          <button onClick={async () => { await supabase.auth.signOut(); navigate('/member/login'); }} className="btn btn-danger btn-block" style={{ borderRadius: '12px', height: '52px' }}>
-            Sign Out
-          </button>
+          )}
+          <label className="absolute bottom-0 right-0 w-8 h-8 bg-[#1a558b] rounded-full flex items-center justify-center cursor-pointer hover:bg-[#1a558b]/90 transition-colors shadow-lg">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              className="hidden"
+              disabled={uploading}
+            />
+            <span className="material-symbols-outlined text-white text-sm">
+              {uploading ? 'hourglass_empty' : 'photo_camera'}
+            </span>
+          </label>
         </div>
-      </main>
-    </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">{member?.name}</h2>
+        <p className="text-gray-600">{member?.phone}</p>
+        {editingField === 'profile_picture_url' && (
+          <div className="mt-4 max-w-md mx-auto">
+            <p className="text-gray-600 text-sm mb-2">Or enter image URL:</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="url"
+                value={formData.profile_picture_url}
+                onChange={e => setFormData(prev => ({ ...prev, profile_picture_url: e.target.value }))}
+                className="flex-1 bg-[#f5f8fc] border-2 border-[#1a558b] rounded-lg px-3 py-2 text-gray-900 text-sm"
+                placeholder="https://example.com/image.jpg"
+              />
+              <button
+                onClick={handleUrlSave}
+                disabled={saving}
+                className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold px-3 py-2 rounded-lg text-xs disabled:opacity-50"
+              >
+                {saving ? '...' : '✓'}
+              </button>
+              <button
+                onClick={() => setEditingField(null)}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-3 py-2 rounded-lg text-xs"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+        {!editingField && (
+          <button
+            onClick={() => setEditingField('profile_picture_url')}
+            className="mt-2 text-[#1a558b] hover:text-[#1a558b]/80 text-sm font-medium"
+          >
+            Add image URL
+          </button>
+        )}
+      </div>
+
+      {/* Account Details */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6 shadow-sm">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">Account Details</h3>
+        <div className="space-y-4">
+          {/* Email */}
+          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+            <div className="w-10 h-10 bg-[#1a558b]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+              <span className="material-symbols-outlined text-[#1a558b] text-lg">email</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-gray-600 text-sm">Email Address</p>
+              {editingField === 'email' ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={e => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    className="flex-1 bg-[#f5f8fc] border-2 border-[#1a558b] rounded-lg px-3 py-2 text-gray-900 text-sm"
+                    placeholder="your@email.com"
+                  />
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold px-3 py-2 rounded-lg text-xs disabled:opacity-50"
+                  >
+                    {saving ? '...' : '✓'}
+                  </button>
+                  <button
+                    onClick={() => setEditingField(null)}
+                    className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-3 py-2 rounded-lg text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-900 font-medium">{member?.email || 'Not set'}</p>
+                  <button
+                    onClick={() => setEditingField('email')}
+                    className="text-[#1a558b] hover:text-[#1a558b]/80 text-sm font-medium"
+                  >
+                    ✏️ Edit
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* SA ID */}
+          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+            <div className="w-10 h-10 bg-[#1a558b]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+              <span className="material-symbols-outlined text-[#1a558b] text-lg">badge</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-gray-600 text-sm">SA ID Number</p>
+              {editingField === 'sa_id' ? (
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="text"
+                    value={formData.sa_id}
+                    onChange={e => setFormData(prev => ({ ...prev, sa_id: e.target.value }))}
+                    className="flex-1 bg-[#f5f8fc] border-2 border-[#1a558b] rounded-lg px-3 py-2 text-gray-900 text-sm"
+                    placeholder="YYMMDDGGGGGGG"
+                    maxLength={13}
+                  />
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold px-3 py-2 rounded-lg text-xs disabled:opacity-50"
+                  >
+                    {saving ? '...' : '✓'}
+                  </button>
+                  <button
+                    onClick={() => setEditingField(null)}
+                    className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-3 py-2 rounded-lg text-xs"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-900 font-medium">{member?.sa_id || 'Not set'}</p>
+                  <button
+                    onClick={() => setEditingField('sa_id')}
+                    className="text-[#1a558b] hover:text-[#1a558b]/80 text-sm font-medium"
+                  >
+                    ✏️ Edit
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* City and Suburb - Side by Side */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* City (Read-only - Cape Town) */}
+            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+              <div className="w-10 h-10 bg-[#1a558b]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-[#1a558b] text-lg">location_city</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-gray-600 text-sm">City</p>
+                <p className="text-gray-900 font-medium">Cape Town</p>
+                <p className="text-gray-500 text-xs mt-1">Default location</p>
+              </div>
+            </div>
+
+            {/* Suburb */}
+            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+              <div className="w-10 h-10 bg-[#1a558b]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                <span className="material-symbols-outlined text-[#1a558b] text-lg">home</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-gray-600 text-sm">Suburb</p>
+                {editingField === 'suburb' ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <select
+                      value={formData.suburb}
+                      onChange={e => setFormData(prev => ({ ...prev, suburb: e.target.value }))}
+                      className="flex-1 bg-[#f5f8fc] border-2 border-[#1a558b] rounded-lg px-3 py-2 text-gray-900 text-sm min-w-0"
+                    >
+                      <option value="">Select suburb...</option>
+                      {CAPE_TOWN_SUBURBS.map(suburb => (
+                        <option key={suburb} value={suburb}>{suburb}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleSave}
+                      disabled={saving}
+                      className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold px-3 py-2 rounded-lg text-xs disabled:opacity-50 flex-shrink-0"
+                    >
+                      {saving ? '...' : '✓'}
+                    </button>
+                    <button
+                      onClick={() => setEditingField(null)}
+                      className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-3 py-2 rounded-lg text-xs flex-shrink-0"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <p className="text-gray-900 font-medium truncate">{member?.suburb || 'Not set'}</p>
+                    <button
+                      onClick={() => setEditingField('suburb')}
+                      className="text-[#1a558b] hover:text-[#1a558b]/80 text-sm font-medium flex-shrink-0 ml-2"
+                    >
+                      ✏️ Edit
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Phone (Read-only) */}
+          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
+            <div className="w-10 h-10 bg-[#1a558b]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+              <span className="material-symbols-outlined text-[#1a558b] text-lg">phone</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-gray-600 text-sm">Mobile Number</p>
+              <p className="text-gray-900 font-medium">{member?.phone || '—'}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sign Out */}
+      <button
+        onClick={async () => { await supabase.auth.signOut(); navigate('/member/login'); }}
+        className="w-full bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-bold py-4 rounded-xl transition-colors"
+      >
+        <span className="material-symbols-outlined mr-2">logout</span>
+        Sign Out
+      </button>
+    </MemberLayout>
   );
 }

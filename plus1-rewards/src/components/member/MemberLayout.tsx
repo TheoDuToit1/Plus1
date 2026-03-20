@@ -21,7 +21,7 @@ interface MemberLayoutProps {
 
 export default function MemberLayout({ children, member, isOnline, pendingTransactions, onSignOut }: MemberLayoutProps) {
   return (
-    <div className="relative flex min-h-screen w-full flex-col bg-background-dark">
+    <div className="relative flex min-h-screen w-full flex-col" style={{ backgroundColor: '#f5f8fc' }}>
       <div className="layout-container flex h-full grow flex-col w-full">
         <MemberTopbar 
           member={member}
@@ -29,7 +29,7 @@ export default function MemberLayout({ children, member, isOnline, pendingTransa
           pendingTransactions={pendingTransactions}
           onSignOut={onSignOut}
         />
-        <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-6 md:px-8 md:py-8 space-y-6 md:space-y-8">
+        <main className="flex-1 w-full max-w-5xl mx-auto px-4 py-6 md:px-8 md:py-8 space-y-6 md:space-y-8" style={{ paddingTop: '5rem' }}>
           {children}
         </main>
         <MemberFooter />

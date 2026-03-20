@@ -13,14 +13,14 @@ interface MemberData {
 
 interface Wallet {
   id: string;
-  shop_id: string;
+  partner_id: string;
   rewards_total: number;
   balance: number;
   commission_rate: number;
   status: string;
 }
 
-interface Shop {
+interface Partner {
   id: string;
   name: string;
   phone: string;
@@ -30,7 +30,7 @@ interface Shop {
 
 interface Transaction {
   id: string;
-  shop_id: string;
+  partner_id: string;
   purchase_amount: number;
   member_reward: number;
   created_at: string;
@@ -47,7 +47,7 @@ interface MemberStats {
 export const useMemberDashboard = (memberId: string | null) => {
   const [member, setMember] = useState<MemberData | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [shops, setShops] = useState<Map<string, Shop>>(new Map());
+  const [partners, setPartners] = useState<Map<string, Partner>>(new Map());
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [stats, setStats] = useState<MemberStats>({
     totalRewards: 0,
@@ -84,18 +84,18 @@ export const useMemberDashboard = (memberId: string | null) => {
       if (walletsError) throw walletsError;
       setWallets(walletsData || []);
 
-      // Fetch shops for wallets
+      // Fetch partners for wallets
       if (walletsData && walletsData.length > 0) {
-        const shopIds = walletsData.map(w => w.shop_id);
-        const { data: shopsData, error: shopsError } = await supabase
-          .from('shops')
+        const partnerIds = walletsData.map(w => w.partner_id);
+        const { data: partnersData, error: partnersError } = await supabase
+          .from('partners')
           .select('*')
-          .in('id', shopIds);
+          .in('id', partnerIds);
 
-        if (shopsError) throw shopsError;
+        if (partnersError) throw partnersError;
 
-        const shopsMap = new Map(shopsData?.map(s => [s.id, s]) || []);
-        setShops(shopsMap);
+        const partnersMap = new Map(partnersData?.map(s => [s.id, s]) || []);
+        setPartners(partnersMap);
       }
 
       // Fetch transactions
@@ -128,9 +128,9 @@ export const useMemberDashboard = (memberId: string | null) => {
     }
   };
 
-  const spendRewards = async (shopId: string, amount: number) => {
+  const spendRewards = async (partnerId: string, amount: number) => {
     try {
-      const wallet = wallets.find(w => w.shop_id === shopId);
+      const wallet = wallets.find(w => w.partner_id === partnerId);
       if (!wallet) throw new Error('Wallet not found');
       if (wallet.balance < amount) throw new Error('Insufficient balance');
 
@@ -139,10 +139,10 @@ export const useMemberDashboard = (memberId: string | null) => {
         .from('transactions')
         .insert({
           member_id: memberId,
-          shop_id: shopId,
+          partner_id: partnerId,
           purchase_amount: amount,
           member_reward: -amount,
-          shop_contribution: 0,
+          partner_contribution: 0,
           agent_commission: 0,
           platform_fee: 0,
           is_spend: true,
@@ -195,7 +195,7 @@ export const useMemberDashboard = (memberId: string | null) => {
   return {
     member,
     wallets,
-    shops,
+    partners,
     transactions,
     stats,
     loading,

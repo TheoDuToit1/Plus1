@@ -11,7 +11,7 @@ import BottomNav from './BottomNav';
 
 export default function MobileLanding() {
   return (
-    <div className="relative flex min-h-screen w-full flex-col">
+    <div className="relative flex min-h-screen w-full flex-col" style={{ backgroundColor: '#f5f8fc' }}>
       <Header />
       <main className="flex-1">
         <HeroSection />

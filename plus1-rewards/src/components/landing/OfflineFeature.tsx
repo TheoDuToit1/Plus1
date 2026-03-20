@@ -1,45 +1,61 @@
 // plus1-rewards/src/components/landing/OfflineFeature.tsx
+const BLUE = '#1a558b'
+const BLUE_LIGHT = 'rgba(26,85,139,0.10)'
+
 export default function OfflineFeature() {
   return (
-    <section className="py-24 px-6 lg:px-20 relative overflow-hidden" style={{ backgroundColor: '#0f172a' }} id="features">
+    <section className="py-24 px-6 lg:px-20 relative overflow-hidden" style={{ backgroundColor: '#ffffff' }} id="features">
       <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-16 items-center">
-        <div className="relative">
-          <div className="absolute -inset-10 bg-primary/10 blur-[100px] rounded-full"></div>
-          <img 
-            alt="Customer scanning QR code in a local shop" 
-            className="rounded-3xl shadow-2xl relative z-10 border border-white/5" 
-            data-alt="Close up of scanning QR code at counter" 
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrChp-rJw6gwciGLXkYyh6v8Sf0Pbu42DOiuN12h8xMQtitpDrR2WE68lVzoAwCjuvqsUf4ghwaRh3yCAFlJLn-9H5MM-I-mXllz59_xWXA74wV3UpnoT0mK-ST-F-4o0mVUcmvx6tV1aY8BwMfKw_DwOd9Fn5xJ0kzM99Q4pYZQ2zDzYXGNHL2xoDZJdZsw72j8f5S96nZUYAmgFB0AfrKpN5QkacJcNvO_LUiptUqTLUttbTqYi9E8WQ7_vYHdiWWE1FqwmMjtcB" 
+
+        {/* Image */}
+        <div className="relative order-2 md:order-1">
+          <div
+            className="absolute -inset-6 rounded-3xl blur-[60px] opacity-15"
+            style={{ backgroundColor: BLUE }}
           />
-          <div className="absolute -bottom-6 -right-6 bg-primary p-6 rounded-2xl shadow-xl z-20 max-w-[200px]">
-            <span className="material-symbols-outlined text-background-dark text-4xl mb-2">offline_pin</span>
-            <p className="text-background-dark font-black text-lg leading-tight">Works 100% Offline</p>
+          <img
+            alt="Customer scanning QR code in a local shop"
+            className="rounded-3xl shadow-xl relative z-10 border w-full object-cover"
+            style={{ borderColor: '#e5e7eb' }}
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBrChp-rJw6gwciGLXkYyh6v8Sf0Pbu42DOiuN12h8xMQtitpDrR2WE68lVzoAwCjuvqsUf4ghwaRh3yCAFlJLn-9H5MM-I-mXllz59_xWXA74wV3UpnoT0mK-ST-F-4o0mVUcmvx6tV1aY8BwMfKw_DwOd9Fn5xJ0kzM99Q4pYZQ2zDzYXGNHL2xoDZJdZsw72j8f5S96nZUYAmgFB0AfrKpN5QkacJcNvO_LUiptUqTLUttbTqYi9E8WQ7_vYHdiWWE1FqwmMjtcB"
+          />
+          <div
+            className="absolute -bottom-5 -right-5 text-white p-5 rounded-2xl shadow-xl z-20 max-w-[180px]"
+            style={{ backgroundColor: BLUE }}
+          >
+            <span className="material-symbols-outlined text-white text-3xl mb-1">offline_pin</span>
+            <p className="font-black text-sm leading-tight text-white">Works 100% Offline</p>
           </div>
         </div>
-        <div className="space-y-8">
-          <h2 className="text-4xl lg:text-5xl font-bold text-white leading-tight">No data? No problem.</h2>
-          <p className="text-xl text-slate-400 leading-relaxed">
+
+        {/* Text */}
+        <div className="space-y-7 order-1 md:order-2">
+          <span
+            className="inline-block px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest"
+            style={{ backgroundColor: BLUE_LIGHT, color: BLUE }}
+          >
+            Built for Africa
+          </span>
+          <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">No data?<br />No problem.</h2>
+          <p className="text-lg text-gray-500 leading-relaxed">
             Our proprietary QR technology is built for the African market. We know data can be expensive or unavailable. That&apos;s why our system works perfectly even when you&apos;re completely offline.
           </p>
           <div className="space-y-4">
-            <div className="flex gap-4">
-              <div className="size-6 rounded-full bg-primary/20 flex items-center justify-center text-primary mt-1">
-                <span className="material-symbols-outlined text-sm">check</span>
+            {[
+              'Instant validation without an active internet connection.',
+              'Syncs automatically when your device finds a signal.',
+              'Secure, encrypted transactions that protect your data.',
+            ].map((item, i) => (
+              <div key={i} className="flex gap-4 items-start">
+                <div
+                  className="size-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+                  style={{ backgroundColor: BLUE_LIGHT }}
+                >
+                  <span className="material-symbols-outlined text-sm" style={{ color: BLUE }}>check</span>
+                </div>
+                <p className="text-gray-600">{item}</p>
               </div>
-              <p className="text-slate-300">Instant validation without an active internet connection.</p>
-            </div>
-            <div className="flex gap-4">
-              <div className="size-6 rounded-full bg-primary/20 flex items-center justify-center text-primary mt-1">
-                <span className="material-symbols-outlined text-sm">check</span>
-              </div>
-              <p className="text-slate-300">Syncs automatically when your device finds a signal.</p>
-            </div>
-            <div className="flex gap-4">
-              <div className="size-6 rounded-full bg-primary/20 flex items-center justify-center text-primary mt-1">
-                <span className="material-symbols-outlined text-sm">check</span>
-              </div>
-              <p className="text-slate-300">Secure, encrypted transactions that protect your data.</p>
-            </div>
+            ))}
           </div>
         </div>
       </div>

@@ -18,7 +18,7 @@ interface Plus1DB extends DBSchema {
     value: {
       id: string
       memberId: string
-      shopId: string
+      partnerId: string
       rewardsTotal: number
       policies: Record<string, any>
       status: 'active' | 'paused'
@@ -29,7 +29,7 @@ interface Plus1DB extends DBSchema {
     key: string
     value: {
       id: string
-      shopId: string
+      partnerId: string
       memberId: string
       amount: number
       type: 'earn' | 'spend'

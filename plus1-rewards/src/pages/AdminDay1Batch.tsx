@@ -21,7 +21,7 @@ export function AdminDay1Batch() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const { data: wallets } = await supabase.from('wallets').select('member_id, policies, shop_id');
+      const { data: wallets } = await supabase.from('wallets').select('member_id, policies, partner_id');
       const { data: members } = await supabase.from('members').select('id, name, phone');
       const memberMap = new Map(members?.map(m => [m.id, m]) || []);
       const batchData: PolicyBatch[] = [];

@@ -10,17 +10,17 @@ html.dark {
 
 html {
   width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 body { 
   font-family: 'Inter', sans-serif; 
-  background-color: #102216;
-  color: #f1f5f9;
+  background-color: #ffffff;
+  color: #111827;
   min-height: 100vh;
   min-height: 100dvh;
   width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   margin: 0;
   padding: 0;
 }
@@ -29,7 +29,7 @@ body {
   width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 .material-symbols-outlined { 
@@ -277,84 +277,83 @@ body {
   filter: blur(100px);
 }
 
-/* Input field styling - transparent background with ultra-thin green border */
-input[type="text"],
-input[type="email"], 
-input[type="password"],
-input[type="tel"],
-select {
+/* Input field styling - transparent background with ultra-thin green border (only for auth/member pages) */
+.auth-page input[type="text"],
+.auth-page input[type="email"], 
+.auth-page input[type="password"],
+.auth-page input[type="tel"],
+.member-page input[type="text"],
+.member-page input[type="email"], 
+.member-page input[type="password"],
+.member-page input[type="tel"],
+.member-page select {
   background-color: transparent !important;
   border: 0.2px solid #11d452 !important;
   color: #ffffff !important;
 }
 
-input[type="text"]::placeholder,
-input[type="email"]::placeholder,
-input[type="password"]::placeholder,
-input[type="tel"]::placeholder {
+.auth-page input[type="text"]::placeholder,
+.auth-page input[type="email"]::placeholder,
+.auth-page input[type="password"]::placeholder,
+.auth-page input[type="tel"]::placeholder,
+.member-page input[type="text"]::placeholder,
+.member-page input[type="email"]::placeholder,
+.member-page input[type="password"]::placeholder,
+.member-page input[type="tel"]::placeholder {
   color: rgba(255, 255, 255, 0.6) !important;
 }
 
 /* Focus states for inputs */
-input[type="text"]:focus,
-input[type="email"]:focus,
-input[type="password"]:focus,
-input[type="tel"]:focus,
-select:focus {
+.auth-page input[type="text"]:focus,
+.auth-page input[type="email"]:focus,
+.auth-page input[type="password"]:focus,
+.auth-page input[type="tel"]:focus,
+.member-page input[type="text"]:focus,
+.member-page input[type="email"]:focus,
+.member-page input[type="password"]:focus,
+.member-page input[type="tel"]:focus,
+.member-page select:focus {
   background-color: transparent !important;
   border-color: #11d452 !important;
   border-width: 0.2px !important;
   box-shadow: 0 0 0 2px rgba(17, 212, 82, 0.2) !important;
 }
 
-/* Override any existing input styles with class selectors */
-input.block,
-input.w-full {
-  background-color: transparent !important;
-  border: 0.2px solid #11d452 !important;
-  color: #ffffff !important;
-}
-
-input.block::placeholder,
-input.w-full::placeholder {
-  color: rgba(255, 255, 255, 0.6) !important;
-}
-
-input.block:focus,
-input.w-full:focus {
-  background-color: transparent !important;
-  border-color: #11d452 !important;
-  border-width: 0.2px !important;
-  box-shadow: 0 0 0 2px rgba(17, 212, 82, 0.2) !important;
-}
-
-/* Specific overrides for form inputs - more aggressive targeting */
-.bg-white,
-.dark\:bg-background-dark\/50,
-.bg-background-dark\/50 {
+/* Specific overrides for form inputs - more aggressive targeting (only for auth/member pages) */
+.auth-page .dark\:bg-background-dark\/50,
+.auth-page .bg-background-dark\/50,
+.member-page .dark\:bg-background-dark\/50,
+.member-page .bg-background-dark\/50 {
   background-color: transparent !important;
 }
 
-.border-slate-200,
-.dark\:border-primary\/20,
-.border-primary\/20,
-.border-2.border-primary {
+.auth-page .border-slate-200,
+.auth-page .dark\:border-primary\/20,
+.auth-page .border-primary\/20,
+.auth-page .border-2.border-primary,
+.member-page .border-slate-200,
+.member-page .dark\:border-primary\/20,
+.member-page .border-primary\/20,
+.member-page .border-2.border-primary {
   border: 0.2px solid #11d452 !important;
 }
 
-/* Override border-2 specifically */
-.border-2 {
+/* Override border-2 specifically (only for auth/member pages) */
+.auth-page .border-2,
+.member-page .border-2 {
   border-width: 0.2px !important;
 }
 
-/* Additional input overrides for consistency */
-input[class*="border"] {
+/* Additional input overrides for consistency (only for auth/member pages) */
+.auth-page input[class*="border"],
+.member-page input[class*="border"] {
   border: 0.2px solid #11d452 !important;
   background-color: transparent !important;
   color: #ffffff !important;
 }
 
-input[class*="border"]:focus {
+.auth-page input[class*="border"]:focus,
+.member-page input[class*="border"]:focus {
   border: 0.2px solid #11d452 !important;
   background-color: transparent !important;
   box-shadow: 0 0 0 2px rgba(17, 212, 82, 0.2) !important;
@@ -679,4 +678,131 @@ button.password-toggle-btn * {
 /* Custom back button background */
 .bg-custom-dark {
   background-color: #102216 !important;
+}
+
+/* Auth input override - prevent global input styles from applying */
+input.auth-input-override,
+input.auth-input-override:focus,
+input.auth-input-override:hover,
+input.auth-input-override:active {
+  border: 2px solid #1a558b !important;
+  background: #f5f8fc !important;
+  background-color: #f5f8fc !important;
+  color: #111827 !important;
+  box-shadow: none !important;
+}
+
+input.auth-input-override::placeholder {
+  color: #9ca3af !important;
+  opacity: 1 !important;
+}
+
+/* Prevent browser autocomplete styling */
+input.auth-input-override:-webkit-autofill,
+input.auth-input-override:-webkit-autofill:hover,
+input.auth-input-override:-webkit-autofill:focus,
+input.auth-input-override:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #f5f8fc inset !important;
+  -webkit-text-fill-color: #111827 !important;
+  border: 2px solid #1a558b !important;
+}
+
+/* Member page input override - light theme with blue borders */
+input.member-input-override,
+input.member-input-override:focus,
+input.member-input-override:hover,
+input.member-input-override:active,
+select.member-input-override,
+select.member-input-override:focus,
+select.member-input-override:hover,
+select.member-input-override:active {
+  border: 2px solid #1a558b !important;
+  background: #f5f8fc !important;
+  background-color: #f5f8fc !important;
+  color: #111827 !important;
+  box-shadow: none !important;
+}
+
+input.member-input-override::placeholder {
+  color: #9ca3af !important;
+  opacity: 1 !important;
+}
+
+/* Prevent browser autocomplete styling for member inputs */
+input.member-input-override:-webkit-autofill,
+input.member-input-override:-webkit-autofill:hover,
+input.member-input-override:-webkit-autofill:focus,
+input.member-input-override:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #f5f8fc inset !important;
+  -webkit-text-fill-color: #111827 !important;
+  border: 2px solid #1a558b !important;
+}
+
+/* Animated checkbox styles */
+.checkbox-container .check {
+  cursor: pointer;
+  position: relative;
+  margin: auto;
+  width: 18px;
+  height: 18px;
+  -webkit-tap-highlight-color: transparent;
+  transform: translate3d(0, 0, 0);
+}
+
+.checkbox-container .check:before {
+  content: "";
+  position: absolute;
+  top: -15px;
+  left: -15px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(26, 85, 139, 0.03);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.checkbox-container .check svg {
+  position: relative;
+  z-index: 1;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke: #c8ccd4;
+  stroke-width: 1.5;
+  transform: translate3d(0, 0, 0);
+  transition: all 0.2s ease;
+}
+
+.checkbox-container .check svg path {
+  stroke-dasharray: 60;
+  stroke-dashoffset: 0;
+}
+
+.checkbox-container .check svg polyline {
+  stroke-dasharray: 22;
+  stroke-dashoffset: 66;
+}
+
+.checkbox-container .check:hover:before {
+  opacity: 1;
+}
+
+.checkbox-container .check:hover svg {
+  stroke: #1a558b;
+}
+
+.checkbox-container input[type="checkbox"]:checked + .check svg {
+  stroke: #1a558b;
+}
+
+.checkbox-container input[type="checkbox"]:checked + .check svg path {
+  stroke-dashoffset: 60;
+  transition: all 0.3s linear;
+}
+
+.checkbox-container input[type="checkbox"]:checked + .check svg polyline {
+  stroke-dashoffset: 42;
+  transition: all 0.2s linear;
+  transition-delay: 0.15s;
 }

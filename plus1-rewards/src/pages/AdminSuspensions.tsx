@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-interface SuspendedShop {
-  id: string; shop_id: string; shop_name: string;
+interface SuspendedPartner {
+  id: string; partner_id: string; partner_name: string;
   invoice_amount: number; due_date: string; days_overdue: number;
   members_affected: number; suspension_date: string; penalty_amount: number;
 }
-interface EarlyWarning { shop_id: string; shop_name: string; invoice_amount: number; days_overdue: number; due_date: string }
+interface EarlyWarning { partner_id: string; partner_name: string; invoice_amount: number; days_overdue: number; due_date: string }
 
 export function AdminSuspensions() {
   const navigate = useNavigate();
@@ -23,32 +23,32 @@ export function AdminSuspensions() {
     setLoading(true);
     try {
       // Directly query shops with suspended status — catches all suspension sources
-      const { data: suspendedShopsList } = await supabase.from('shops').select('id, name, phone, commission_rate').eq('status', 'suspended');
-      const { data: overdueInvoices } = await supabase.from('monthly_invoices').select('id, shop_id, total_due, due_date').eq('status', 'overdue');
-      const { data: suspendedInvoices } = await supabase.from('monthly_invoices').select('id, shop_id, total_due, due_date, penalty_amount, created_at').eq('status', 'suspended');
-      const { data: wallets } = await supabase.from('wallets').select('shop_id, member_id');
+      const { data: suspendedShopsList } = await supabase.from('partners').select('id, name, phone, commission_rate').eq('status', 'suspended');
+      const { data: overdueInvoices } = await supabase.from('monthly_invoices').select('id, partner_id, total_due, due_date').eq('status', 'overdue');
+      const { data: suspendedInvoices } = await supabase.from('monthly_invoices').select('id, partner_id, total_due, due_date, penalty_amount, created_at').eq('status', 'suspended');
+      const { data: wallets } = await supabase.from('wallets').select('partner_id, member_id');
 
       const membersByShop = new Map<string, Set<string>>();
-      wallets?.forEach(w => { if (!membersByShop.has(w.shop_id)) membersByShop.set(w.shop_id, new Set()); membersByShop.get(w.shop_id)?.add(w.member_id); });
+      wallets?.forEach(w => { if (!membersByShop.has(w.partner_id)) membersByShop.set(w.partner_id, new Set()); membersByShop.get(w.partner_id)?.add(w.member_id); });
 
       const today = new Date();
 
       // Build suspended list from shops table (source of truth)
       const processed: SuspendedShop[] = (suspendedShopsList || []).map(shop => {
-        const invoice = (suspendedInvoices || []).find(inv => inv.shop_id === shop.id);
+        const invoice = (suspendedInvoices || []).find(inv => inv.partner_id === partner.id);
         const daysOverdue = invoice ? Math.max(Math.floor((today.getTime() - new Date(invoice.due_date).getTime()) / 86400000), 0) : 0;
         return {
-          id: invoice?.id || shop.id, shop_id: shop.id, shop_name: shop.name,
+          id: invoice?.id || partner.id, partner_id: partner.id, partner_name: partner.name,
           invoice_amount: invoice?.total_due || 0, due_date: invoice?.due_date || '',
-          days_overdue: daysOverdue, members_affected: membersByShop.get(shop.id)?.size || 0,
+          days_overdue: daysOverdue, members_affected: membersByShop.get(partner.id)?.size || 0,
           suspension_date: invoice?.created_at || new Date().toISOString(), penalty_amount: invoice?.penalty_amount || 0,
         };
       });
 
       const warnings = (overdueInvoices || []).map(inv => {
-        const shopInfo = (suspendedShopsList || []).find(s => s.id === inv.shop_id);
+        const partnerInfo = (suspendedShopsList || []).find(s => s.id === inv.partner_id);
         const days = Math.max(Math.floor((today.getTime() - new Date(inv.due_date).getTime()) / 86400000), 0);
-        return { shop_id: inv.shop_id, shop_name: shopInfo?.name || 'Unknown', invoice_amount: inv.total_due, days_overdue: days, due_date: inv.due_date };
+        return { partner_id: inv.partner_id, partner_name: partnerInfo?.name || 'Unknown', invoice_amount: inv.total_due, days_overdue: days, due_date: inv.due_date };
       }).filter(w => w.days_overdue >= 4 && w.days_overdue < 7);
 
       setSuspendedShops(processed);
@@ -57,13 +57,13 @@ export function AdminSuspensions() {
     } catch { /* silent */ } finally { setLoading(false); }
   };
 
-  const reactivate = async (id: string, shopId: string) => {
+  const reactivate = async (id: string, partnerId: string) => {
     setActionId(id);
     await supabase.from("monthly_invoices").update({ status: "paid", paid_date: new Date().toISOString() }).eq("id", id);
-    await supabase.from("shops").update({ status: "active" }).eq("id", shopId);
+    await supabase.from("partners").update({ status: "active" }).eq("id", partnerId);
     setActionId(null); loadData();
   };
-  const sendReminder = async (shopName: string) => { alert(`Reminder sent to ${shopName}`); };
+  const sendReminder = async (partnerName: string) => { alert(`Reminder sent to ${partnerName}`); };
   const extendGrace = async (id: string) => { setActionId(id); await supabase.from("monthly_invoices").update({ status: "generated" }).eq("id", id); setActionId(null); loadData(); };
 
   if (loading) return (
@@ -108,16 +108,16 @@ export function AdminSuspensions() {
           {earlyWarnings.length > 0 && (
             <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '1.25rem' }}>
               <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#991b1b', margin: '0 0 1rem' }}>
-                ⚠️ Early Warning — {earlyWarnings.length} Shop{earlyWarnings.length > 1 ? "s" : ""} at Risk (Day 4–6 Overdue)
+                ⚠️ Early Warning — {earlyWarnings.length} Partner {earlyWarnings.length > 1 ? "s" : ""} at Risk (Day 4–6 Overdue)
               </h2>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                 {earlyWarnings.map(w => (
-                  <div key={w.shop_id} style={{ background: '#fff', borderRadius: '10px', padding: '0.875rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={w.partner_id} style={{ background: '#fff', borderRadius: '10px', padding: '0.875rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <p style={{ fontWeight: 700, color: '#111827', margin: '0 0 2px' }}>{w.shop_name}</p>
+                      <p style={{ fontWeight: 700, color: '#111827', margin: '0 0 2px' }}>{w.partner_name}</p>
                       <p style={{ fontSize: '0.875rem', color: 'var(--gray-text)', margin: 0 }}>R{w.invoice_amount.toFixed(2)} · Day {w.days_overdue} overdue</p>
                     </div>
-                    <button onClick={() => sendReminder(w.shop_name)} style={{ background: 'var(--orange)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.5rem 0.875rem', fontSize: '0.8125rem', fontWeight: 700, cursor: 'pointer' }}>
+                    <button onClick={() => sendReminder(w.partner_name)} style={{ background: 'var(--orange)', color: '#fff', border: 'none', borderRadius: '8px', padding: '0.5rem 0.875rem', fontSize: '0.8125rem', fontWeight: 700, cursor: 'pointer' }}>
                       📱 Send Reminder
                     </button>
                   </div>
@@ -141,19 +141,19 @@ export function AdminSuspensions() {
                 {suspendedShops.length === 0 ? (
                   <tr><td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: 'var(--gray-light)' }}>✅ No suspended shops</td></tr>
                 ) : suspendedShops.map(shop => (
-                  <tr key={shop.id}>
-                    <td style={{ fontWeight: 600 }}>{shop.shop_name}</td>
-                    <td>R{shop.invoice_amount.toFixed(2)}</td>
-                    <td><span className="badge badge-red">Day {shop.days_overdue}</span></td>
-                    <td><span className="badge badge-blue">{shop.members_affected} members</span></td>
-                    <td style={{ color: shop.penalty_amount > 0 ? 'var(--red)' : 'var(--gray-text)' }}>R{shop.penalty_amount.toFixed(2)}</td>
+                  <tr key={partner.id}>
+                    <td style={{ fontWeight: 600 }}>{partner.shop_name}</td>
+                    <td>R{partner.invoice_amount.toFixed(2)}</td>
+                    <td><span className="badge badge-red">Day {partner.days_overdue}</span></td>
+                    <td><span className="badge badge-blue">{partner.members_affected} members</span></td>
+                    <td style={{ color: partner.penalty_amount > 0 ? 'var(--red)' : 'var(--gray-text)' }}>R{partner.penalty_amount.toFixed(2)}</td>
                     <td>
                       <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
-                        <button onClick={() => reactivate(shop.id, shop.shop_id)} disabled={actionId === shop.id} style={{ background: 'var(--green-dark)', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.25rem 0.625rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700, opacity: actionId === shop.id ? 0.5 : 1 }}>
-                          {actionId === shop.id ? "..." : "✓ Reactivate"}
+                        <button onClick={() => reactivate(partner.id, partner.partner_id)} disabled={actionId === partner.id} style={{ background: 'var(--green-dark)', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.25rem 0.625rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700, opacity: actionId === partner.id ? 0.5 : 1 }}>
+                          {actionId === partner.id ? "..." : "✓ Reactivate"}
                         </button>
-                        <button onClick={() => sendReminder(shop.shop_name)} style={{ background: 'var(--blue)', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.25rem 0.625rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700 }}>Remind</button>
-                        <button onClick={() => extendGrace(shop.id)} disabled={actionId === shop.id} style={{ background: 'var(--orange)', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.25rem 0.625rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700 }}>Extend</button>
+                        <button onClick={() => sendReminder(partner.shop_name)} style={{ background: 'var(--blue)', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.25rem 0.625rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700 }}>Remind</button>
+                        <button onClick={() => extendGrace(partner.id)} disabled={actionId === partner.id} style={{ background: 'var(--orange)', color: '#fff', border: 'none', borderRadius: '6px', padding: '0.25rem 0.625rem', fontSize: '0.75rem', cursor: 'pointer', fontWeight: 700 }}>Extend</button>
                       </div>
                     </td>
                   </tr>

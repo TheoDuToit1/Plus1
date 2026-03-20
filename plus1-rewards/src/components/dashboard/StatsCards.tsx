@@ -1,6 +1,6 @@
 // plus1-rewards/src/components/dashboard/StatsCards.tsx
 import { useEffect, useState, useImperativeHandle, forwardRef } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabaseAdmin } from '../../lib/supabase';
 
 interface Stats {
   totalMembers: number;
@@ -20,7 +20,7 @@ export interface StatsCardsRef {
   refresh: () => void;
 }
 
-const StatsCards = forwardRef<StatsCardsRef>((props, ref) => {
+const StatsCards = forwardRef<StatsCardsRef>((_, ref) => {
   const [stats, setStats] = useState<Stats>({
     totalMembers: 0,
     membersWithQR: 0,
@@ -41,7 +41,7 @@ const StatsCards = forwardRef<StatsCardsRef>((props, ref) => {
       setLoading(true);
 
       // Fetch members stats
-      const { data: membersData } = await supabase
+      const { data: membersData } = await supabaseAdmin
         .from('members')
         .select('qr_code');
       
@@ -49,16 +49,16 @@ const StatsCards = forwardRef<StatsCardsRef>((props, ref) => {
       const membersWithQR = membersData?.filter(m => m.qr_code).length || 0;
 
       // Fetch shops stats
-      const { data: shopsData } = await supabase
-        .from('shops')
+      const { data: partnersData } = await supabaseAdmin
+        .from('partners')
         .select('status');
       
-      const totalShops = shopsData?.length || 0;
-      const activeShops = shopsData?.filter(s => s.status === 'active').length || 0;
-      const suspendedShops = shopsData?.filter(s => s.status === 'suspended').length || 0;
+      const totalShops = partnersData?.length || 0;
+      const activeShops = partnersData?.filter(s => s.status === 'active').length || 0;
+      const suspendedShops = partnersData?.filter(s => s.status === 'suspended').length || 0;
 
       // Fetch agents stats
-      const { data: agentsData } = await supabase
+      const { data: agentsData } = await supabaseAdmin
         .from('agents')
         .select('status');
       
@@ -66,20 +66,20 @@ const StatsCards = forwardRef<StatsCardsRef>((props, ref) => {
       const activeAgents = agentsData?.filter(a => a.status === 'active').length || 0;
 
       // Fetch policy providers stats
-      const { data: providersData } = await supabase
+      const { data: providersData } = await supabaseAdmin
         .from('policy_providers')
         .select('id');
       
       const totalPolicyProviders = providersData?.length || 0;
 
-      // Fetch policies stats
-      const { data: policiesData } = await supabase
-        .from('policy_holders')
-        .select('status');
+      // Fetch policies stats (plans)
+      const { data: plansData } = await supabaseAdmin
+        .from('policy_plans')
+        .select('is_active');
       
-      const totalPolicies = policiesData?.length || 0;
-      const activePolicies = policiesData?.filter(p => p.status === 'active').length || 0;
-      const inProgressPolicies = policiesData?.filter(p => p.status === 'pending').length || 0;
+      const totalPolicies = plansData?.length || 0;
+      const activePolicies = plansData?.filter(p => p.is_active).length || 0;
+      const inProgressPolicies = 0; // No longer relevant for plan management
 
       setStats({
         totalMembers,
@@ -113,13 +113,13 @@ const StatsCards = forwardRef<StatsCardsRef>((props, ref) => {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
         {[...Array(6)].map((_, i) => (
-          <div key={i} className="bg-white dark:bg-background-dark/40 p-5 rounded-xl animate-pulse" style={{border: '0.2px solid rgba(148, 163, 184, 0.2)'}}>
+          <div key={i} className="bg-white p-5 rounded-xl animate-pulse border border-gray-200 shadow-sm">
             <div className="flex justify-between items-start mb-4">
-              <div className="w-10 h-10 bg-slate-200 dark:bg-slate-700 rounded-lg"></div>
+              <div className="w-10 h-10 bg-gray-200 rounded-lg"></div>
             </div>
-            <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded mb-2"></div>
-            <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded mb-2"></div>
-            <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded"></div>
+            <div className="h-3 bg-gray-200 rounded mb-2"></div>
+            <div className="h-8 bg-gray-200 rounded mb-2"></div>
+            <div className="h-3 bg-gray-200 rounded"></div>
           </div>
         ))}
       </div>
@@ -128,74 +128,74 @@ const StatsCards = forwardRef<StatsCardsRef>((props, ref) => {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
-      <div className="bg-white dark:bg-background-dark/40 p-5 rounded-xl" style={{border: '0.2px solid rgba(148, 163, 184, 0.2)'}}>
+      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
         <div className="flex justify-between items-start mb-4">
-          <span className="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">group</span>
-          <span className="text-[10px] font-bold py-0.5 px-2 rounded bg-primary/10 text-primary uppercase">Active</span>
+          <span className="material-symbols-outlined text-[#1a558b] bg-[#1a558b]/10 p-2 rounded-lg">group</span>
+          <span className="text-[10px] font-bold py-0.5 px-2 rounded bg-[#1a558b]/10 text-[#1a558b] uppercase">Active</span>
         </div>
-        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">Total Members</p>
-        <h3 className="text-3xl font-black mt-1">{stats.totalMembers}</h3>
-        <p className="text-[11px] text-slate-400 mt-2">{stats.membersWithQR} with QR codes issued</p>
+        <p className="text-gray-600 text-xs font-bold uppercase tracking-wider">Total Members</p>
+        <h3 className="text-3xl font-black mt-1 text-gray-900">{stats.totalMembers}</h3>
+        <p className="text-[11px] text-gray-500 mt-2">{stats.membersWithQR} with QR codes issued</p>
       </div>
       
-      <div className="bg-white dark:bg-background-dark/40 p-5 rounded-xl" style={{border: '0.2px solid rgba(148, 163, 184, 0.2)'}}>
+      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
         <div className="flex justify-between items-start mb-4">
-          <span className="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">storefront</span>
+          <span className="material-symbols-outlined text-[#1a558b] bg-[#1a558b]/10 p-2 rounded-lg">storefront</span>
           {stats.activeShops > 0 && (
-            <span className="text-[10px] font-bold py-0.5 px-2 rounded bg-primary/10 text-primary uppercase">Active</span>
+            <span className="text-[10px] font-bold py-0.5 px-2 rounded bg-[#1a558b]/10 text-[#1a558b] uppercase">Active</span>
           )}
         </div>
-        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">Total Shops</p>
-        <h3 className="text-3xl font-black mt-1">{stats.totalShops}</h3>
-        <p className="text-[11px] text-slate-400 mt-2">{stats.activeShops} active, {stats.suspendedShops} suspended</p>
+        <p className="text-gray-600 text-xs font-bold uppercase tracking-wider">Total Shops</p>
+        <h3 className="text-3xl font-black mt-1 text-gray-900">{stats.totalShops}</h3>
+        <p className="text-[11px] text-gray-500 mt-2">{stats.activeShops} active, {stats.suspendedShops} suspended</p>
       </div>
       
-      <div className="bg-white dark:bg-background-dark/40 p-5 rounded-xl" style={{border: '0.2px solid rgba(148, 163, 184, 0.2)'}}>
+      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
         <div className="flex justify-between items-start mb-4">
-          <span className={`material-symbols-outlined p-2 rounded-lg ${stats.totalAgents > 0 ? 'text-primary bg-primary/10' : 'text-slate-400 bg-slate-400/10'}`}>support_agent</span>
+          <span className={`material-symbols-outlined p-2 rounded-lg ${stats.totalAgents > 0 ? 'text-[#1a558b] bg-[#1a558b]/10' : 'text-gray-400 bg-gray-100'}`}>support_agent</span>
           {stats.activeAgents > 0 && (
-            <span className="text-[10px] font-bold py-0.5 px-2 rounded bg-primary/10 text-primary uppercase">Active</span>
+            <span className="text-[10px] font-bold py-0.5 px-2 rounded bg-[#1a558b]/10 text-[#1a558b] uppercase">Active</span>
           )}
         </div>
-        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">Total Agents</p>
-        <h3 className={`text-3xl font-black mt-1 ${stats.totalAgents > 0 ? '' : 'text-slate-400'}`}>{stats.totalAgents}</h3>
-        <p className="text-[11px] text-slate-400 mt-2">{stats.activeAgents} active agents</p>
+        <p className="text-gray-600 text-xs font-bold uppercase tracking-wider">Total Agents</p>
+        <h3 className={`text-3xl font-black mt-1 ${stats.totalAgents > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{stats.totalAgents}</h3>
+        <p className="text-[11px] text-gray-500 mt-2">{stats.activeAgents} active agents</p>
       </div>
       
-      <div className="bg-white dark:bg-background-dark/40 p-5 rounded-xl" style={{border: '0.2px solid rgba(148, 163, 184, 0.2)'}}>
+      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
         <div className="flex justify-between items-start mb-4">
-          <span className="material-symbols-outlined text-primary bg-primary/10 p-2 rounded-lg">handshake</span>
+          <span className="material-symbols-outlined text-[#1a558b] bg-[#1a558b]/10 p-2 rounded-lg">handshake</span>
           {stats.totalPolicyProviders > 0 && (
-            <span className="text-[10px] font-bold py-0.5 px-2 rounded bg-primary/10 text-primary uppercase">Active</span>
+            <span className="text-[10px] font-bold py-0.5 px-2 rounded bg-[#1a558b]/10 text-[#1a558b] uppercase">Active</span>
           )}
         </div>
-        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">Policy Providers</p>
-        <h3 className="text-3xl font-black mt-1">{stats.totalPolicyProviders}</h3>
-        <p className="text-[11px] text-slate-400 mt-2">Insurance partners</p>
+        <p className="text-gray-600 text-xs font-bold uppercase tracking-wider">Policy Providers</p>
+        <h3 className="text-3xl font-black mt-1 text-gray-900">{stats.totalPolicyProviders}</h3>
+        <p className="text-[11px] text-gray-500 mt-2">Insurance partners</p>
       </div>
       
-      <div className="bg-white dark:bg-background-dark/40 p-5 rounded-xl" style={{border: '0.2px solid rgba(148, 163, 184, 0.2)'}}>
+      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
         <div className="flex justify-between items-start mb-4">
-          <span className={`material-symbols-outlined p-2 rounded-lg ${stats.totalPolicies > 0 ? 'text-primary bg-primary/10' : 'text-slate-400 bg-slate-400/10'}`}>description</span>
+          <span className={`material-symbols-outlined p-2 rounded-lg ${stats.totalPolicies > 0 ? 'text-[#1a558b] bg-[#1a558b]/10' : 'text-gray-400 bg-gray-100'}`}>description</span>
           {stats.activePolicies > 0 && (
-            <span className="text-[10px] font-bold py-0.5 px-2 rounded bg-primary/10 text-primary uppercase">Active</span>
+            <span className="text-[10px] font-bold py-0.5 px-2 rounded bg-[#1a558b]/10 text-[#1a558b] uppercase">Active</span>
           )}
         </div>
-        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">Total Policies</p>
-        <h3 className={`text-3xl font-black mt-1 ${stats.totalPolicies > 0 ? '' : 'text-slate-400'}`}>{stats.totalPolicies}</h3>
-        <p className="text-[11px] text-slate-400 mt-2">{stats.activePolicies} active globally</p>
+        <p className="text-gray-600 text-xs font-bold uppercase tracking-wider">Total Policies</p>
+        <h3 className={`text-3xl font-black mt-1 ${stats.totalPolicies > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{stats.totalPolicies}</h3>
+        <p className="text-[11px] text-gray-500 mt-2">{stats.activePolicies} active globally</p>
       </div>
       
-      <div className="bg-white dark:bg-background-dark/40 p-5 rounded-xl" style={{border: '0.2px solid rgba(148, 163, 184, 0.2)'}}>
+      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
         <div className="flex justify-between items-start mb-4">
-          <span className={`material-symbols-outlined p-2 rounded-lg ${stats.inProgressPolicies > 0 ? 'text-primary bg-primary/10' : 'text-slate-400 bg-slate-400/10'}`}>pending_actions</span>
+          <span className={`material-symbols-outlined p-2 rounded-lg ${stats.inProgressPolicies > 0 ? 'text-[#1a558b] bg-[#1a558b]/10' : 'text-gray-400 bg-gray-100'}`}>pending_actions</span>
           {stats.inProgressPolicies > 0 && (
-            <span className="text-[10px] font-bold py-0.5 px-2 rounded bg-primary/10 text-primary uppercase">In Progress</span>
+            <span className="text-[10px] font-bold py-0.5 px-2 rounded bg-[#1a558b]/10 text-[#1a558b] uppercase">In Progress</span>
           )}
         </div>
-        <p className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">In Progress</p>
-        <h3 className={`text-3xl font-black mt-1 ${stats.inProgressPolicies > 0 ? '' : 'text-slate-400'}`}>{stats.inProgressPolicies}</h3>
-        <p className="text-[11px] text-slate-400 mt-2">Being funded</p>
+        <p className="text-gray-600 text-xs font-bold uppercase tracking-wider">In Progress</p>
+        <h3 className={`text-3xl font-black mt-1 ${stats.inProgressPolicies > 0 ? 'text-gray-900' : 'text-gray-400'}`}>{stats.inProgressPolicies}</h3>
+        <p className="text-[11px] text-gray-500 mt-2">Being funded</p>
       </div>
     </div>
   );

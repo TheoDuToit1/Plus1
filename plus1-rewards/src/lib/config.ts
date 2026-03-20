@@ -5,15 +5,15 @@
 export const APP_URL: string = (import.meta as any).env?.VITE_APP_URL || 'https://www.plus1rewards.com';
 
 /**
- * Encodes a shop ID into a QR-ready URL.
- * When scanned by a regular phone camera, opens the PWA at the scan-shop page.
- * When scanned by the in-app scanner, jsQR decodes it and we extract the shopId.
+ * Encodes a partner ID into a QR-ready URL.
+ * When scanned by a regular phone camera, opens the PWA at the scan-partner page.
+ * When scanned by the in-app scanner, jsQR decodes it and we extract the partnerId.
  */
-export function encodeShopQR(shopId: string): string {
-  if (!shopId) return '';
+export function encodePartnerQR(partnerId: string): string {
+  if (!partnerId) return '';
   // Ensure the URL is properly formatted
   const baseUrl = APP_URL.endsWith('/') ? APP_URL.slice(0, -1) : APP_URL;
-  return `${baseUrl}/member/scan-shop?shop=${encodeURIComponent(shopId)}`;
+  return `${baseUrl}/member/scan-partner?partner=${encodeURIComponent(partnerId)}`;
 }
 
 /**
@@ -29,18 +29,19 @@ export function encodeMemberQR(qrCode: string, phone: string): string {
 }
 
 /**
- * Parses a QR scan result and extracts the shop ID.
- * Handles: full URL, "SHOP:{id}" legacy format, and raw UUIDs.
+ * Parses a QR scan result and extracts the partner ID.
+ * Handles: full URL, "PARTNER:{id}" legacy format, and raw UUIDs.
  */
-export function parseShopQR(data: string): string | null {
-  // Full URL format: https://www.plus1rewards.com/member/scan-shop?shop=UUID
+export function parsePartnerQR(data: string): string | null {
+  // Full URL format: https://www.plus1rewards.com/member/scan-partner?partner=UUID
   try {
     const url = new URL(data);
-    const shopId = url.searchParams.get('shop');
-    if (shopId) return shopId;
+    const partnerId = url.searchParams.get('partner');
+    if (partnerId) return partnerId;
   } catch { /* not a URL */ }
 
-  // Legacy format: SHOP:{id}
+  // Legacy format: PARTNER:{id} or SHOP:{id}
+  if (data.startsWith('PARTNER:')) return data.replace('PARTNER:', '');
   if (data.startsWith('SHOP:')) return data.replace('SHOP:', '');
 
   // Raw UUID fallback

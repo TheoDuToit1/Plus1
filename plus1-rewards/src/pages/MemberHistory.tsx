@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import MemberLayout from '../components/member/MemberLayout';
 
 interface Transaction {
   id: string;
-  shop_name: string;
+  partner_name: string;
   purchase_amount: number;
   rewards_issued: number;
   policy_name: string;
@@ -18,34 +19,63 @@ interface MemberSummary {
   thisMonth: number;
 }
 
+interface Member {
+  id: string;
+  name: string;
+  phone: string;
+  qr_code: string;
+}
+
 export function MemberHistory() {
   const navigate = useNavigate();
+  const [member, setMember] = useState<Member | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [summary, setSummary] = useState<MemberSummary>({ totalEarned: 0, totalSpent: 0, thisMonth: 0 });
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'month' | 'earn' | 'spend'>('month');
-  const [memberName, setMemberName] = useState('');
 
   useEffect(() => { loadHistory(); }, []);
 
   const loadHistory = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate('/member/login'); return; }
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('Auth error:', userError);
+        // Don't redirect immediately, try to refresh session first
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+          navigate('/member/login');
+          return;
+        }
+      }
+      
+      if (!user) { 
+        navigate('/member/login'); 
+        return; 
+      }
 
-      const { data: memberData } = await supabase.from('members').select('name').eq('id', user.id).single();
-      if (memberData) setMemberName(memberData.name);
+      const { data: memberData, error: memberError } = await supabase.from('members').select('*').eq('id', user.id).single();
+      
+      if (memberError || !memberData) {
+        console.log('User is not a member, redirecting to member login');
+        await supabase.auth.signOut();
+        navigate('/member/login');
+        return;
+      }
+      
+      if (memberData) setMember(memberData);
 
       const { data: txData } = await supabase
         .from('transactions')
-        .select('id, purchase_amount, member_reward, policy_filled, created_at, shops(name)')
+        .select('id, purchase_amount, member_reward, policy_filled, created_at, partners(name)')
         .eq('member_id', user.id)
         .order('created_at', { ascending: false });
 
       const formatted: Transaction[] = (txData || []).map(tx => ({
         id: tx.id,
-        shop_name: (Array.isArray(tx.shops) ? (tx.shops[0] as any)?.name : (tx.shops as any)?.name) || 'Unknown Shop',
+        partner_name: (Array.isArray(tx.partners) ? (tx.partners[0] as any)?.name : (tx.partners as any)?.name) || 'Unknown Partner',
         purchase_amount: tx.purchase_amount,
         rewards_issued: tx.member_reward || 0,
         policy_name: (tx as any).policy_filled || 'Day-to-Day',
@@ -71,115 +101,152 @@ export function MemberHistory() {
     return f;
   })();
 
-  return (
-    <div className="page-wrapper">
-      <header className="page-header">
-        <div style={{ maxWidth: '56rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0 }}>📋 Rewards History</h1>
-            <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>{memberName}</p>
-          </div>
-          <button onClick={() => navigate('/member/dashboard')} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', borderRadius: '8px', padding: '0.375rem 0.875rem', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}>
-            ← Dashboard
-          </button>
+  if (loading) {
+    return (
+      <div className="bg-[#f5f8fc] min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-4 border-[#1a558b]/20 border-t-[#1a558b] rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading your history...</p>
         </div>
-      </header>
+      </div>
+    );
+  }
 
-      <main style={{ flex: 1, padding: '1.5rem 1rem' }}>
-        <div style={{ maxWidth: '56rem', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Summary Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-            <div className="stat-card" style={{ textAlign: 'center' }}>
-              <p className="stat-label">Total Earned</p>
-              <p className="stat-value" style={{ color: 'var(--green-dark)', fontSize: '1.375rem' }}>R{summary.totalEarned.toFixed(2)}</p>
-              <p className="stat-sub">All time</p>
-            </div>
-            <div className="stat-card" style={{ textAlign: 'center' }}>
-              <p className="stat-label">This Month</p>
-              <p className="stat-value" style={{ color: 'var(--blue)', fontSize: '1.375rem' }}>R{summary.thisMonth.toFixed(2)}</p>
-              <p className="stat-sub">Rewards earned</p>
-            </div>
-            <div className="stat-card" style={{ textAlign: 'center' }}>
-              <p className="stat-label">Transactions</p>
-              <p className="stat-value" style={{ color: 'var(--gray-text)', fontSize: '1.375rem' }}>{transactions.length}</p>
-              <p className="stat-sub">Total visits</p>
+  return (
+    <MemberLayout 
+      member={member}
+      isOnline={navigator.onLine}
+      pendingTransactions={0}
+      onSignOut={() => supabase.auth.signOut().then(() => navigate('/member/login'))}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Rewards History</h1>
+          <p className="text-gray-600">Track your earnings and spending</p>
+        </div>
+        <button 
+          onClick={() => navigate('/member/dashboard')}
+          className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold px-4 py-2 rounded-xl transition-colors"
+        >
+          ← Back to Dashboard
+        </button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-green-500 text-2xl">trending_up</span>
+            <div>
+              <p className="text-gray-900 font-bold text-xl">R{summary.totalEarned.toFixed(2)}</p>
+              <p className="text-gray-600 text-sm">Total Earned</p>
             </div>
           </div>
-
-          {/* Filter tabs */}
-          <div className="card" style={{ padding: '0.875rem' }}>
-            <div style={{ display: 'flex', background: '#f3f4f6', borderRadius: '10px', padding: '3px', gap: '2px' }}>
-              {[
-                { id: 'month', label: 'This Month' },
-                { id: 'all', label: 'All Time' },
-                { id: 'earn', label: '💚 Earned' },
-                { id: 'spend', label: '🛍 Spent' },
-              ].map(tab => (
-                <button key={tab.id} onClick={() => setFilter(tab.id as typeof filter)} style={{
-                  flex: 1, padding: '0.5rem 0.25rem', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                  fontWeight: 600, fontSize: '0.8rem',
-                  background: filter === tab.id ? '#fff' : 'transparent',
-                  color: filter === tab.id ? 'var(--blue)' : 'var(--gray-text)',
-                  boxShadow: filter === tab.id ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-                  transition: 'all 0.2s',
-                }}>
-                  {tab.label}
-                </button>
-              ))}
+        </div>
+        
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-[#1a558b] text-2xl">calendar_month</span>
+            <div>
+              <p className="text-gray-900 font-bold text-xl">R{summary.thisMonth.toFixed(2)}</p>
+              <p className="text-gray-600 text-sm">This Month</p>
             </div>
           </div>
-
-          {/* Transaction list */}
-          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid var(--gray-border)' }}>
-              <h2 className="section-title" style={{ margin: 0 }}>Transactions ({filtered.length})</h2>
+        </div>
+        
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-[#1a558b] text-2xl">receipt</span>
+            <div>
+              <p className="text-gray-900 font-bold text-xl">{transactions.length}</p>
+              <p className="text-gray-600 text-sm">Transactions</p>
             </div>
+          </div>
+        </div>
+      </div>
 
-            {loading ? (
-              <div style={{ padding: '3rem', textAlign: 'center' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '3px solid var(--blue-light)', borderTopColor: 'var(--blue)', margin: '0 auto', animation: 'spin 1s linear infinite' }} />
-              </div>
-            ) : filtered.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--gray-light)' }}>
-                <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🛍️</div>
-                <p style={{ fontWeight: 600, marginBottom: '0.25rem' }}>No transactions yet</p>
-                <p style={{ fontSize: '0.875rem' }}>Start shopping at partner stores to earn rewards!</p>
-              </div>
-            ) : (
-              <div>
-                {filtered.map((tx, i) => (
-                  <div key={tx.id} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '1rem 1.5rem',
-                    borderBottom: i < filtered.length - 1 ? '1px solid var(--gray-border)' : 'none',
-                    background: i % 2 === 0 ? '#fff' : '#fafbff',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-                      <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'var(--green-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.125rem', flexShrink: 0 }}>
-                        🏪
-                      </div>
-                      <div>
-                        <p style={{ fontWeight: 700, color: '#111827', margin: '0 0 2px' }}>{tx.shop_name}</p>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--gray-light)', margin: 0 }}>
-                          {new Date(tx.created_at).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })} · {tx.policy_name}
-                        </p>
-                      </div>
+      {/* Filter Tabs */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 shadow-sm">
+        <div className="flex gap-2">
+          {[
+            { id: 'month', label: 'This Month', icon: 'calendar_month' },
+            { id: 'all', label: 'All Time', icon: 'history' },
+            { id: 'earn', label: 'Earned', icon: 'add_circle' },
+            { id: 'spend', label: 'Spent', icon: 'remove_circle' },
+          ].map(tab => (
+            <button 
+              key={tab.id} 
+              onClick={() => setFilter(tab.id as typeof filter)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
+                filter === tab.id 
+                  ? 'bg-[#1a558b] text-white' 
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              <span className="material-symbols-outlined text-sm">{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Transaction List */}
+      <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900">
+            Transactions ({filtered.length})
+          </h2>
+        </div>
+
+        {loading ? (
+          <div className="p-12 text-center">
+            <div className="w-8 h-8 border-4 border-[#1a558b]/20 border-t-[#1a558b] rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-gray-600">Loading transactions...</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-12 text-center">
+            <span className="material-symbols-outlined text-gray-400 text-6xl mb-4 block">receipt_long</span>
+            <h3 className="text-gray-900 font-bold text-lg mb-2">No transactions yet</h3>
+            <p className="text-gray-600 mb-6">Start shopping at partner stores to earn rewards!</p>
+            <button
+              onClick={() => navigate('/member/find-partners')}
+              className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold px-6 py-3 rounded-xl transition-colors"
+            >
+              Find Partner Shops
+            </button>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            {filtered.map((tx) => (
+              <div key={tx.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-[#1a558b]/10 rounded-xl flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[#1a558b] text-xl">store</span>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <p style={{ fontWeight: 800, color: 'var(--green-dark)', margin: '0 0 2px' }}>+R{tx.rewards_issued.toFixed(2)}</p>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--gray-light)', margin: 0 }}>R{tx.purchase_amount.toFixed(2)} purchase</p>
+                    <div>
+                      <h3 className="text-gray-900 font-bold">{tx.partner_name}</h3>
+                      <p className="text-gray-600 text-sm">
+                        {new Date(tx.created_at).toLocaleDateString('en-ZA', { 
+                          day: 'numeric', 
+                          month: 'short', 
+                          year: 'numeric' 
+                        })} • {tx.policy_name}
+                      </p>
                     </div>
                   </div>
-                ))}
+                  
+                  <div className="text-right">
+                    <p className="text-green-500 font-bold text-lg">+R{tx.rewards_issued.toFixed(2)}</p>
+                    <p className="text-gray-600 text-sm">R{tx.purchase_amount.toFixed(2)} purchase</p>
+                  </div>
+                </div>
               </div>
-            )}
+            ))}
           </div>
-        </div>
-      </main>
-
-      <footer style={{ background: '#fff', borderTop: '1px solid var(--gray-border)', padding: '1rem', textAlign: 'center' }}>
-        <p style={{ color: 'var(--gray-light)', fontSize: '0.8125rem' }}>© 2026 +1 Rewards · Shop. Earn. Cover your health.</p>
-      </footer>
-    </div>
+        )}
+      </div>
+    </MemberLayout>
   );
 }

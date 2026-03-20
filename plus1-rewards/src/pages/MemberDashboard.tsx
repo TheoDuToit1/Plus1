@@ -9,29 +9,37 @@ import QuickActionsGrid from '../components/member/components/QuickActionsGrid';
 import RewardsBalanceCard from '../components/member/components/RewardsBalanceCard';
 import QRCodeCard from '../components/member/components/QRCodeCard';
 import PartnerShopsSection from '../components/member/components/PartnerShopsSection';
-import PolicySelectionModal from '../components/member/PolicySelectionModal';
 import BlockedFundsNotification from '../components/member/BlockedFundsNotification';
+import ProfileCompletionModal from '../components/member/ProfileCompletionModal';
 
 interface Wallet {
-  id: string; member_id: string; shop_id: string;
+  id: string; member_id: string; partner_id: string;
   rewards_total?: number; balance?: number; blocked_balance?: number;
   policies: { name: string; current: number; target: number; status: 'active' | 'suspended' } | null;
 }
-interface Shop { id: string; name: string; status: 'active' | 'suspended' }
+interface Partner { id: string; name: string; status: 'active' | 'suspended' }
 interface Member { id: string; name: string; phone: string; email?: string; qr_code: string; active_policy?: string }
+
+interface PolicyInfo {
+  name: string;
+  monthly_target: number;
+  current_amount: number;
+}
 
 export function MemberDashboard() {
   const navigate = useNavigate();
   const [member, setMember] = useState<Member | null>(null);
   const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [shops, setShops] = useState<Map<string, Shop>>(new Map());
+  const [shops, setShops] = useState<Map<string, Partner>>(new Map());
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [pendingTransactions, setPendingTransactions] = useState(0);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [qrLoading, setQrLoading] = useState(false);
-  const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const [policyInfo, setPolicyInfo] = useState<PolicyInfo | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileIncomplete, setProfileIncomplete] = useState(false);
 
   useEffect(() => {
     const onOnline = () => setIsOnline(true);
@@ -46,11 +54,23 @@ export function MemberDashboard() {
     if (!member) return;
     generateQRDataUrl(member);
     
-    // Check if member needs to select a policy
-    if (!member.active_policy) {
-      setShowPolicyModal(true);
-    }
+    // Check if member needs to complete profile (no email or SA ID)
+    // We'll check if they have an email in auth
+    checkProfileCompletion();
   }, [member]);
+
+  const checkProfileCompletion = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email?.includes('@plus1rewards.local')) {
+        // Temporary email, profile not completed
+        setProfileIncomplete(true);
+        setShowProfileModal(true);
+      }
+    } catch (error) {
+      console.error('Error checking profile:', error);
+    }
+  };
 
   const generateQRDataUrl = async (m: Member) => {
     setQrLoading(true);
@@ -78,20 +98,80 @@ export function MemberDashboard() {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate('/member/login'); return; }
-      const { data: memberData } = await supabase.from('members').select('*').eq('id', user.id).single();
-      if (memberData) setMember(memberData);
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('Auth error:', userError);
+        // Don't redirect immediately, try to refresh session first
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+          navigate('/member/login');
+          return;
+        }
+      }
+      
+      if (!user) { 
+        navigate('/member/login'); 
+        return; 
+      }
+      
+      // Check if user is actually a member (not shop/agent/provider)
+      const { data: memberData, error: memberError } = await supabase
+        .from('members')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+        
+      if (memberError || !memberData) {
+        // User is not a member, redirect to appropriate login
+        console.log('User is not a member, redirecting to member login');
+        await supabase.auth.signOut();
+        navigate('/member/login');
+        return;
+      }
+      
+      setMember(memberData);
+      
       const { data: walletsData } = await supabase.from('wallets').select('*').eq('member_id', user.id);
       if (walletsData) {
         setWallets(walletsData);
-        const shopIds = walletsData.map(w => w.shop_id);
-        if (shopIds.length > 0) {
-          const { data: shopsData } = await supabase.from('shops').select('id, name, status').in('id', shopIds);
-          if (shopsData) setShops(new Map(shopsData.map(s => [s.id, s])));
+        
+        // Load policy information if member has an active policy
+        if (memberData?.active_policy) {
+          await loadPolicyInfo(memberData.active_policy, walletsData);
+        }
+        
+        const partnerIds = walletsData.map(w => w.partner_id);
+        if (partnerIds.length > 0) {
+          const { data: partnersData } = await supabase.from('partners').select('id, name, status').in('id', partnerIds);
+          if (partnersData) setShops(new Map(partnersData.map(s => [s.id, s])));
         }
       }
     } catch { /* silent */ } finally { setLoading(false); }
+  };
+
+  const loadPolicyInfo = async (policyId: string, walletsData: Wallet[]) => {
+    try {
+      // Get policy plan details
+      const { data: policyPlan } = await supabase
+        .from('policy_plans')
+        .select('name, monthly_target')
+        .eq('id', policyId)
+        .single();
+
+      if (policyPlan) {
+        // Calculate current amount from wallets (sum of all rewards_total for this member)
+        const currentAmount = walletsData.reduce((sum, wallet) => sum + (wallet.rewards_total || 0), 0);
+        
+        setPolicyInfo({
+          name: policyPlan.name,
+          monthly_target: policyPlan.monthly_target,
+          current_amount: currentAmount
+        });
+      }
+    } catch (error) {
+      console.error('Error loading policy info:', error);
+    }
   };
 
   const handleSync = async () => {
@@ -143,10 +223,10 @@ export function MemberDashboard() {
 
   if (loading) {
     return (
-      <div className="bg-background-light dark:bg-background-dark min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f5f8fc' }}>
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-400">Loading your dashboard...</p>
+          <div className="w-10 h-10 border-4 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: 'rgba(26, 85, 139, 0.2)', borderTopColor: '#1a558b' }} />
+          <p style={{ color: '#6b7280' }}>Loading your dashboard...</p>
         </div>
       </div>
     );
@@ -174,16 +254,26 @@ export function MemberDashboard() {
       )}
 
       <QuickActionsGrid 
-        onScanQR={() => navigate('/member/scan-shop')}
-        onMyPolicies={() => navigate('/member/policy-selector')}
+        onScanQR={() => navigate('/member/scan-partner')}
+        onMyPolicies={() => navigate('/member/policies')}
         onHistory={() => navigate('/member/history')}
-        onMyProfile={() => navigate('/member/profile')}
+        onMyProfile={() => {
+          if (profileIncomplete) {
+            setShowProfileModal(true);
+          } else {
+            navigate('/member/profile');
+          }
+        }}
+        showProfileBadge={profileIncomplete}
       />
 
       <div className="grid md:grid-cols-2 gap-6">
         <RewardsBalanceCard 
           balance={totalBalance}
           lastUpdated="Just now"
+          policyInfo={policyInfo}
+          memberId={member?.id}
+          onOverflowHandled={loadDashboardData}
         />
         <QRCodeCard 
           phone={member?.phone || ''}
@@ -200,20 +290,12 @@ export function MemberDashboard() {
         shops={shops}
         syncing={syncing}
         onSync={handleSync}
-        onFindShops={() => navigate('/member/find-shops')}
+        onFindShops={() => navigate('/member/find-partners')}
       />
 
-      {/* Policy Selection Modal */}
-      <PolicySelectionModal
-        isOpen={showPolicyModal}
-        onClose={() => {
-          // Only allow closing if member has a policy or no blocked funds
-          if (member?.active_policy || totalBlockedBalance === 0) {
-            setShowPolicyModal(false);
-          }
-        }}
-        onPolicySelected={handlePolicySelected}
-        memberId={member?.id || ''}
+      <ProfileCompletionModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
       />
     </MemberLayout>
   );
