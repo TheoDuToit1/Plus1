@@ -52,7 +52,7 @@ export default function Hero() {
               className="uiverse-button"
               onClick={() => window.location.href = '/member/register'}
             >
-              <span>Sign me up</span>
+              <span>Start Earning Free Cover →</span>
             </button>
             <button
               className="Explore-Button"
@@ -133,7 +133,7 @@ export default function Hero() {
                   </defs>
                 </svg>
               </span>
-              <span className="text">Explore</span>
+              <span className="text">See How It Works</span>
             </button>
           </div>
 
