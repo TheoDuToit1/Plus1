@@ -5,7 +5,7 @@ const BLUE_LIGHT = 'rgba(26,85,139,0.10)'
 export default function TrustBadge() {
   return (
     <section className="py-16 px-6 lg:px-20" style={{ backgroundColor: '#f5f8fc' }}>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-[1800px] mx-auto">
         <div
           className="rounded-2xl border p-10 flex flex-col md:flex-row items-center gap-10 justify-between"
           style={{ backgroundColor: '#fff', borderColor: '#e5e7eb' }}

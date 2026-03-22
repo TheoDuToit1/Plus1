@@ -34,23 +34,11 @@ export default function Roles() {
       hasButtons: true,
       buttonType: 'login-register',
     },
-    {
-      icon: 'handshake',
-      title: 'Agents',
-      headline: 'Earn while you change your community.',
-      desc: 'Join our field team and earn commission for every member and partner store you sign up. You know this community — help us bring Health Cover for All to every household.',
-      features: [],
-      loginPath: '',
-      registerPath: '/agent/register',
-      highlight: false,
-      hasButtons: true,
-      buttonType: 'agent',
-    },
   ]
 
   return (
     <section className="py-24 px-6 lg:px-20" style={{ backgroundColor: '#ffffff' }} id="roles">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-[1800px] mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-end mb-14 gap-6">
           <div className="max-w-xl">
@@ -66,7 +54,7 @@ export default function Roles() {
         </div>
 
         {/* Cards */}
-        <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
           {roles.map((role, i) => (
             <div
               key={i}

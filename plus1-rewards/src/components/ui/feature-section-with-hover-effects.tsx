@@ -24,10 +24,12 @@ export function FeaturesSectionWithHoverEffects() {
     },
   ];
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 relative z-10 pt-0 pb-0 max-w-7xl mx-auto w-full border-t border-[#1a558b]/20">
-      {features.map((feature, index) => (
-        <Feature key={feature.title} {...feature} index={index} />
-      ))}
+    <div className="w-full border-t border-[#1a558b]/20">
+      <div className="grid grid-cols-1 md:grid-cols-3 relative z-10 pt-0 pb-0 max-w-5xl mr-auto ml-0 w-full">
+        {features.map((feature, index) => (
+          <Feature key={feature.title} {...feature} index={index} />
+        ))}
+      </div>
     </div>
   );
 }

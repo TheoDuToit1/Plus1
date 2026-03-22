@@ -7,31 +7,31 @@ export default function HowItWorks() {
       icon: <IconBuildingStore stroke={1.5} className="w-8 h-8 text-[#1a558b]" />,
       number: '01',
       title: 'Shop at partner stores',
-      desc: 'Shop at any +1 Rewards partner near you — the same local stores you already visit every week. Look for the green sticker on the door.',
+      desc: 'Visit any +1 Rewards partner near you — your local grocery store, spaza shop, pharmacy, takeaway. The stores you already walk into every week. Look for the green +1 Rewards sticker on the door.',
     },
     {
       icon: <IconScan stroke={1.5} className="w-8 h-8 text-[#1a558b]" />,
       number: '02',
-      title: 'Earn 3% cashback on every purchase',
-      desc: 'Show your +1 Rewards QR code at checkout. You earn 3% of every rand you spend — real cashback in rands, not points, not vouchers, not expiry dates. Real money.',
+      title: 'Earn cashback on every purchase',
+      desc: 'Show your +1 Rewards QR code at the till. Every rand you spend earns you cashback — deposited in real rands, not points, not vouchers, nothing with an expiry date. The more stores you shop at, the faster your cashback builds.',
     },
     {
       icon: <IconShieldCheck stroke={1.5} className="w-8 h-8 text-white" />,
       number: '03',
-      title: 'Your cover activates at R385',
-      desc: 'Once your cashback reaches R385, your Day1Health medical cover activates — automatically. You don\'t pay anything extra. Your shopping paid for it.',
+      title: 'Your cover gets paid',
+      desc: 'Your cashback from all your partner store purchases combines each month and pays directly toward your Day1Health medical cover plan. Once your monthly cover amount is reached, your plan activates — automatically. No extra payment. No paperwork. Your everyday shopping covered it.',
       highlight: true
     },
   ]
 
   return (
     <section className="py-24 px-6 lg:px-20 bg-white" id="how-it-works">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-[1800px] mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-20">
           <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-4 bg-[#1a558b]/10 text-[#1a558b]">
             Simple Process
           </span>
-          <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-6">Your shopping pays your cover in 3 simple steps</h2>
+          <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-6">Health Care cover earned in 3 simple steps. </h2>
           <p className="text-lg text-gray-600 leading-relaxed">
             You don't need to change your habits, your wallet, or your shopping list. You just need a +1 Rewards membership.
           </p>
@@ -40,7 +40,7 @@ export default function HowItWorks() {
         <div className="grid md:grid-cols-3 gap-8 relative">
           {/* Connector line */}
           <div className="hidden md:block absolute top-[44px] left-[15%] right-[15%] h-[2px] bg-gray-100 z-0" />
-          
+
           {steps.map((step, i) => (
             <div key={i} className={`relative z-10 flex flex-col items-center text-center p-8 rounded-3xl transition-all duration-300 hover:-translate-y-2 ${step.highlight ? 'bg-[#1a558b] shadow-xl shadow-blue-900/20' : 'bg-gray-50 border border-gray-100'}`}>
               <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 shadow-sm ${step.highlight ? 'bg-white/20 backdrop-blur-sm' : 'bg-white'}`}>
@@ -67,7 +67,7 @@ export default function HowItWorks() {
           </div>
           <div className="bg-white p-8 md:w-2/3 flex items-center">
             <p className="text-gray-700 text-lg leading-relaxed font-medium">
-              Spend <strong className="text-gray-900">R250/week</strong> at partner stores <span className="text-gray-400 mx-1">=</span> <strong className="text-gray-900">R10.83 cashback/week</strong> <span className="text-gray-400 mx-1">=</span> <strong className="text-gray-900">R385 in 5.9 weeks</strong> <span className="text-[#16a34a] mx-1">→</span> <strong className="text-[#1a558b]">your cover is active.</strong> Just from groceries.
+              Cashback rates vary by partner store tier - between <strong className="text-gray-900">3%</strong> and <strong className="text-gray-900">25%</strong>. Your actual earnings depend on where you shop.
             </p>
           </div>
         </div>

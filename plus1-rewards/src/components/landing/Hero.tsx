@@ -21,7 +21,7 @@ export default function Hero() {
         <div className="absolute inset-0 bg-gradient-to-r from-[#f5f8fc] via-[#f5f8fc]/20 to-transparent" />
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto flex-1 flex flex-col justify-center py-12">
+      <div className="relative z-10 w-full max-w-[1800px] mx-auto flex-1 flex flex-col justify-center py-12">
         <div className="flex flex-col gap-8 max-w-2xl">
           {/* Badge */}
           <span

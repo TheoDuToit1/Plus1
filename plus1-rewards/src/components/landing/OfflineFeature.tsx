@@ -5,7 +5,7 @@ const BLUE_LIGHT = 'rgba(26,85,139,0.10)'
 export default function OfflineFeature() {
   return (
     <section className="py-24 px-6 lg:px-20 relative overflow-hidden" style={{ backgroundColor: '#ffffff' }} id="features">
-      <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-16 items-center">
+      <div className="max-w-[1800px] mx-auto grid md:grid-cols-2 gap-16 items-center">
 
         {/* Image */}
         <div className="relative order-2 md:order-1">

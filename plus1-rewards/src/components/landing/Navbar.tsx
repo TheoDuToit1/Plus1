@@ -14,7 +14,7 @@ export default function Navbar() {
       borderBottom: '1px solid rgba(255, 255, 255, 0.3)',
       boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05)'
     }}>
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
+      <div className="max-w-[1800px] mx-auto flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-2">
           <span className="material-symbols-outlined text-3xl" style={{ color: BLUE }}>add_circle</span>

@@ -4,7 +4,7 @@ const BLUE = '#1a558b'
 export default function Footer() {
   return (
     <footer className="border-t py-16 px-6 lg:px-20" style={{ backgroundColor: '#fff', borderColor: '#e5e7eb' }}>
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-[1800px] mx-auto">
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           {/* Brand */}
           <div className="col-span-2">
