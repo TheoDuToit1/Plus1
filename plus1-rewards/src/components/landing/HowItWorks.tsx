@@ -7,19 +7,19 @@ export default function HowItWorks() {
       icon: <IconBuildingStore stroke={1.5} className="w-8 h-8 text-[#1a558b]" />,
       number: '01',
       title: 'Shop at partner stores',
-      desc: 'Visit any +1 Rewards partner near you — your local grocery store, spaza shop, pharmacy, takeaway. The stores you already walk into every week. Look for the green +1 Rewards sticker on the door.',
+      desc: 'Shop at +1 Rewards partner stores near you, from grocery stores and pharmacies to spaza shops and takeaways.',
     },
     {
       icon: <IconScan stroke={1.5} className="w-8 h-8 text-[#1a558b]" />,
       number: '02',
       title: 'Earn cashback on every purchase',
-      desc: 'Show your +1 Rewards QR code at the till. Every rand you spend earns you cashback — deposited in real rands, not points, not vouchers, nothing with an expiry date. The more stores you shop at, the faster your cashback builds.',
+      desc: 'Use your cell phone number or scan your +1 Rewards code at checkout to earn cashback in rands.',
     },
     {
       icon: <IconShieldCheck stroke={1.5} className="w-8 h-8 text-white" />,
       number: '03',
       title: 'Your cover gets paid',
-      desc: 'Your cashback from all your partner store purchases combines each month and pays directly toward your Day1Health medical cover plan. Once your monthly cover amount is reached, your plan activates — automatically. No extra payment. No paperwork. Your everyday shopping covered it.',
+      desc: 'Your cashback adds up and goes toward your Day1Health medical cover until your monthly cover is paid.',
       highlight: true
     },
   ]
@@ -31,9 +31,9 @@ export default function HowItWorks() {
           <span className="inline-block px-4 py-1.5 rounded-full text-xs font-bold tracking-widest uppercase mb-4 bg-[#1a558b]/10 text-[#1a558b]">
             Simple Process
           </span>
-          <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-6">Health Care cover earned in 3 simple steps. </h2>
+          <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-6">Earn Health Cover in 3 Simple Steps</h2>
           <p className="text-lg text-gray-600 leading-relaxed">
-            You don't need to change your habits, your wallet, or your shopping list. You just need a +1 Rewards membership.
+            Shop local. Earn rands. Medical cover gets paid.
           </p>
         </div>
 
@@ -66,8 +66,8 @@ export default function HowItWorks() {
             <div className="text-4xl font-black">Proof in numbers</div>
           </div>
           <div className="bg-white p-8 md:w-2/3 flex items-center">
-            <p className="text-gray-700 text-lg leading-relaxed font-medium">
-              Cashback rates vary by partner store tier - between <strong className="text-gray-900">3%</strong> and <strong className="text-gray-900">25%</strong>. Your actual earnings depend on where you shop.
+            <p className="text-gray-700 text-xl leading-relaxed font-medium">
+              A tank of fuel, braai supplies, school snacks, a dentist visit, a takeaway, ice cream for the kids = your medical cover.
             </p>
           </div>
         </div>

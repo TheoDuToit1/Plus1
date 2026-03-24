@@ -14,14 +14,12 @@ export default function TrustBadge() {
             <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: BLUE }}>
               Our Trusted Insurance Partner
             </p>
-            <div className="flex items-center gap-3 justify-center md:justify-start">
-              <div
-                className="size-12 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: BLUE_LIGHT }}
-              >
-                <span className="material-symbols-outlined text-3xl" style={{ color: BLUE }}>shield</span>
-              </div>
-              <span className="text-2xl font-black text-gray-900">Day1 Health</span>
+            <div className="flex items-center justify-center md:justify-start">
+              <img 
+                src="/day1health-logo.jpg" 
+                alt="Day1 Health" 
+                className="h-32 w-auto object-contain"
+              />
             </div>
           </div>
 

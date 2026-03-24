@@ -6,15 +6,15 @@ export default function CoverStatus() {
         {/* Section Header */}
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-4">
-            Your Cover Status is Always Clear
+            Control Your Cover Status
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            No confusion, no surprises. Know exactly where you stand at all times.
+            Shop where it counts. Protect your family's health.
           </p>
         </div>
 
         {/* Status Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {/* Active Status */}
           <div className="bg-white rounded-2xl p-8 shadow-xl border-2 border-green-200 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-center mb-6">
@@ -28,33 +28,11 @@ export default function CoverStatus() {
               Active
             </h3>
             <p className="text-center text-gray-600 text-lg leading-relaxed">
-              You're fully covered
+              Your cover is paid
             </p>
             <div className="mt-6 pt-6 border-t border-gray-100">
               <p className="text-sm text-gray-500 text-center">
-                Your cashback has reached the target amount. Your medical cover is active for the next 30 days.
-              </p>
-            </div>
-          </div>
-
-          {/* In Progress Status */}
-          <div className="bg-white rounded-2xl p-8 shadow-xl border-2 border-yellow-200 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
-            <div className="flex items-center justify-center mb-6">
-              <div className="size-20 rounded-full bg-yellow-100 flex items-center justify-center">
-                <div className="size-12 rounded-full bg-yellow-500 flex items-center justify-center">
-                  <span className="text-3xl">🟡</span>
-                </div>
-              </div>
-            </div>
-            <h3 className="text-2xl font-black text-gray-900 text-center mb-3">
-              In Progress
-            </h3>
-            <p className="text-center text-gray-600 text-lg leading-relaxed">
-              Cashback building up
-            </p>
-            <div className="mt-6 pt-6 border-t border-gray-100">
-              <p className="text-sm text-gray-500 text-center">
-                You're earning cashback with every purchase. Keep shopping to reach your cover target!
+                Keep shopping where it counts to keep your cover active.
               </p>
             </div>
           </div>
@@ -72,11 +50,11 @@ export default function CoverStatus() {
               Suspended
             </h3>
             <p className="text-center text-gray-600 text-lg leading-relaxed">
-              Not enough yet
+              Not there yet
             </p>
             <div className="mt-6 pt-6 border-t border-gray-100">
               <p className="text-sm text-gray-500 text-center">
-                Shop more or top-up to reactivate your cover. It's easy to get back on track!
+                Keep shopping where it counts to get your cover active again.
               </p>
             </div>
           </div>
