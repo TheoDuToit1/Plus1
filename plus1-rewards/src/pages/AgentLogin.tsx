@@ -9,9 +9,9 @@ const BLUE = '#1a558b'
 
 export default function AgentLogin() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -22,22 +22,75 @@ export default function AgentLogin() {
     setError('');
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email, password, options: { persistSession: rememberMe }
-      });
+      // Validate PIN is 6 digits
+      if (pin.length !== 6 || !/^\d{6}$/.test(pin)) {
+        setError('PIN must be exactly 6 digits');
+        setLoading(false);
+        return;
+      }
 
-      if (signInError) throw signInError;
+      // Query users table by mobile number and PIN for agent role
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('mobile_number', mobileNumber)
+        .eq('pin_code', pin)
+        .eq('role', 'agent')
+        .single();
 
-      if (data.user) {
-        const { data: agentData, error: agentError } = await supabase
-          .from('agents').select('status, name').eq('email', email).single();
+      if (userError || !userData) {
+        setError('Invalid mobile number or PIN');
+        setLoading(false);
+        return;
+      }
 
-        if (agentError) { setError('No agent account found with this email address.'); return; }
-        if (agentData.status === 'pending') { setError(`Your application "${agentData.name}" is still pending approval.`); return; }
-        if (agentData.status === 'suspended') { setError(`Your account "${agentData.name}" has been suspended.`); return; }
-        if (agentData.status === 'rejected') { setError(`Your application "${agentData.name}" has been rejected.`); return; }
-        if (agentData.status === 'active') { navigate('/agent/dashboard'); }
-        else { setError('Your account status is unknown. Please contact support.'); }
+      // Get agent record to check status
+      const { data: agentData, error: agentError } = await supabase
+        .from('agents')
+        .select('*')
+        .eq('user_id', userData.id)
+        .single();
+
+      if (agentError || !agentData) {
+        setError('Agent account not found');
+        setLoading(false);
+        return;
+      }
+
+      // Check agent status
+      if (agentData.status === 'pending') {
+        setError(`Your application is still pending approval.`);
+        setLoading(false);
+        return;
+      }
+      if (agentData.status === 'suspended') {
+        setError(`Your account has been suspended. Please contact administrator.`);
+        setLoading(false);
+        return;
+      }
+      if (agentData.status === 'rejected') {
+        setError(`Your application has been rejected.`);
+        setLoading(false);
+        return;
+      }
+
+      if (agentData.status === 'active') {
+        // Store combined agent session
+        const sessionData = {
+          ...agentData,
+          ...userData,
+          agent_id: agentData.id,
+          user_id: userData.id
+        };
+        
+        if (rememberMe) {
+          localStorage.setItem('currentAgent', JSON.stringify(sessionData));
+        } else {
+          sessionStorage.setItem('currentAgent', JSON.stringify(sessionData));
+        }
+        navigate('/agent/dashboard');
+      } else {
+        setError('Your account status is unknown. Please contact support.');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to sign in');
@@ -68,28 +121,30 @@ export default function AgentLogin() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <AuthInput
-            label="Agent Email Address"
-            icon="assignment_ind"
-            id="email"
-            type="email"
-            placeholder="agent@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            label="Phone Number (10 digits)"
+            icon="phone"
+            id="mobileNumber"
+            type="tel"
+            placeholder="082 555 1234"
+            value={mobileNumber}
+            onChange={(e) => setMobileNumber(e.target.value)}
             required
           />
 
           <AuthInput
-            label="Password"
+            label="6-Digit PIN"
             icon="lock"
-            id="password"
-            type={showPassword ? 'text' : 'password'}
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            id="pin"
+            type={showPin ? 'text' : 'password'}
+            placeholder="••••••"
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
             required
+            maxLength={6}
+            pattern="\d{6}"
             suffix={
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-gray-600">
-                <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
+              <button type="button" onClick={() => setShowPin(!showPin)} className="text-gray-400 hover:text-gray-600">
+                <span className="material-symbols-outlined text-xl">{showPin ? 'visibility_off' : 'visibility'}</span>
               </button>
             }
           />
@@ -113,7 +168,7 @@ export default function AgentLogin() {
               </div>
               Keep me signed in
             </label>
-            <a href="#" className="text-sm font-semibold" style={{ color: BLUE }}>Forgot password?</a>
+            <a href="#" className="text-sm font-semibold" style={{ color: BLUE }}>Contact Admin</a>
           </div>
 
           <AuthButton type="submit" loading={loading} loadingText="Signing in...">

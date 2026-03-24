@@ -177,40 +177,36 @@ export default function PartnersPage() {
     const searchTerms = searchLower.split(/\s+/);
     
     const matchesSearch = searchLower === '' || searchTerms.every(term => 
-      s.name?.toLowerCase().includes(term) ||
+      s.shop_name?.toLowerCase().includes(term) ||
       s.phone?.includes(term) ||
       s.email?.toLowerCase().includes(term) ||
       s.id?.toLowerCase().includes(term) ||
-      s.location?.toLowerCase().includes(term) ||
-      s.business_type?.toLowerCase().includes(term) ||
-      s.suburb?.toLowerCase().includes(term) ||
-      s.city?.toLowerCase().includes(term)
+      s.address?.toLowerCase().includes(term) ||
+      s.category?.toLowerCase().includes(term) ||
+      s.responsible_person?.toLowerCase().includes(term)
     );
 
     // Filters
     const matchesStatus = filters.status === '' || s.status === filters.status;
-    const matchesType = filters.businessType === '' || s.business_type === filters.businessType;
+    const matchesType = filters.businessType === '' || s.category === filters.businessType;
     const matchesLocation = filters.location === '' || 
-      s.location?.toLowerCase().includes(filters.location.toLowerCase()) ||
-      s.city?.toLowerCase().includes(filters.location.toLowerCase()) ||
-      s.suburb?.toLowerCase().includes(filters.location.toLowerCase());
+      s.address?.toLowerCase().includes(filters.location.toLowerCase());
 
     return matchesSearch && matchesStatus && matchesType && matchesLocation;
   });
 
   const handleExport = () => {
     const csv = [
-      ['ID', 'Name', 'Phone', 'Email', 'Commission Rate', 'Status', 'Location', 'Bank Name', 'Account', 'Joined'].join(','),
+      ['ID', 'Shop Name', 'Phone', 'Email', 'Cashback %', 'Status', 'Address', 'Category', 'Joined'].join(','),
       ...partners.map(s => [
         s.id,
-        s.name,
+        s.shop_name,
         s.phone || '',
         s.email || '',
-        s.commission_rate || '',
+        s.cashback_percent || '',
         s.status,
-        s.location || '',
-        s.bank_name || '',
-        s.bank_account || '',
+        s.address || '',
+        s.category || '',
         new Date(s.created_at).toLocaleDateString()
       ].join(','))
     ].join('\n');
@@ -418,11 +414,10 @@ export default function PartnersPage() {
                       <tr className="bg-gray-50">
                         <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Partner</th>
                         <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Contact</th>
-                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Location</th>
-                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Owner</th>
-                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Commission</th>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Address</th>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Responsible Person</th>
+                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Cashback %</th>
                         <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Status</th>
-                        <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Bank Details</th>
                         <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Registration</th>
                         <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Approval</th>
                         <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Actions</th>
@@ -433,56 +428,40 @@ export default function PartnersPage() {
                         <tr key={partner.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-4">
                             <div>
-                              <div className="text-sm font-semibold text-gray-900">{partner.name}</div>
+                              <div className="text-sm font-semibold text-gray-900">{partner.shop_name || 'No name'}</div>
                               <div className="text-[10px] font-mono text-gray-600">{partner.id.substring(0, 8)}</div>
-                              {partner.business_type && (
-                                <div className="text-[10px] text-gray-600 mt-0.5">{partner.business_type}</div>
+                              {partner.category && (
+                                <div className="text-[10px] text-gray-600 mt-0.5">{partner.category}</div>
                               )}
                             </div>
                           </td>
                           <td className="px-4 py-4">
-                            <div className="text-xs text-slate-300">{partner.phone || 'No phone'}</div>
+                            <div className="text-xs text-gray-700">{partner.phone || 'No phone'}</div>
                             <div className="text-[10px] text-gray-600">{partner.email || 'No email'}</div>
-                            {partner.website && (
-                              <div className="text-[10px] text-blue-400 mt-0.5">{partner.website}</div>
-                            )}
                           </td>
                           <td className="px-4 py-4">
-                            <div className="text-xs text-slate-300">{partner.location || '-'}</div>
-                            {partner.address && (
-                              <div className="text-[10px] text-gray-600 mt-0.5">{partner.address}</div>
-                            )}
+                            <div className="text-xs text-gray-700">{partner.address || '-'}</div>
                           </td>
                           <td className="px-4 py-4">
-                            <div className="text-xs text-slate-300">{partner.owner_name || '-'}</div>
-                            {partner.owner_id_number && (
-                              <div className="text-[10px] text-gray-600 mt-0.5">ID: {partner.owner_id_number}</div>
-                            )}
+                            <div className="text-xs text-gray-700">{partner.responsible_person || '-'}</div>
                           </td>
                           <td className="px-4 py-4">
-                            <span className="text-sm font-bold text-[#1a558b]">{partner.commission_rate}%</span>
+                            <span className="text-sm font-bold text-[#1a558b]">{partner.cashback_percent || 0}%</span>
                           </td>
                           <td className="px-4 py-4">
                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
                               partner.status === 'active' 
                                 ? 'bg-[#1a558b]/20 text-[#1a558b] border border-[#1a558b]/30'
                                 : partner.status === 'pending'
-                                ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                                : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                ? 'bg-yellow-500/20 text-yellow-600 border border-yellow-500/30'
+                                : 'bg-red-500/20 text-red-600 border border-red-500/30'
                             }`}>
                               <span className={`size-1.5 rounded-full ${
                                 partner.status === 'active' ? 'bg-[#1a558b]' : 
-                                partner.status === 'pending' ? 'bg-yellow-400' : 'bg-red-400'
+                                partner.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
                               }`}></span>
                               {partner.status}
                             </span>
-                          </td>
-                          <td className="px-4 py-4">
-                            <div className="text-xs text-slate-300">{partner.bank_name || '-'}</div>
-                            <div className="text-[10px] text-gray-600">{partner.bank_account || '-'}</div>
-                            {partner.branch_code && (
-                              <div className="text-[10px] text-gray-600 mt-0.5">Branch: {partner.branch_code}</div>
-                            )}
                           </td>
                           <td className="px-4 py-4">
                             <div className="text-xs text-gray-600">{new Date(partner.created_at).toLocaleDateString()}</div>
@@ -491,7 +470,7 @@ export default function PartnersPage() {
                           <td className="px-4 py-4">
                             {partner.approved_at ? (
                               <>
-                                <div className="text-xs text-green-400">{new Date(partner.approved_at).toLocaleDateString()}</div>
+                                <div className="text-xs text-green-600">{new Date(partner.approved_at).toLocaleDateString()}</div>
                                 {partner.approved_by && (
                                   <div className="text-[10px] text-gray-600">By: {partner.approved_by}</div>
                                 )}
@@ -538,7 +517,7 @@ export default function PartnersPage() {
             {/* Modal Header */}
             <div className="border-b border-gray-200 px-8 py-6 flex items-center justify-between flex-shrink-0" style={{ backgroundColor: '#ffffff' }}>
               <div>
-                <h2 className="text-2xl font-black text-gray-900">{selectedPartner.name}</h2>
+                <h2 className="text-2xl font-black text-gray-900">{selectedPartner.shop_name || 'Partner'}</h2>
                 <p className="text-sm text-gray-600 mt-1">Complete Partner Information</p>
               </div>
               <button

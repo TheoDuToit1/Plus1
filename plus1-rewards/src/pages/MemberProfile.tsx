@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { getSession, clearSession } from '../lib/session';
 import MemberLayout from '../components/member/MemberLayout';
 
 const CAPE_TOWN_SUBURBS = [
@@ -72,28 +73,18 @@ export function MemberProfile() {
   const loadProfile = async () => {
     setLoading(true);
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const session = getSession();
       
-      if (userError) {
-        console.error('Auth error:', userError);
-        // Don't redirect immediately, try to refresh session first
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !session) {
-          navigate('/member/login');
-          return;
-        }
-      }
-      
-      if (!user) {
+      if (!session) {
         navigate('/member/login');
         return;
       }
       
-      const { data, error: memberError } = await supabase.from('members').select('*').eq('id', user.id).single();
+      const { data, error: memberError } = await supabase.from('members').select('*').eq('id', session.user.id).single();
       
       if (memberError || !data) {
-        console.log('User is not a member, redirecting to member login');
-        await supabase.auth.signOut();
+        console.log('Member not found, redirecting to login');
+        clearSession();
         navigate('/member/login');
         return;
       }
@@ -115,7 +106,7 @@ export function MemberProfile() {
           await supabase
             .from('members')
             .update({ city: 'Cape Town' })
-            .eq('id', user.id);
+            .eq('id', session.user.id);
         }
       }
     } catch (error) {
@@ -266,7 +257,7 @@ export function MemberProfile() {
       member={member}
       isOnline={navigator.onLine}
       pendingTransactions={0}
-      onSignOut={() => supabase.auth.signOut().then(() => navigate('/member/login'))}
+      onSignOut={() => { clearSession(); navigate('/member/login'); }}
     >
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -539,7 +530,7 @@ export function MemberProfile() {
 
       {/* Sign Out */}
       <button
-        onClick={async () => { await supabase.auth.signOut(); navigate('/member/login'); }}
+        onClick={() => { clearSession(); navigate('/member/login'); }}
         className="w-full bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-bold py-4 rounded-xl transition-colors"
       >
         <span className="material-symbols-outlined mr-2">logout</span>

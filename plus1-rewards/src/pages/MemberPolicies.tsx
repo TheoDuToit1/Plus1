@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { getSession, clearSession } from '../lib/session';
 import MemberLayout from '../components/member/MemberLayout';
 import PolicyOverflowModal from '../components/member/PolicyOverflowModal';
 
@@ -53,8 +54,8 @@ export default function MemberPolicies() {
   const loadPoliciesData = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const session = getSession();
+      if (!session) {
         navigate('/member/login');
         return;
       }
@@ -63,7 +64,7 @@ export default function MemberPolicies() {
       const { data: memberData } = await supabase
         .from('members')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', session.user.id)
         .single();
 
       if (memberData) {
@@ -78,7 +79,7 @@ export default function MemberPolicies() {
           policy_plans (id, name, monthly_target, family, variant, adults, children),
           policy_providers (name, status)
         `)
-        .eq('member_id', user.id)
+        .eq('member_id', session.user.id)
         .order('created_at', { ascending: false });
 
       // Also get the member's active policy if it's not in policy_holders yet
@@ -98,7 +99,7 @@ export default function MemberPolicies() {
           const { data: walletsData } = await supabase
             .from('wallets')
             .select('rewards_total, balance')
-            .eq('member_id', user.id);
+            .eq('member_id', session.user.id);
 
           const totalFunding = walletsData?.reduce((sum, wallet) => sum + (wallet.rewards_total || wallet.balance || 0), 0) || 0;
 
@@ -129,7 +130,7 @@ export default function MemberPolicies() {
       const { data: walletsData } = await supabase
         .from('wallets')
         .select('rewards_total, balance')
-        .eq('member_id', user.id);
+        .eq('member_id', session.user.id);
 
       if (walletsData) {
         const total = walletsData.reduce((sum, wallet) => sum + (wallet.rewards_total || wallet.balance || 0), 0);
@@ -176,7 +177,7 @@ export default function MemberPolicies() {
       member={member}
       isOnline={true}
       pendingTransactions={0}
-      onSignOut={() => supabase.auth.signOut().then(() => navigate('/member/login'))}
+      onSignOut={() => { clearSession(); navigate('/member/login'); }}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-6">

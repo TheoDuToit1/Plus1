@@ -33,24 +33,23 @@ export default function TransactionHistory() {
   const loadPartnerAndTransactions = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Get partner session (custom auth)
+      const partnerSessionData = localStorage.getItem('partnerSession') || sessionStorage.getItem('partnerSession');
+      
+      if (!partnerSessionData) {
         navigate('/partner/login');
         return;
       }
 
-      const { data: partnerData } = await supabase
-        .from('partners')
-        .select('id')
-        .eq('id', user.id)
-        .single();
+      const session = JSON.parse(partnerSessionData);
+      const partnerId = session.partner?.id;
 
-      if (!partnerData) {
+      if (!partnerId) {
         navigate('/partner/login');
         return;
       }
 
-      setPartnerId(partnerData.id);
+      setPartnerId(partnerId);
 
       // Calculate date range based on filter
       let startDate = new Date();
@@ -70,19 +69,37 @@ export default function TransactionHistory() {
           id,
           member_id,
           purchase_amount,
-          member_reward,
+          member_amount,
           created_at,
-          status,
-          members (
-            name,
-            phone
-          )
+          status
         `)
-        .eq('partner_id', partnerData.id)
+        .eq('partner_id', partnerId)
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: false });
 
-      setTransactions(txData || []);
+      if (txData) {
+        // Load member names separately
+        const memberIds = [...new Set(txData.map(t => t.member_id))];
+        if (memberIds.length > 0) {
+          const { data: members } = await supabase
+            .from('members')
+            .select('id, full_name, phone')
+            .in('id', memberIds);
+
+          const memberMap = new Map(members?.map(m => [m.id, { name: m.full_name, phone: m.phone }]) || []);
+          
+          setTransactions(txData.map(t => ({
+            ...t,
+            member_reward: parseFloat(t.member_amount) || 0,
+            members: memberMap.get(t.member_id)
+          })));
+        } else {
+          setTransactions(txData.map(t => ({
+            ...t,
+            member_reward: parseFloat(t.member_amount) || 0
+          })));
+        }
+      }
     } catch (error) {
       console.error('Error loading transactions:', error);
     } finally {

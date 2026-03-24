@@ -1,270 +1,1070 @@
 // src/components/partner/pages/Dashboard.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
-import { usePartnerDashboard } from '../../../hooks/usePartnerDashboard';
-import WelcomeSection from '../components/WelcomeSection';
-import TopStatsGrid from '../components/TopStatsGrid';
-import RewardsIssuanceTool from '../components/RewardsIssuanceTool';
-import RecentTransactions from '../components/RecentTransactions';
-import PartnerQRCode from '../components/PartnerQRCode';
-import GrowthPromo from '../components/GrowthPromo';
+import { Phone, DollarSign, User, CheckCircle, XCircle, Loader, QrCode, Camera, UserPlus } from 'lucide-react';
+
+interface Partner {
+  id: string;
+  shop_name: string;
+  name: string;
+  status: string;
+  cashback_percent: number;
+}
+
+interface MonthlyStats {
+  transactionCount: number;
+  cashbackLiability: number;
+}
+
+interface LatestInvoice {
+  amount: number;
+  dueDate: string;
+  status: string;
+}
+
+interface Member {
+  id: string;
+  full_name: string;
+  phone: string;
+  status: string;
+}
+
+type ActiveTab = 'sales' | 'register';
 
 export default function Dashboard() {
-  const [partnerId, setPartnerId] = useState<string | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const navigate = useNavigate();
+  const [partner, setPartner] = useState<Partner | null>(null);
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats>({ transactionCount: 0, cashbackLiability: 0 });
+  const [latestInvoice, setLatestInvoice] = useState<LatestInvoice | null>(null);
+  const [assignedAgent, setAssignedAgent] = useState<string>('Not assigned');
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<ActiveTab>('sales');
+  
+  // Sales state
+  const [searchMethod, setSearchMethod] = useState<'phone' | 'qr'>('phone');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [qrCode, setQrCode] = useState('');
   const [purchaseAmount, setPurchaseAmount] = useState('');
-  const [activeTab, setActiveTab] = useState('scan');
-  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
-  const [memberDetails, setMemberDetails] = useState<any>(null);
-  const [issuingRewards, setIssuingRewards] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
+  const [member, setMember] = useState<Member | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [showScanner, setShowScanner] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  
+  // Registration state
+  const [showPin, setShowPin] = useState(false);
+  const [regFormData, setRegFormData] = useState({
+    name: '',
+    phone: '',
+    pin: '',
+    terms: false
+  });
 
-  const { shop, transactions, stats, loading, error, issueRewards, searchMember } = usePartnerDashboard(partnerId);
-
-  // Get current shop from auth
   useEffect(() => {
-    const getcurrentPartner = async () => {
-      try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('Session error:', sessionError);
-          // Try to refresh the session
-          const { data: { session: refreshedSession } } = await supabase.auth.refreshSession();
-          if (!refreshedSession) {
-            setAuthLoading(false);
-            return;
-          }
-        }
-        
-        if (session?.user?.id) {
-          // Find shop by matching auth user ID to shop ID
-          const { data: partnerData, error: partnerError } = await supabase
-            .from('partners')
-            .select('id, name, status')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (partnerData) {
-            setPartnerId(partnerData.id);
-          } else {
-            console.log('No partner found for user ID:', session.user.id);
-            // Try to find by email as fallback
-            const { data: partnerByEmail } = await supabase
-              .from('partners')
-              .select('id, name, status')
-              .eq('email', session.user.email)
-              .single();
-              
-            if (partnerByEmail) {
-              setPartnerId(partnerByEmail.id);
-            } else {
-              console.log('No partner found for this user');
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Error getting current shop:', err);
-      } finally {
-        setAuthLoading(false);
-      }
-    };
-    getcurrentPartner();
+    loadDashboardData();
   }, []);
 
-  const handleIssueRewards = async () => {
-    if (!purchaseAmount || !selectedMemberId) {
-      alert('Please select a member and enter an amount');
+  useEffect(() => {
+    if (showScanner) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+    return () => stopCamera();
+  }, [showScanner]);
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        streamRef.current = stream;
+      }
+    } catch (err) {
+      console.error('Camera error:', err);
+      setError('Unable to access camera. Please check permissions.');
+    }
+  };
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+  };
+
+  const loadDashboardData = async () => {
+    try {
+      const partnerSessionData = localStorage.getItem('partnerSession') || sessionStorage.getItem('partnerSession');
+      
+      if (!partnerSessionData) {
+        navigate('/partner/login');
+        return;
+      }
+
+      const session = JSON.parse(partnerSessionData);
+      const partnerId = session.partner?.id;
+
+      if (!partnerId) {
+        navigate('/partner/login');
+        return;
+      }
+
+      const { data: partnerData, error: partnerError } = await supabase
+        .from('partners')
+        .select('id, shop_name, status, cashback_percent')
+        .eq('id', partnerId)
+        .single();
+
+      if (partnerError) throw partnerError;
+      setPartner({ ...partnerData, name: partnerData.shop_name });
+
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      
+      const { data: transactions, error: txError } = await supabase
+        .from('transactions')
+        .select('purchase_amount, cashback_percent')
+        .eq('partner_id', partnerId)
+        .gte('created_at', firstDayOfMonth);
+
+      if (!txError && transactions) {
+        const count = transactions.length;
+        // Calculate total cashback liability (what partner owes)
+        const liability = transactions.reduce((sum, tx) => {
+          const amount = parseFloat(tx.purchase_amount) || 0;
+          const percent = parseFloat(tx.cashback_percent) || 0;
+          return sum + (amount * percent / 100);
+        }, 0);
+        setMonthlyStats({ transactionCount: count, cashbackLiability: liability });
+      }
+
+      const { data: invoiceData } = await supabase
+        .from('partner_invoices')
+        .select('total_amount, due_date, status')
+        .eq('partner_id', partnerId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (invoiceData) {
+        setLatestInvoice({
+          amount: invoiceData.total_amount,
+          dueDate: invoiceData.due_date,
+          status: invoiceData.status
+        });
+      }
+
+      // Load assigned agent
+      const { data: agentLink } = await supabase
+        .from('partner_agent_links')
+        .select('agent_id')
+        .eq('partner_id', partnerId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (agentLink) {
+        const { data: agentData } = await supabase
+          .from('agents')
+          .select('id, user_id')
+          .eq('id', agentLink.agent_id)
+          .single();
+
+        if (agentData) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('full_name')
+            .eq('id', agentData.user_id)
+            .single();
+
+          if (userData) {
+            setAssignedAgent(userData.full_name);
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('Error loading dashboard:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Sales handlers
+  const handleSearchByPhone = async () => {
+    if (!phoneNumber || phoneNumber.length !== 10) {
+      setError('Please enter a valid 10-digit phone number');
       return;
     }
 
-    setIssuingRewards(true);
+    setSearchLoading(true);
+    setError('');
+    setMember(null);
+
     try {
-      await issueRewards(selectedMemberId, parseFloat(purchaseAmount));
-      setSuccessMessage(`Rewards issued successfully! R${purchaseAmount} purchase recorded.`);
-      setPurchaseAmount('');
-      setSelectedMemberId(null);
-      setMemberDetails(null);
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (err) {
-      alert('Failed to issue rewards: ' + (err as any).message);
-    } finally {
-      setIssuingRewards(false);
-    }
-  };
-
-  const handleSearchMember = async (phone: string) => {
-    try {
-      const member = await searchMember(phone);
-      
-      // Check if member has a wallet with this partner
-      const { data: wallet, error: walletError } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('member_id', member.id)
-        .eq('partner_id', partnerId)
-        .single();
-
-      if (walletError || !wallet) {
-        alert(`${member.name} (${member.phone}) is not connected to Your Business yet. They need to scan Your Business QR code first to join your rewards program.`);
-        return;
-      }
-      
-      setSelectedMemberId(member.id);
-      setMemberDetails({
-        id: member.id,
-        name: member.name,
-        phone: member.phone,
-        balance: wallet?.balance || 0
-      });
-    } catch (err: any) {
-      // Show the detailed error message from searchMember
-      alert(err.message || 'Member not found');
-    }
-  };
-
-  const handleQRScanned = async (qrData: string) => {
-    try {
-      // Parse the QR data to extract member identifier
-      const { parseMemberQR } = await import('../../../lib/config');
-      const memberIdentifier = parseMemberQR(qrData);
-      
-      if (!memberIdentifier) {
-        alert('Invalid QR code format');
-        return;
-      }
-
-      // Try to find member by qr_code first, then by phone, then by ID
-      let member = null;
-      
-      // Try qr_code field
-      const { data: memberByQR } = await supabase
+      const { data, error } = await supabase
         .from('members')
-        .select('*')
-        .eq('qr_code', memberIdentifier)
+        .select('id, full_name, phone, status')
+        .eq('phone', phoneNumber)
         .single();
-      
-      if (memberByQR) {
-        member = memberByQR;
-      } else {
-        // Try phone number
-        const { data: memberByPhone } = await supabase
-          .from('members')
-          .select('*')
-          .eq('phone', memberIdentifier)
-          .single();
-        
-        if (memberByPhone) {
-          member = memberByPhone;
-        } else {
-          // Try ID
-          const { data: memberById } = await supabase
-            .from('members')
-            .select('*')
-            .eq('id', memberIdentifier)
-            .single();
-          
-          if (memberById) {
-            member = memberById;
-          }
+
+      if (error || !data) {
+        setError('Member not found. Please ask them to register first.');
+        return;
+      }
+
+      if (data.status !== 'active') {
+        setError('Member account is not active');
+        return;
+      }
+
+      // Check if member is connected to this partner
+      if (partner) {
+        const { data: connectionData, error: connectionError } = await supabase
+          .from('member_partner_connections')
+          .select('id, status')
+          .eq('member_id', data.id)
+          .eq('partner_id', partner.id)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        if (connectionError || !connectionData) {
+          setError(`${data.full_name} is not connected to your store yet. Please ask them to connect first via the Find Partners page.`);
+          return;
         }
       }
 
-      if (!member) {
-        alert('Member not found. Please ask them to register first.');
-        return;
-      }
-
-      // Check if member has a wallet with this partner
-      const { data: wallet, error: walletError } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('member_id', member.id)
-        .eq('partner_id', partnerId)
-        .single();
-
-      if (walletError || !wallet) {
-        alert(`${member.name} (${member.phone}) is not connected to Your Business yet. They need to scan Your Business QR code first to join your rewards program.`);
-        return;
-      }
-
-      setSelectedMemberId(member.id);
-      setMemberDetails({
-        id: member.id,
-        name: member.name,
-        phone: member.phone,
-        balance: wallet?.balance || 0
-      });
+      setMember(data);
     } catch (err) {
-      console.error('QR scan error:', err);
-      alert('Error processing QR code. Please try manual phone search.');
+      setError('Error searching for member');
+    } finally {
+      setSearchLoading(false);
     }
   };
 
-  const handleClearMember = () => {
-    setSelectedMemberId(null);
-    setMemberDetails(null);
+  const handleSearchByQR = async () => {
+    if (!qrCode) {
+      setError('Please enter a QR code');
+      return;
+    }
+
+    setSearchLoading(true);
+    setError('');
+    setMember(null);
+
+    try {
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, full_name, phone, status')
+        .eq('qr_code', qrCode)
+        .single();
+
+      if (error || !data) {
+        setError('Member not found with this QR code');
+        return;
+      }
+
+      if (data.status !== 'active') {
+        setError('Member account is not active');
+        return;
+      }
+
+      // Check if member is connected to this partner
+      if (partner) {
+        const { data: connectionData, error: connectionError } = await supabase
+          .from('member_partner_connections')
+          .select('id, status')
+          .eq('member_id', data.id)
+          .eq('partner_id', partner.id)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        if (connectionError || !connectionData) {
+          setError(`${data.full_name} is not connected to your store yet. Please ask them to connect first via the Find Partners page.`);
+          return;
+        }
+      }
+
+      setMember(data);
+      setShowScanner(false);
+    } catch (err) {
+      setError('Error searching for member');
+    } finally {
+      setSearchLoading(false);
+    }
   };
 
-  if (authLoading || loading) {
+  const handleSubmitTransaction = async () => {
+    if (!member || !purchaseAmount || !partner) {
+      setError('Please complete all fields');
+      return;
+    }
+
+    if (partner.status === 'suspended') {
+      setError('Your account is suspended. Please contact support.');
+      return;
+    }
+
+    const amount = parseFloat(purchaseAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setError('Please enter a valid purchase amount');
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const cashbackPercent = partner.cashback_percent;
+      const totalCashback = (amount * cashbackPercent) / 100;
+      const systemAmount = (amount * 1) / 100;
+      const agentAmount = (amount * 1) / 100;
+      const memberAmount = totalCashback - systemAmount - agentAmount;
+
+      const { data: transaction, error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          partner_id: partner.id,
+          member_id: member.id,
+          purchase_amount: amount,
+          cashback_percent: cashbackPercent,
+          system_percent: 1,
+          agent_percent: 1,
+          member_percent: cashbackPercent - 2,
+          system_amount: systemAmount,
+          agent_amount: agentAmount,
+          member_amount: memberAmount,
+          status: 'completed'
+        })
+        .select()
+        .single();
+
+      if (txError) throw txError;
+
+      const { data: memberCoverPlans } = await supabase
+        .from('member_cover_plans')
+        .select('id, funded_amount, target_amount, status')
+        .eq('member_id', member.id)
+        .eq('status', 'in_progress')
+        .order('creation_order', { ascending: true });
+
+      if (memberCoverPlans && memberCoverPlans.length > 0) {
+        let remainingAmount = memberAmount;
+
+        for (const plan of memberCoverPlans) {
+          if (remainingAmount <= 0) break;
+
+          const needed = plan.target_amount - plan.funded_amount;
+          const toAdd = Math.min(remainingAmount, needed);
+
+          const newFundedAmount = plan.funded_amount + toAdd;
+          const newStatus = newFundedAmount >= plan.target_amount ? 'active' : 'in_progress';
+
+          await supabase
+            .from('member_cover_plans')
+            .update({
+              funded_amount: newFundedAmount,
+              status: newStatus,
+              ...(newStatus === 'active' && {
+                active_from: new Date().toISOString(),
+                active_to: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+              })
+            })
+            .eq('id', plan.id);
+
+          await supabase
+            .from('cover_plan_wallet_entries')
+            .insert({
+              member_id: member.id,
+              member_cover_plan_id: plan.id,
+              transaction_id: transaction.id,
+              entry_type: 'cashback_added',
+              amount: toAdd,
+              balance_after: newFundedAmount
+            });
+
+          remainingAmount -= toAdd;
+        }
+      }
+
+      setSuccess(`Sale completed! ${member.full_name} earned R${memberAmount.toFixed(2)} cashback`);
+      setPhoneNumber('');
+      setQrCode('');
+      setPurchaseAmount('');
+      setMember(null);
+      loadDashboardData();
+
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err) {
+      console.error('Transaction error:', err);
+      setError('Failed to process transaction. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Registration handlers
+  const handleRegInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setRegFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleRegSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!regFormData.terms) {
+      setError('Please agree to the Terms of Service and Privacy Policy');
+      return;
+    }
+    if (regFormData.pin.length !== 6) {
+      setError('PIN must be exactly 6 digits');
+      return;
+    }
+    if (!/^\d{6}$/.test(regFormData.pin)) {
+      setError('PIN must contain only numbers');
+      return;
+    }
+
+    const phoneDigits = regFormData.phone.replace(/\D/g, '');
+    if (phoneDigits.length !== 10) {
+      setError('Phone number must be exactly 10 digits');
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      const { data: existingUser } = await supabase
+        .from('users').select('id').eq('mobile_number', phoneDigits).maybeSingle();
+
+      if (existingUser) {
+        setError('This phone number is already registered');
+        setSubmitting(false);
+        return;
+      }
+
+      const { data: existingMember } = await supabase
+        .from('members').select('id').eq('phone', phoneDigits).maybeSingle();
+
+      if (existingMember) {
+        setError('This phone number is already registered');
+        setSubmitting(false);
+        return;
+      }
+
+      const { data: defaultPlan, error: planError } = await supabase
+        .from('cover_plans')
+        .select('id, plan_name, monthly_target_amount')
+        .eq('status', 'active')
+        .eq('monthly_target_amount', 385)
+        .limit(1)
+        .single();
+
+      if (planError || !defaultPlan) {
+        setError('System error: Default cover plan not found. Please contact support.');
+        setSubmitting(false);
+        return;
+      }
+
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .insert({
+          role: 'member',
+          full_name: regFormData.name,
+          mobile_number: phoneDigits,
+          pin_code: regFormData.pin,
+          status: 'active'
+        })
+        .select()
+        .single();
+
+      if (userError) throw userError;
+
+      const qrCodeGen = `PLUS1-${phoneDigits}-${Date.now()}`;
+
+      const { data: memberData, error: memberError } = await supabase
+        .from('members')
+        .insert({
+          user_id: userData.id,
+          full_name: regFormData.name,
+          phone: phoneDigits,
+          qr_code: qrCodeGen,
+          status: 'active'
+        })
+        .select()
+        .single();
+
+      if (memberError) throw memberError;
+
+      const { error: coverPlanError } = await supabase
+        .from('member_cover_plans')
+        .insert({
+          member_id: memberData.id,
+          cover_plan_id: defaultPlan.id,
+          creation_order: 1,
+          target_amount: defaultPlan.monthly_target_amount,
+          funded_amount: 0,
+          status: 'in_progress'
+        });
+
+      if (coverPlanError) throw coverPlanError;
+
+      setSuccess(`Member ${regFormData.name} registered successfully!`);
+      setRegFormData({ name: '', phone: '', pin: '', terms: false });
+
+      setTimeout(() => setSuccess(''), 5000);
+    } catch (err: any) {
+      if (err.message?.includes('already registered') || err.message?.includes('duplicate')) {
+        setError('This phone number is already registered');
+      } else {
+        setError('Registration failed: ' + err.message);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[#1a558b]/20 border-t-[#1a558b] rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-900">Loading dashboard...</p>
+          <p className="text-gray-600">Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
-  if (!partnerId) {
+  if (!partner) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <p className="text-gray-900 mb-4">No partner found for your account</p>
-          <p className="text-gray-600 text-sm">Please contact support or register a shop</p>
+          <p className="text-gray-900 mb-4">No partner found</p>
+          <button
+            onClick={() => navigate('/partner/login')}
+            className="bg-[#1a558b] text-white px-6 py-2 rounded-xl font-semibold"
+          >
+            Back to Login
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <>
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-red-700">
-          {error}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+      {/* LEFT SIDE - Sales & Registration */}
+      <div className="space-y-4">
+        {/* Tab Switcher */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 flex gap-2">
+          <button
+            onClick={() => {
+              setActiveTab('sales');
+              setError('');
+              setSuccess('');
+            }}
+            className={`flex-1 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'sales'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <DollarSign className="w-5 h-5" />
+            Sales Terminal
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('register');
+              setError('');
+              setSuccess('');
+            }}
+            className={`flex-1 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+              activeTab === 'register'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <UserPlus className="w-5 h-5" />
+            Register Member
+          </button>
         </div>
-      )}
-      {successMessage && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 text-green-700">
-          {successMessage}
+
+        {/* Success/Error Messages */}
+        {success && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <p className="text-green-800 text-sm">{success}</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+            <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* SALES TAB */}
+        {activeTab === 'sales' && (
+          <div className="space-y-4">
+            {/* Search Method Toggle */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => {
+                    setSearchMethod('phone');
+                    setShowScanner(false);
+                    setMember(null);
+                    setError('');
+                  }}
+                  className={`flex-1 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm ${
+                    searchMethod === 'phone'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  <Phone className="w-4 h-4" />
+                  Phone
+                </button>
+                <button
+                  onClick={() => {
+                    setSearchMethod('qr');
+                    setMember(null);
+                    setError('');
+                  }}
+                  className={`flex-1 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm ${
+                    searchMethod === 'qr'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  <QrCode className="w-4 h-4" />
+                  QR Code
+                </button>
+              </div>
+
+              {/* Phone Search */}
+              {searchMethod === 'phone' && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Member Phone Number
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <input
+                        type="tel"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                        placeholder="0812345678"
+                        className="w-full pl-9 pr-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-sm"
+                        maxLength={10}
+                      />
+                    </div>
+                    <button
+                      onClick={handleSearchByPhone}
+                      disabled={searchLoading || phoneNumber.length !== 10}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm"
+                    >
+                      {searchLoading ? <Loader className="w-4 h-4 animate-spin" /> : 'Search'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* QR Code Search */}
+              {searchMethod === 'qr' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Member QR Code
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <QrCode className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          value={qrCode}
+                          onChange={(e) => setQrCode(e.target.value)}
+                          placeholder="PLUS1-0812345678-..."
+                          className="w-full pl-9 pr-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-sm"
+                        />
+                      </div>
+                      <button
+                        onClick={handleSearchByQR}
+                        disabled={searchLoading || !qrCode}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm"
+                      >
+                        {searchLoading ? <Loader className="w-4 h-4 animate-spin" /> : 'Search'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setShowScanner(!showScanner)}
+                    className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm"
+                  >
+                    <Camera className="w-4 h-4" />
+                    {showScanner ? 'Close Scanner' : 'Open Camera Scanner'}
+                  </button>
+
+                  {showScanner && (
+                    <div className="relative bg-black rounded-lg overflow-hidden">
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        className="w-full h-48 object-cover"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-32 h-32 border-4 border-white/50 rounded-lg"></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Member Info & Transaction */}
+            {member && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
+                      <User className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-900 text-sm">{member.full_name}</p>
+                      <p className="text-xs text-gray-600">{member.phone}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Purchase Amount
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-bold text-lg">R</span>
+                    <input
+                      type="number"
+                      value={purchaseAmount}
+                      onChange={(e) => setPurchaseAmount(e.target.value)}
+                      placeholder="0.00"
+                      step="0.01"
+                      min="0"
+                      className="w-full pl-10 pr-3 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-xl font-bold"
+                    />
+                  </div>
+                  {purchaseAmount && parseFloat(purchaseAmount) > 0 && partner && (
+                    <p className="mt-2 text-sm text-gray-600">
+                      Member will earn: R{((parseFloat(purchaseAmount) * (partner.cashback_percent - 2)) / 100).toFixed(2)}
+                    </p>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleSubmitTransaction}
+                  disabled={submitting || !purchaseAmount || parseFloat(purchaseAmount) <= 0}
+                  className="w-full py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader className="w-5 h-5 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-5 h-5" />
+                      Complete Sale
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* REGISTER TAB */}
+        {activeTab === 'register' && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Register New Member</h2>
+            
+            <form onSubmit={handleRegSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    name="name"
+                    value={regFormData.name}
+                    onChange={handleRegInputChange}
+                    placeholder="Sarah Dlamini"
+                    className="w-full pl-9 pr-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Cell Phone Number (10 digits)
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={regFormData.phone}
+                    onChange={handleRegInputChange}
+                    placeholder="082 555 1234"
+                    className="w-full pl-9 pr-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  6-Digit PIN
+                </label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">
+                    pin
+                  </span>
+                  <input
+                    type={showPin ? 'text' : 'password'}
+                    name="pin"
+                    value={regFormData.pin}
+                    onChange={handleRegInputChange}
+                    placeholder="Enter 6-digit PIN"
+                    maxLength={6}
+                    pattern="\d{6}"
+                    className="w-full pl-9 pr-10 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPin(!showPin)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <span className="material-symbols-outlined text-lg">
+                      {showPin ? 'visibility_off' : 'visibility'}
+                    </span>
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Member will use this PIN with their phone number to log in
+                </p>
+              </div>
+
+              <label className="flex items-start gap-2 text-sm text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="terms"
+                  checked={regFormData.terms}
+                  onChange={handleRegInputChange}
+                  className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  required
+                />
+                <span>
+                  I confirm the member agrees to the Terms of Service and Privacy Policy
+                </span>
+              </label>
+
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                {submitting ? (
+                  <>
+                    <Loader className="w-5 h-5 animate-spin" />
+                    Creating Account...
+                  </>
+                ) : (
+                  <>
+                    Create Member Account
+                    <span className="material-symbols-outlined">arrow_forward</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
+
+      {/* RIGHT SIDE - Dashboard Stats */}
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <h1 className="text-2xl font-bold text-gray-900">Partner Dashboard</h1>
+          <p className="text-gray-600">Welcome back, {partner?.shop_name || partner?.name}</p>
         </div>
-      )}
-      <WelcomeSection shopName={shop?.name} partnerId={shop?.id} />
-      <TopStatsGrid stats={stats} />
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-7 flex flex-col gap-6">
-          <RewardsIssuanceTool
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            purchaseAmount={purchaseAmount}
-            setPurchaseAmount={setPurchaseAmount}
-            selectedMemberId={selectedMemberId}
-            memberDetails={memberDetails}
-            commissionRate={shop?.commission_rate || 0}
-            onIssueRewards={handleIssueRewards}
-            onSearchMember={handleSearchMember}
-            onQRScanned={handleQRScanned}
-            onClearMember={handleClearMember}
-            isLoading={issuingRewards}
-          />
-          <RecentTransactions transactions={transactions} />
+
+        {/* Status Banner */}
+        <div className={`border rounded-xl p-6 shadow-sm ${
+          partner?.status === 'active' ? 'bg-green-50 border-green-200' :
+          partner?.status === 'pending' ? 'bg-yellow-50 border-yellow-200' :
+          'bg-red-50 border-red-200'
+        }`}>
+          <div className="flex items-center gap-3">
+            <span className={`material-symbols-outlined text-2xl ${
+              partner?.status === 'active' ? 'text-green-600' :
+              partner?.status === 'pending' ? 'text-yellow-600' :
+              'text-red-600'
+            }`}>
+              {partner?.status === 'active' ? 'check_circle' : partner?.status === 'pending' ? 'schedule' : 'warning'}
+            </span>
+            <div>
+              <p className="font-bold text-gray-900">Account Status: {partner?.status?.toUpperCase()}</p>
+              <p className="text-sm text-gray-600">Cashback Rate: {partner?.cashback_percent}%</p>
+            </div>
+          </div>
         </div>
-        <div className="lg:col-span-5 flex flex-col gap-6">
-          <PartnerQRCode partnerId={shop?.id} />
-          <GrowthPromo />
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-[#1a558b] text-2xl">receipt</span>
+              <div>
+                <p className="text-gray-900 font-bold text-xl">{monthlyStats.transactionCount}</p>
+                <p className="text-gray-600 text-sm">This Month's Transactions</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-[#1a558b] text-2xl">payments</span>
+              <div>
+                <p className="text-gray-900 font-bold text-xl">R{monthlyStats.cashbackLiability.toFixed(2)}</p>
+                <p className="text-gray-600 text-sm">Cashback Liability</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-[#1a558b] text-2xl">support_agent</span>
+              <div>
+                <p className="text-gray-900 font-bold text-xl">{assignedAgent}</p>
+                <p className="text-gray-600 text-sm">Assigned Agent</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Invoice Status */}
+        {latestInvoice && (
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <h2 className="text-lg font-bold text-gray-900 mb-3">Latest Invoice</h2>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <p className="text-gray-600 text-xs">Invoice Amount</p>
+                <p className="text-gray-900 font-bold">R{latestInvoice.amount.toFixed(2)}</p>
+              </div>
+              <div className="flex justify-between">
+                <p className="text-gray-600 text-xs">Due Date</p>
+                <p className="text-gray-900 font-semibold text-sm">
+                  {new Date(latestInvoice.dueDate).toLocaleDateString('en-ZA')}
+                </p>
+              </div>
+              <div className="flex justify-between items-center">
+                <p className="text-gray-600 text-xs">Status</p>
+                <span className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${
+                  latestInvoice.status === 'paid' ? 'bg-green-100 text-green-700' :
+                  latestInvoice.status === 'overdue' ? 'bg-red-100 text-red-700' :
+                  'bg-yellow-100 text-yellow-700'
+                }`}>
+                  {latestInvoice.status}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Important Notices */}
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 shadow-sm">
+          <h3 className="font-bold text-gray-900 mb-2 flex items-center gap-2 text-sm">
+            <span className="material-symbols-outlined text-[#1a558b] text-lg">notifications</span>
+            Important Notices
+          </h3>
+          <ul className="space-y-1 text-xs text-gray-700">
+            <li className="flex items-start gap-2">
+              <span className="material-symbols-outlined text-xs mt-0.5 text-[#1a558b]">check_circle</span>
+              <span>Invoices are generated on the 28th of each month</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="material-symbols-outlined text-xs mt-0.5 text-[#1a558b]">check_circle</span>
+              <span>Payment is due within 7 days to avoid suspension</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="material-symbols-outlined text-xs mt-0.5 text-[#1a558b]">check_circle</span>
+              <span>Contact your assigned agent for support</span>
+            </li>
+          </ul>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+          <div className="p-4 border-b border-gray-200">
+            <h2 className="text-lg font-bold text-gray-900">Quick Actions</h2>
+          </div>
+          <div className="p-4 grid grid-cols-2 gap-3">
+            <button
+              onClick={() => navigate('/partner/transaction-history')}
+              className="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-900 font-semibold py-3 rounded-lg transition-colors flex flex-col items-center justify-center gap-1 text-xs"
+            >
+              <span className="material-symbols-outlined text-lg">history</span>
+              View Transactions
+            </button>
+
+            <button
+              onClick={() => navigate('/partner/monthly-invoice')}
+              className="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-900 font-semibold py-3 rounded-lg transition-colors flex flex-col items-center justify-center gap-1 text-xs"
+            >
+              <span className="material-symbols-outlined text-lg">description</span>
+              View Invoices
+            </button>
+
+            <button
+              onClick={() => navigate('/partner/support')}
+              className="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-900 font-semibold py-3 rounded-lg transition-colors flex flex-col items-center justify-center gap-1 text-xs"
+            >
+              <span className="material-symbols-outlined text-lg">account_balance</span>
+              Do Instant EFT
+            </button>
+
+            <button
+              onClick={() => navigate('/partner/support')}
+              className="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-900 font-semibold py-3 rounded-lg transition-colors flex flex-col items-center justify-center gap-1 text-xs"
+            >
+              <span className="material-symbols-outlined text-lg">support_agent</span>
+              Contact Admin
+            </button>
+
+            <button
+              onClick={() => navigate('/partner/profile')}
+              className="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-900 font-semibold py-3 rounded-lg transition-colors flex flex-col items-center justify-center gap-1 text-xs col-span-2"
+            >
+              <span className="material-symbols-outlined text-lg">store</span>
+              Shop Profile
+            </button>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

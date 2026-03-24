@@ -39,47 +39,69 @@ const StatsCards = forwardRef<StatsCardsRef>((_, ref) => {
   const fetchStats = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Fetching stats...');
 
       // Fetch members stats
-      const { data: membersData } = await supabaseAdmin
+      const { data: membersData, error: membersError } = await supabaseAdmin
         .from('members')
         .select('qr_code');
+      
+      console.log('👥 Members:', membersData?.length, 'Error:', membersError);
       
       const totalMembers = membersData?.length || 0;
       const membersWithQR = membersData?.filter(m => m.qr_code).length || 0;
 
-      // Fetch shops stats
-      const { data: partnersData } = await supabaseAdmin
+      // Fetch partners stats (shops)
+      const { data: partnersData, error: partnersError } = await supabaseAdmin
         .from('partners')
         .select('status');
+      
+      console.log('🏪 Partners:', partnersData?.length, 'Error:', partnersError);
       
       const totalShops = partnersData?.length || 0;
       const activeShops = partnersData?.filter(s => s.status === 'active').length || 0;
       const suspendedShops = partnersData?.filter(s => s.status === 'suspended').length || 0;
 
       // Fetch agents stats
-      const { data: agentsData } = await supabaseAdmin
+      const { data: agentsData, error: agentsError } = await supabaseAdmin
         .from('agents')
         .select('status');
+      
+      console.log('🤝 Agents:', agentsData?.length, 'Error:', agentsError);
       
       const totalAgents = agentsData?.length || 0;
       const activeAgents = agentsData?.filter(a => a.status === 'active').length || 0;
 
-      // Fetch policy providers stats
-      const { data: providersData } = await supabaseAdmin
-        .from('policy_providers')
-        .select('id');
+      // Fetch providers stats (medical cover providers)
+      const { data: providersData, error: providersError } = await supabaseAdmin
+        .from('providers')
+        .select('id, status');
+      
+      console.log('🏥 Providers:', providersData?.length, 'Error:', providersError);
       
       const totalPolicyProviders = providersData?.length || 0;
 
-      // Fetch policies stats (plans)
-      const { data: plansData } = await supabaseAdmin
-        .from('policy_plans')
-        .select('is_active');
+      // Fetch member cover plans stats (policies)
+      const { data: coverPlansData, error: coverPlansError } = await supabaseAdmin
+        .from('member_cover_plans')
+        .select('status');
       
-      const totalPolicies = plansData?.length || 0;
-      const activePolicies = plansData?.filter(p => p.is_active).length || 0;
-      const inProgressPolicies = 0; // No longer relevant for plan management
+      console.log('📋 Cover Plans:', coverPlansData?.length, 'Error:', coverPlansError);
+      
+      const totalPolicies = coverPlansData?.length || 0;
+      const activePolicies = coverPlansData?.filter(p => p.status === 'active').length || 0;
+      const inProgressPolicies = coverPlansData?.filter(p => p.status === 'in_progress').length || 0;
+
+      console.log('✅ Stats calculated:', {
+        totalMembers,
+        totalShops,
+        totalAgents,
+        activeAgents,
+        totalPolicyProviders,
+        totalPolicies,
+        activePolicies,
+        inProgressPolicies
+      });
 
       setStats({
         totalMembers,
@@ -95,7 +117,7 @@ const StatsCards = forwardRef<StatsCardsRef>((_, ref) => {
         inProgressPolicies,
       });
     } catch (error) {
-      console.error('Error fetching stats:', error);
+      console.error('❌ Error fetching stats:', error);
     } finally {
       setLoading(false);
     }

@@ -1,28 +1,33 @@
 // plus1-rewards/src/pages/AgentRegister.tsx
+// Updated: 2026-03-23 - Fixed useNavigate import
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import AuthLayout from '../components/auth/AuthLayout';
 import { AuthInput, AuthButton, AuthError, AuthLink } from '../components/auth/AuthComponents';
+import { Notification, useNotification } from '../components/Notification';
 
 const BLUE = '#1a558b'
 const BLUE_LIGHT = 'rgba(26,85,139,0.08)'
 
 export default function AgentRegister() {
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const { notification, showSuccess, hideNotification } = useNotification();
   const [formData, setFormData] = useState({
     fullName: '',
     surname: '',
     phoneNumber: '',
     email: '',
-    password: '',
-    confirmPassword: '',
-    address: '',
+    pin: '',
+    confirmPin: '',
     idNumber: '',
     documentFile: null as File | null,
+    agreementFile: null as File | null,
     agreementSigned: false
   });
 
@@ -44,36 +49,62 @@ export default function AgentRegister() {
     } else {
       setIsSubmitting(true);
       try {
-        if (formData.password !== formData.confirmPassword) { setError('Passwords do not match'); return; }
-        if (formData.password.length < 8) { setError('Password must be at least 8 characters'); return; }
+        if (formData.pin !== formData.confirmPin) { setError('PINs do not match'); return; }
+        if (formData.pin.length !== 6 || !/^\d{6}$/.test(formData.pin)) { setError('PIN must be exactly 6 digits'); return; }
 
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-        });
+        // First, create user record in users table
+        const { data: userData, error: userError } = await supabase
+          .from('users')
+          .insert([{
+            role: 'agent',
+            full_name: `${formData.fullName} ${formData.surname}`,
+            mobile_number: formData.phoneNumber,
+            pin_code: formData.pin,
+            email: formData.email,
+            status: 'pending'
+          }])
+          .select()
+          .single();
 
-        if (authError) { setError(`Authentication error: ${authError.message}`); return; }
+        if (userError) {
+          console.error('User creation error:', userError);
+          if (userError.message.includes('mobile_number')) {
+            setError('This phone number is already registered. Please use a different number or contact admin.');
+          } else if (userError.message.includes('email')) {
+            setError('This email is already registered. Please use a different email or contact admin.');
+          } else {
+            setError(`Registration failed: ${userError.message}`);
+          }
+          return;
+        }
 
-        const { error } = await supabase.from('agents').insert([{
-          id: authData.user.id,
-          name: formData.fullName,
-          surname: formData.surname,
-          email: formData.email,
-          phone: formData.phoneNumber,
-          address: formData.address,
-          status: 'pending'
-        }]).select();
+        // Then create agent record linked to user
+        const { error: agentError } = await supabase
+          .from('agents')
+          .insert([{
+            user_id: userData.id,
+            id_number: formData.idNumber,
+            status: 'pending'
+          }])
+          .select();
 
-        if (error) {
-          if (error.message.includes('email')) setError('This email is already registered.');
-          else if (error.message.includes('phone')) setError('This phone number is already registered.');
-          else setError(`Registration failed: ${error.message}`);
+        if (agentError) {
+          console.error('Agent record creation error:', agentError);
+          // Clean up user record if agent creation fails
+          await supabase.from('users').delete().eq('id', userData.id);
+          setError(`Registration failed: ${agentError.message}`);
         } else {
-          alert('Registration submitted! Your application is pending admin approval.');
-          handleNavigation('/');
+          showSuccess(
+            'Application Submitted Successfully!',
+            'Your agent application is pending admin approval. You will be notified once reviewed.'
+          );
+          
+          setTimeout(() => {
+            navigate('/agent/login');
+          }, 3000);
         }
       } catch {
-        alert('An unexpected error occurred. Please try again.');
+        setError('An unexpected error occurred. Please try again.');
       } finally {
         setIsSubmitting(false);
       }
@@ -103,6 +134,15 @@ export default function AgentRegister() {
         { value: '∞', label: 'Earning Potential' },
       ]}
     >
+      {notification && (
+        <Notification
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+          onClose={hideNotification}
+        />
+      )}
+
       <div className="space-y-6">
         {/* Header */}
         <div>
@@ -133,7 +173,6 @@ export default function AgentRegister() {
               <AuthInput label="First Name" icon="person" id="fullName" name="fullName" type="text" placeholder="Michael" value={formData.fullName} onChange={handleInputChange} required />
               <AuthInput label="Surname" icon="person" id="surname" name="surname" type="text" placeholder="Johnson" value={formData.surname} onChange={handleInputChange} required />
             </div>
-            <AuthInput label="Address" icon="location_on" id="address" name="address" type="text" placeholder="123 Main Street, Johannesburg" value={formData.address} onChange={handleInputChange} required />
             <div className="grid grid-cols-2 gap-3">
               <AuthInput label="Phone Number" icon="phone" id="phoneNumber" name="phoneNumber" type="tel" placeholder="082 555 1234" value={formData.phoneNumber} onChange={handleInputChange} required />
               <AuthInput label="Email" icon="mail" id="email" name="email" type="email" placeholder="michael@example.com" value={formData.email} onChange={handleInputChange} required />
@@ -166,13 +205,13 @@ export default function AgentRegister() {
             {/* Passwords */}
             <div className="grid grid-cols-2 gap-3">
               <AuthInput
-                label="Password" icon="lock" id="password" name="password" type={showPassword ? 'text' : 'password'}
-                placeholder="••••••••" value={formData.password} onChange={handleInputChange} required minLength={8}
+                label="6-Digit PIN" icon="lock" id="pin" name="pin" type={showPassword ? 'text' : 'password'}
+                placeholder="••••••" value={formData.pin} onChange={handleInputChange} required maxLength={6} pattern="\d{6}"
                 suffix={<button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-gray-600"><span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span></button>}
               />
               <AuthInput
-                label="Confirm Password" icon="lock" id="confirmPassword" name="confirmPassword" type={showConfirmPassword ? 'text' : 'password'}
-                placeholder="••••••••" value={formData.confirmPassword} onChange={handleInputChange} required minLength={8}
+                label="Confirm PIN" icon="lock" id="confirmPin" name="confirmPin" type={showConfirmPassword ? 'text' : 'password'}
+                placeholder="••••••" value={formData.confirmPin} onChange={handleInputChange} required maxLength={6} pattern="\d{6}"
                 suffix={<button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="text-gray-400 hover:text-gray-600"><span className="material-symbols-outlined text-xl">{showConfirmPassword ? 'visibility_off' : 'visibility'}</span></button>}
               />
             </div>
@@ -195,10 +234,23 @@ export default function AgentRegister() {
             {/* Upload signed agreement */}
             <div className="space-y-1.5">
               <label className="text-sm font-semibold text-gray-700">Upload Signed Agreement</label>
-              <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl py-5 cursor-pointer hover:bg-gray-50 transition-all" style={{ borderColor: '#e5e7eb' }}>
-                <span className="material-symbols-outlined text-2xl text-gray-400">upload_file</span>
-                <span className="text-sm text-gray-500">Click to upload signed agreement (PDF or image)</span>
-                <input type="file" name="agreementFile" accept=".pdf,image/*" className="hidden" required />
+              <label 
+                className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl py-5 cursor-pointer transition-all" 
+                style={{ 
+                  borderColor: formData.agreementFile ? BLUE : '#e5e7eb',
+                  backgroundColor: formData.agreementFile ? BLUE_LIGHT : '#fafafa'
+                }}
+              >
+                <span className="material-symbols-outlined text-2xl" style={{ color: formData.agreementFile ? BLUE : '#9ca3af' }}>upload_file</span>
+                <span className="text-sm font-semibold" style={{ color: formData.agreementFile ? BLUE : '#6b7280' }}>
+                  {formData.agreementFile ? formData.agreementFile.name : 'Click to upload signed agreement (PDF or image)'}
+                </span>
+                {formData.agreementFile && (
+                  <span className="text-xs text-gray-500">
+                    {(formData.agreementFile.size / 1024 / 1024).toFixed(2)} MB
+                  </span>
+                )}
+                <input type="file" name="agreementFile" accept=".pdf,image/*" onChange={handleInputChange} className="hidden" required />
               </label>
             </div>
 

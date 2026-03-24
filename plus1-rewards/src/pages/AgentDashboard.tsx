@@ -1,138 +1,429 @@
+// plus1-rewards/src/pages/AgentDashboard.tsx
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
-interface ShopWithEarnings {
-  id: string; name: string; commission_rate: number;
-  status: "active" | "suspended"; monthly_earnings: number;
+const BLUE = '#1a558b';
+const BLUE_LIGHT = 'rgba(26,85,139,0.08)';
+
+interface Agent {
+  id: string;
+  name: string;
+  surname: string;
+  phone: string;
+  email: string;
+  status: string;
 }
-interface Agent { id: string; name: string; phone: string; total_commission: number }
+
+interface PartnerShop {
+  id: string;
+  shop_name: string;
+  cashback_percent: number;
+  status: 'active' | 'suspended';
+  monthly_commission: number;
+  contact_person: string;
+  phone: string;
+}
 
 export function AgentDashboard() {
   const navigate = useNavigate();
   const [agent, setAgent] = useState<Agent | null>(null);
-  const [shops, setShops] = useState<ShopWithEarnings[]>([]);
+  const [partnerShops, setPartnerShops] = useState<PartnerShop[]>([]);
   const [loading, setLoading] = useState(true);
-  const [monthlyTotal, setMonthlyTotal] = useState(0);
-  const [activeShops, setActiveShops] = useState(0);
+  const [monthlyCommission, setMonthlyCommission] = useState(0);
+  const [totalCommission, setTotalCommission] = useState(0);
 
-  useEffect(() => { loadDashboardData(); }, []);
+  useEffect(() => {
+    checkAuthAndLoadData();
+  }, []);
 
-  const loadDashboardData = async () => {
-    setLoading(true);
+  const checkAuthAndLoadData = async () => {
     try {
-      const agentData = localStorage.getItem("currentAgent");
-      if (!agentData) { navigate("/agent/login"); return; }
-      const parsedAgent = JSON.parse(agentData);
-      const { data: agentDetails } = await supabase.from("agents").select("*").eq("id", parsedAgent.id).single();
-      if (agentDetails) setAgent(agentDetails);
-      const { data: partnersData } = await supabase.from("partners").select("*").eq("agent_id", parsedAgent.id);
-      if (partnersData) {
-        const shopsWithEarnings = await Promise.all(partnersData.map(async shop => {
-          const { data: invoices } = await supabase.from("monthly_invoices").select("agent_commission_total").eq("partner_id", partner.id).order("invoice_month", { ascending: false }).limit(1);
-          return { ...shop, monthly_earnings: invoices?.[0]?.agent_commission_total || 0 };
-        }));
-        setShops(shopsWithEarnings);
-        setMonthlyTotal(shopsWithEarnings.reduce((s, sh) => s + sh.monthly_earnings, 0));
-        setActiveShops(shopsWithEarnings.filter(sh => sh.status === "active").length);
+      // Check session storage first, then localStorage
+      const agentDataStr = sessionStorage.getItem('currentAgent') || localStorage.getItem('currentAgent');
+      
+      if (!agentDataStr) {
+        navigate('/agent/login');
+        return;
       }
-    } catch { /* silent */ } finally { setLoading(false); }
+
+      const agentData = JSON.parse(agentDataStr);
+      
+      // Verify agent status - use agent_id from session data
+      const { data: currentAgent, error: agentError } = await supabase
+        .from('agents')
+        .select('*')
+        .eq('id', agentData.agent_id || agentData.id)
+        .single();
+
+      if (agentError || !currentAgent) {
+        console.error('Agent not found:', agentError);
+        sessionStorage.removeItem('currentAgent');
+        localStorage.removeItem('currentAgent');
+        navigate('/agent/login');
+        return;
+      }
+
+      if (currentAgent.status !== 'active') {
+        sessionStorage.removeItem('currentAgent');
+        localStorage.removeItem('currentAgent');
+        alert('Your agent account is not yet approved. Please wait for admin approval.');
+        navigate('/agent/login');
+        return;
+      }
+
+      // Get user data separately
+      const { data: userData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', currentAgent.user_id)
+        .single();
+
+      // Combine agent and user data
+      const combinedData = {
+        ...currentAgent,
+        name: userData?.full_name?.split(' ')[0] || 'Agent',
+        surname: userData?.full_name?.split(' ').slice(1).join(' ') || '',
+        phone: userData?.mobile_number || '',
+        email: userData?.email || ''
+      };
+
+      setAgent(combinedData as Agent);
+      await loadDashboardData(currentAgent.id);
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      navigate('/agent/login');
+    }
   };
 
-  if (loading) return (
-    <div className="page-wrapper" style={{ alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: '40px', height: '40px', borderRadius: '50%', border: '3px solid var(--blue-light)', borderTopColor: 'var(--blue)', margin: '0 auto 1rem', animation: 'spin 1s linear infinite' }} />
-      <p style={{ color: 'var(--gray-text)' }}>Loading dashboard...</p>
-    </div>
-  );
+  const loadDashboardData = async (agentId: string) => {
+    setLoading(true);
+    try {
+      // Load partner shops linked to this agent through partner_agent_links
+      const { data: links, error: linksError } = await supabase
+        .from('partner_agent_links')
+        .select('partner_id')
+        .eq('agent_id', agentId)
+        .eq('status', 'active');
+
+      if (linksError) {
+        console.error('Error loading partner links:', linksError);
+        setPartnerShops([]);
+        setLoading(false);
+        return;
+      }
+
+      if (!links || links.length === 0) {
+        setPartnerShops([]);
+        setLoading(false);
+        return;
+      }
+
+      const partnerIds = links.map(link => link.partner_id);
+
+      // Get partner details
+      const { data: partners, error: partnersError } = await supabase
+        .from('partners')
+        .select('*')
+        .in('id', partnerIds);
+
+      if (partnersError) {
+        console.error('Error loading partners:', partnersError);
+        setPartnerShops([]);
+      } else {
+        // Calculate monthly commission for each partner
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        
+        const shopsWithCommission = await Promise.all((partners || []).map(async (partner) => {
+          // Get transactions for this partner this month
+          const { data: transactions } = await supabase
+            .from('transactions')
+            .select('agent_amount')
+            .eq('partner_id', partner.id)
+            .gte('created_at', `${currentMonth}-01`)
+            .lt('created_at', `${currentMonth}-32`);
+
+          const monthlyCommission = (transactions || []).reduce((sum, t) => sum + (parseFloat(t.agent_amount) || 0), 0);
+
+          return {
+            id: partner.id,
+            shop_name: partner.shop_name,
+            cashback_percent: partner.cashback_percent,
+            status: partner.status,
+            monthly_commission: monthlyCommission,
+            contact_person: partner.responsible_person,
+            phone: partner.phone
+          };
+        }));
+
+        setPartnerShops(shopsWithCommission);
+        
+        // Calculate totals
+        const monthlyTotal = shopsWithCommission.reduce((sum, shop) => sum + shop.monthly_commission, 0);
+        setMonthlyCommission(monthlyTotal);
+
+        // Get total commission from agent_commissions table
+        const { data: commissionData } = await supabase
+          .from('agent_commissions')
+          .select('total_amount')
+          .eq('agent_id', agentId);
+
+        const total = (commissionData || []).reduce((sum, c) => sum + (parseFloat(c.total_amount) || 0), 0);
+        setTotalCommission(total);
+      }
+    } catch (error) {
+      console.error('Error loading dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('currentAgent');
+    localStorage.removeItem('currentAgent');
+    navigate('/agent/login');
+  };
+
+  const activeShops = partnerShops.filter(s => s.status === 'active').length;
+  const suspendedShops = partnerShops.filter(s => s.status === 'suspended').length;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#f5f8fc] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-gray-200 rounded-full animate-spin mx-auto mb-4" style={{ borderTopColor: BLUE }}></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="page-wrapper">
-      <header className="page-header" style={{ background: 'linear-gradient(135deg, #0e7490 0%, #083344 100%)' }}>
-        <div style={{ maxWidth: '56rem', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div>
-            <h1 style={{ fontSize: '1.125rem', fontWeight: 800, margin: 0 }}>📊 Agent Dashboard</h1>
-            <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>{agent?.name}</p>
+    <div className="min-h-screen bg-[#f5f8fc]">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="size-12 rounded-xl flex items-center justify-center text-white" style={{ backgroundColor: BLUE }}>
+              <span className="material-symbols-outlined text-2xl">assignment_ind</span>
+            </div>
+            <div>
+              <h1 className="text-xl font-black text-gray-900">Agent Dashboard</h1>
+              <p className="text-sm text-gray-600">{agent?.name} {agent?.surname}</p>
+            </div>
           </div>
-          <button onClick={() => { localStorage.removeItem("currentAgent"); navigate("/"); }} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', borderRadius: '8px', padding: '0.375rem 0.875rem', fontSize: '0.8125rem', fontWeight: 600, cursor: 'pointer' }}>
-            Logout
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/agent/profile')}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-all text-sm font-semibold"
+            >
+              <span className="material-symbols-outlined text-lg">person</span>
+              Profile
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-all text-sm font-semibold"
+            >
+              <span className="material-symbols-outlined text-lg">logout</span>
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
-      <main style={{ flex: 1, padding: '1.5rem 1rem' }}>
-        <div style={{ maxWidth: '56rem', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {/* Welcome Banner */}
-          <div style={{ background: 'linear-gradient(135deg, #0e7490 0%, #164e63 100%)', borderRadius: '16px', padding: '1.5rem 1.75rem', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+        {/* Agent Profile Summary */}
+        <div className="bg-gradient-to-br from-cyan-600 to-blue-700 rounded-xl p-6 text-white">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <p style={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.75)', marginBottom: '0.25rem' }}>Agent Commission</p>
-              <p style={{ fontSize: '2rem', fontWeight: 900, color: '#22d3ee' }}>R{agent?.total_commission?.toFixed(2) || '0.00'}</p>
-              <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.65)' }}>Total earned to date</p>
+              <p className="text-sm text-white/70 mb-1">Agent Profile</p>
+              <h2 className="text-2xl font-black mb-2">{agent?.name} {agent?.surname}</h2>
+              <div className="flex items-center gap-4 text-sm">
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-lg">phone</span>
+                  <span>{agent?.phone}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-lg">mail</span>
+                  <span>{agent?.email}</span>
+                </div>
+              </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.7)' }}>This Month</p>
-              <p style={{ fontSize: '1.625rem', fontWeight: 800, color: '#37d270' }}>R{monthlyTotal.toFixed(2)}</p>
-            </div>
-          </div>
-
-          {/* Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-            <div className="stat-card" style={{ textAlign: 'center' }}>
-              <p className="stat-label">Total Shops</p>
-              <p className="stat-value" style={{ color: 'var(--blue)' }}>{shops.length}</p>
-              <p className="stat-sub">Recruited</p>
-            </div>
-            <div className="stat-card" style={{ textAlign: 'center' }}>
-              <p className="stat-label">Active Shops</p>
-              <p className="stat-value" style={{ color: 'var(--green-dark)' }}>{activeShops}</p>
-              <p className="stat-sub">Earning now</p>
-            </div>
-            <div className="stat-card" style={{ textAlign: 'center' }}>
-              <p className="stat-label">Suspended</p>
-              <p className="stat-value" style={{ color: 'var(--orange)' }}>{shops.length - activeShops}</p>
-              <p className="stat-sub">Need attention</p>
+            <div className="text-right">
+              <p className="text-sm text-white/70 mb-1">Total Commission Earned</p>
+              <p className="text-4xl font-black text-cyan-200">R{totalCommission.toFixed(2)}</p>
             </div>
           </div>
+        </div>
 
-          {/* Shops List */}
-          <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-              <h2 className="section-title" style={{ margin: 0 }}>🏪 Recruited Shops</h2>
-              <button onClick={() => navigate("/agent/add-shop")} className="btn btn-primary" style={{ fontSize: '0.8125rem', borderRadius: '8px', padding: '0.5rem 0.875rem' }}>
-                + Add Shop
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="material-symbols-outlined text-2xl" style={{ color: BLUE }}>storefront</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Total Shops</span>
+            </div>
+            <p className="text-3xl font-black text-gray-900 mb-1">{partnerShops.length}</p>
+            <p className="text-sm text-gray-600">Recruited</p>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="material-symbols-outlined text-green-600 text-2xl">check_circle</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Active Shops</span>
+            </div>
+            <p className="text-3xl font-black text-green-600 mb-1">{activeShops}</p>
+            <p className="text-sm text-gray-600">Earning now</p>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="material-symbols-outlined text-orange-600 text-2xl">warning</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">Suspended</span>
+            </div>
+            <p className="text-3xl font-black text-orange-600 mb-1">{suspendedShops}</p>
+            <p className="text-sm text-gray-600">Need attention</p>
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-xl p-6">
+            <div className="flex items-center justify-between mb-3">
+              <span className="material-symbols-outlined text-cyan-600 text-2xl">payments</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">This Month</span>
+            </div>
+            <p className="text-3xl font-black text-cyan-600 mb-1">R{monthlyCommission.toFixed(2)}</p>
+            <p className="text-sm text-gray-600">Commission</p>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button
+              onClick={() => navigate('/agent/add-shop')}
+              className="flex items-center gap-3 p-4 border-2 border-dashed rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all"
+              style={{ borderColor: '#e5e7eb' }}
+            >
+              <span className="material-symbols-outlined text-2xl" style={{ color: BLUE }}>add_business</span>
+              <div className="text-left">
+                <p className="font-bold text-gray-900">Add Partner Shop</p>
+                <p className="text-xs text-gray-600">Recruit new business</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => navigate('/agent/commission')}
+              className="flex items-center gap-3 p-4 border-2 border-dashed rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all"
+              style={{ borderColor: '#e5e7eb' }}
+            >
+              <span className="material-symbols-outlined text-2xl" style={{ color: BLUE }}>account_balance_wallet</span>
+              <div className="text-left">
+                <p className="font-bold text-gray-900">View Commission</p>
+                <p className="text-xs text-gray-600">Earnings breakdown</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => navigate('/agent/support')}
+              className="flex items-center gap-3 p-4 border-2 border-dashed rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-all"
+              style={{ borderColor: '#e5e7eb' }}
+            >
+              <span className="material-symbols-outlined text-2xl" style={{ color: BLUE }}>support_agent</span>
+              <div className="text-left">
+                <p className="font-bold text-gray-900">Contact Admin</p>
+                <p className="text-xs text-gray-600">Get help & support</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Partner Shops List */}
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
+            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <span className="material-symbols-outlined" style={{ color: BLUE }}>storefront</span>
+              My Partner Shops ({partnerShops.length})
+            </h3>
+          </div>
+
+          {partnerShops.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <span className="material-symbols-outlined text-gray-300 text-6xl mb-4">store</span>
+              <p className="text-gray-600 mb-2">No partner shops recruited yet</p>
+              <p className="text-sm text-gray-500 mb-4">Start recruiting shops to earn commissions!</p>
+              <button
+                onClick={() => navigate('/agent/add-shop')}
+                className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-lg font-bold transition-all hover:opacity-90"
+                style={{ backgroundColor: BLUE }}
+              >
+                <span className="material-symbols-outlined text-lg">add</span>
+                Add First Shop
               </button>
             </div>
-
-            {shops.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '2.5rem 0', color: 'var(--gray-light)' }}>
-                <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🏪</div>
-                <p>No shops recruited yet.</p>
-                <p style={{ fontSize: '0.875rem' }}>Start recruiting shops to earn commissions!</p>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {shops.map(shop => (
-                  <div key={partner.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: '#fafbff', border: '1.5px solid var(--gray-border)', borderRadius: '12px' }}>
-                    <div>
-                      <p style={{ fontWeight: 700, color: '#111827', margin: '0 0 0.25rem' }}>{partner.name}</p>
-                      <p style={{ fontSize: '0.875rem', color: 'var(--gray-text)', margin: 0 }}>Commission rate: {partner.commission_rate}%</p>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {partnerShops.map((shop) => (
+                <div key={shop.id} className="px-6 py-5 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h4 className="text-lg font-bold text-gray-900">{shop.shop_name}</h4>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                          shop.status === 'active' 
+                            ? 'bg-green-500/20 text-green-600 border border-green-500/30' 
+                            : 'bg-orange-500/20 text-orange-600 border border-orange-500/30'
+                        }`}>
+                          <span className={`size-1.5 rounded-full ${shop.status === 'active' ? 'bg-green-600' : 'bg-orange-600'}`}></span>
+                          {shop.status === 'active' ? 'Active' : 'Suspended'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-gray-600">
+                        <span>Cashback: {shop.cashback_percent}%</span>
+                        <span>•</span>
+                        <span>Contact: {shop.contact_person}</span>
+                        <span>•</span>
+                        <span>{shop.phone}</span>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.375rem' }}>
-                      <p style={{ fontWeight: 800, color: '#0e7490', margin: 0 }}>R{partner.monthly_earnings.toFixed(2)}</p>
-                      <span className={`badge ${partner.status === 'active' ? 'badge-green' : 'badge-orange'}`}>
-                        {partner.status === 'active' ? '✓ Active' : '⚠ Suspended'}
-                      </span>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-600 mb-1">Monthly Commission</p>
+                      <p className="text-2xl font-black" style={{ color: BLUE }}>R{shop.monthly_commission.toFixed(2)}</p>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={() => navigate(`/agent/shop/${shop.id}`)}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-all text-sm font-semibold"
+                    >
+                      <span className="material-symbols-outlined text-base">visibility</span>
+                      View Details
+                    </button>
+                    <button
+                      className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-all text-sm font-semibold"
+                    >
+                      <span className="material-symbols-outlined text-base">mail</span>
+                      Resend Login
+                    </button>
+                    <button
+                      className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-all text-sm font-semibold"
+                    >
+                      <span className="material-symbols-outlined text-base">support</span>
+                      Contact Shop
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
 
-      <footer style={{ background: '#fff', borderTop: '1px solid var(--gray-border)', padding: '1rem', textAlign: 'center' }}>
-        <p style={{ color: 'var(--gray-light)', fontSize: '0.8125rem' }}>© 2026 +1 Rewards · Agent Portal</p>
+      {/* Footer */}
+      <footer className="bg-white border-t border-gray-200 py-6">
+        <div className="max-w-7xl mx-auto px-6 text-center">
+          <p className="text-sm text-gray-600">© 2026 +1 Rewards · Agent Portal</p>
+        </div>
       </footer>
     </div>
   );

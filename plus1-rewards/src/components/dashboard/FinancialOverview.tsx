@@ -30,30 +30,50 @@ export default function FinancialOverview() {
     try {
       setLoading(true);
 
-      // Fetch policy values
-      const { data: policyData } = await supabaseAdmin
-        .from('policy_holders')
-        .select('monthly_premium, amount_funded');
+      // Fetch member cover plans for policy values
+      const { data: coverPlansData } = await supabaseAdmin
+        .from('member_cover_plans')
+        .select('target_amount, funded_amount, status');
       
-      const totalPolicyValue = policyData?.reduce((sum, policy) => sum + (policy.monthly_premium || 0), 0) || 0;
-      const totalFunded = policyData?.reduce((sum, policy) => sum + (policy.amount_funded || 0), 0) || 0;
+      // Total Policy Value = sum of all target amounts (monthly premiums)
+      const totalPolicyValue = coverPlansData?.reduce((sum, plan) => 
+        sum + (parseFloat(plan.target_amount) || 0), 0) || 0;
+      
+      // Total Funded = sum of all funded amounts
+      const totalFunded = coverPlansData?.reduce((sum, plan) => 
+        sum + (parseFloat(plan.funded_amount) || 0), 0) || 0;
 
       // Fetch transaction data for revenue calculations
       const { data: transactionData } = await supabaseAdmin
         .from('transactions')
-        .select('platform_fee, agent_commission, member_reward, created_at');
+        .select('system_amount, agent_amount, member_amount, created_at, status')
+        .eq('status', 'completed');
 
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
 
+      // Revenue This Month = system_amount from this month's transactions
       const revenueThisMonth = transactionData?.filter(t => {
         const transactionDate = new Date(t.created_at);
         return transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear;
-      }).reduce((sum, t) => sum + (t.platform_fee || 0), 0) || 0;
+      }).reduce((sum, t) => sum + (parseFloat(t.system_amount) || 0), 0) || 0;
 
-      const allTimeRevenue = transactionData?.reduce((sum, t) => sum + (t.platform_fee || 0), 0) || 0;
-      const totalRewardsIssued = transactionData?.reduce((sum, t) => sum + (t.member_reward || 0), 0) || 0;
-      const agentCommissions = transactionData?.reduce((sum, t) => sum + (t.agent_commission || 0), 0) || 0;
+      // All-Time Revenue = total system_amount from all transactions
+      const allTimeRevenue = transactionData?.reduce((sum, t) => 
+        sum + (parseFloat(t.system_amount) || 0), 0) || 0;
+      
+      // Total Rewards Issued = total member_amount from all transactions
+      const totalRewardsIssued = transactionData?.reduce((sum, t) => 
+        sum + (parseFloat(t.member_amount) || 0), 0) || 0;
+
+      // Fetch agent commissions
+      const { data: commissionsData } = await supabaseAdmin
+        .from('agent_commissions')
+        .select('total_amount');
+      
+      // Agent Commissions = sum of all commission amounts
+      const agentCommissions = commissionsData?.reduce((sum, c) => 
+        sum + (parseFloat(c.total_amount) || 0), 0) || 0;
 
       setFinancialData({
         totalPolicyValue,

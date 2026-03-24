@@ -34,8 +34,18 @@ export default function MonthlyInvoice() {
   const loadInvoiceData = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Get partner session (custom auth)
+      const partnerSessionData = localStorage.getItem('partnerSession') || sessionStorage.getItem('partnerSession');
+      
+      if (!partnerSessionData) {
+        navigate('/partner/login');
+        return;
+      }
+
+      const session = JSON.parse(partnerSessionData);
+      const partnerId = session.partner?.id;
+
+      if (!partnerId) {
         navigate('/partner/login');
         return;
       }
@@ -43,7 +53,7 @@ export default function MonthlyInvoice() {
       const { data: partnerData } = await supabase
         .from('partners')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', partnerId)
         .single();
 
       if (!partnerData) {

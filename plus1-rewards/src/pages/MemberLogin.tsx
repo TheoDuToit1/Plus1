@@ -9,9 +9,9 @@ const BLUE = '#1a558b'
 
 export default function MemberLogin() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -22,35 +22,78 @@ export default function MemberLogin() {
     setError('');
 
     try {
-      let loginEmail = email;
-      const isPhoneNumber = /^[\d+\s()-]+$/.test(email.trim());
-
-      if (isPhoneNumber) {
-        const cleanPhone = email.replace(/[\s()-]/g, '');
-        const { data: emailData, error: lookupError } = await supabase
-          .rpc('get_email_by_phone', { phone_number: cleanPhone });
-
-        if (lookupError) { setError('Error looking up phone number: ' + lookupError.message); return; }
-        if (!emailData) { setError(`No account found with phone number: ${cleanPhone}.`); return; }
-        loginEmail = emailData;
+      // Clean phone number
+      const cleanPhone = phone.replace(/\D/g, '');
+      
+      if (cleanPhone.length !== 10) {
+        setError('Phone number must be exactly 10 digits');
+        setLoading(false);
+        return;
       }
 
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
-        password,
-        options: { persistSession: rememberMe }
-      });
-
-      if (signInError) throw signInError;
-
-      if (data.user) {
-        if (!data.user.email_confirmed_at) {
-          setError('Please verify your email address before logging in.');
-          await supabase.auth.signOut();
-          return;
-        }
-        navigate('/member/dashboard');
+      if (pin.length !== 6) {
+        setError('PIN must be exactly 6 digits');
+        setLoading(false);
+        return;
       }
+
+      // Find user by mobile number and PIN
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, role, full_name, mobile_number, status')
+        .eq('mobile_number', cleanPhone)
+        .eq('pin_code', pin)
+        .eq('role', 'member')
+        .single();
+
+      if (userError || !userData) {
+        setError('Invalid mobile number or PIN');
+        setLoading(false);
+        return;
+      }
+
+      // Check if user is active
+      if (userData.status !== 'active') {
+        setError('Your account is ' + userData.status + '. Please contact support.');
+        setLoading(false);
+        return;
+      }
+
+      // Get member details
+      const { data: memberData, error: memberError } = await supabase
+        .from('members')
+        .select('*')
+        .eq('user_id', userData.id)
+        .single();
+
+      if (memberError || !memberData) {
+        setError('Member account not found');
+        setLoading(false);
+        return;
+      }
+
+      // Store user session in localStorage (since we're not using Supabase Auth)
+      const now = new Date();
+      const expiresAt = rememberMe 
+        ? new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
+        : null; // Session storage doesn't need expiry (cleared on tab close)
+      
+      const sessionData = {
+        user: userData,
+        member: memberData,
+        loggedInAt: now.toISOString(),
+        expiresAt: expiresAt,
+        rememberMe: rememberMe
+      };
+
+      if (rememberMe) {
+        localStorage.setItem('memberSession', JSON.stringify(sessionData));
+      } else {
+        sessionStorage.setItem('memberSession', JSON.stringify(sessionData));
+      }
+
+      // Navigate to dashboard
+      navigate('/member/dashboard');
     } catch (err: any) {
       setError(err.message || 'Failed to sign in');
     } finally {
@@ -80,28 +123,30 @@ export default function MemberLogin() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <AuthInput
-            label="Email or Phone Number"
-            icon="mail"
-            id="email"
-            type="text"
-            placeholder="name@example.com or 082 555 1234"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            label="Cell Phone Number (10 digits)"
+            icon="phone"
+            id="phone"
+            type="tel"
+            placeholder="082 555 1234"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
             required
           />
 
           <AuthInput
-            label="Password"
-            icon="lock"
-            id="password"
-            type={showPassword ? 'text' : 'password'}
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            label="6-Digit PIN"
+            icon="pin"
+            id="pin"
+            type={showPin ? 'text' : 'password'}
+            placeholder="Enter your 6-digit PIN"
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
             required
+            maxLength={6}
+            pattern="\d{6}"
             suffix={
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-gray-600">
-                <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
+              <button type="button" onClick={() => setShowPin(!showPin)} className="text-gray-400 hover:text-gray-600">
+                <span className="material-symbols-outlined text-xl">{showPin ? 'visibility_off' : 'visibility'}</span>
               </button>
             }
           />
@@ -125,7 +170,7 @@ export default function MemberLogin() {
               </div>
               Remember me for 30 days
             </label>
-            <a href="#" className="text-sm font-semibold" style={{ color: BLUE }}>Forgot password?</a>
+            <a href="#" className="text-sm font-semibold" style={{ color: BLUE }}>Forgot PIN?</a>
           </div>
 
           <AuthButton type="submit" loading={loading} loadingText="Signing in...">

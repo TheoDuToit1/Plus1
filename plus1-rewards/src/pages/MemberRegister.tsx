@@ -4,18 +4,20 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import AuthLayout from '../components/auth/AuthLayout';
 import { AuthInput, AuthButton, AuthError, AuthLink } from '../components/auth/AuthComponents';
+import { Notification, useNotification } from '../components/Notification';
 
 const BLUE = '#1a558b'
 
 export default function MemberRegister() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPin, setShowPin] = useState(false);
   const [error, setError] = useState('');
+  const { notification, showSuccess, showError, hideNotification } = useNotification();
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
-    password: '',
+    pin: '',
     terms: false
   });
 
@@ -29,7 +31,8 @@ export default function MemberRegister() {
     setError('');
 
     if (!formData.terms) { setError('Please agree to the Terms of Service and Privacy Policy'); return; }
-    if (formData.password.length < 8) { setError('Password must be at least 8 characters long'); return; }
+    if (formData.pin.length !== 6) { setError('PIN must be exactly 6 digits'); return; }
+    if (!/^\d{6}$/.test(formData.pin)) { setError('PIN must contain only numbers'); return; }
 
     const phoneDigits = formData.phone.replace(/\D/g, '');
     if (phoneDigits.length !== 10) { setError('Phone number must be exactly 10 digits'); return; }
@@ -37,59 +40,99 @@ export default function MemberRegister() {
     setLoading(true);
 
     try {
-      const { data: existingPhone } = await supabase
+      // Check if phone already exists in users table
+      const { data: existingUser } = await supabase
+        .from('users').select('id').eq('mobile_number', phoneDigits).maybeSingle();
+
+      if (existingUser) { 
+        setError('This phone number is already registered'); 
+        setLoading(false); 
+        return; 
+      }
+
+      // Check if phone already exists in members table
+      const { data: existingMember } = await supabase
         .from('members').select('id').eq('phone', phoneDigits).maybeSingle();
 
-      if (existingPhone) { setError('This phone number is already registered'); setLoading(false); return; }
+      if (existingMember) { 
+        setError('This phone number is already registered'); 
+        setLoading(false); 
+        return; 
+      }
 
-      const tempEmail = `member_${phoneDigits}_${Date.now()}@plus1rewards.local`;
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: tempEmail,
-        password: formData.password,
-        options: { data: { name: formData.name, phone: formData.phone } }
-      });
+      // Get default cover plan (Day to Day Single - R385)
+      const { data: defaultPlan, error: planError } = await supabase
+        .from('cover_plans')
+        .select('id, plan_name, monthly_target_amount')
+        .eq('status', 'active')
+        .eq('monthly_target_amount', 385)
+        .limit(1)
+        .single();
 
-      if (authError) throw authError;
+      if (planError || !defaultPlan) {
+        setError('System error: Default cover plan not found. Please contact support.');
+        setLoading(false);
+        return;
+      }
 
-      if (authData.user) {
-        const { data: planData, error: planError } = await supabase
-          .from('policy_plans').select('id').eq('name', 'day_to_day_single').eq('monthly_target', 385).single();
-        if (planError) throw new Error('Could not find default plan');
+      // Create user in users table (centralized auth)
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .insert({
+          role: 'member',
+          full_name: formData.name,
+          mobile_number: phoneDigits,
+          pin_code: formData.pin,
+          status: 'active'
+        })
+        .select()
+        .single();
 
-        const { data: providerData } = await supabase
-          .from('policy_providers').select('id').eq('company_name', 'Day1Health').single();
+      if (userError) throw userError;
 
-        const { error: memberError } = await supabase.from('members').insert({
-          id: authData.user.id,
-          name: formData.name,
+      // Generate unique QR code
+      const qrCode = `PLUS1-${phoneDigits}-${Date.now()}`;
+
+      // Create member in members table
+      const { data: memberData, error: memberError } = await supabase
+        .from('members')
+        .insert({
+          id: userData.id,
+          user_id: userData.id,
+          full_name: formData.name,
           phone: phoneDigits,
-          email: tempEmail,
-          qr_code: `${phoneDigits}-${Date.now()}`,
-          active_policy: planData.id
+          qr_code: qrCode,
+          status: 'active'
+        })
+        .select()
+        .single();
+
+      if (memberError) throw memberError;
+
+      // Create member's first cover plan in member_cover_plans table
+      const { error: coverPlanError } = await supabase
+        .from('member_cover_plans')
+        .insert({
+          member_id: memberData.id,
+          cover_plan_id: defaultPlan.id,
+          creation_order: 1,
+          target_amount: defaultPlan.monthly_target_amount,
+          funded_amount: 0,
+          status: 'in_progress'
         });
 
-        if (memberError) throw memberError;
+      if (coverPlanError) throw coverPlanError;
 
-        if (providerData) {
-          await supabase.from('policy_holders').insert({
-            member_id: authData.user.id,
-            policy_plan_id: planData.id,
-            policy_provider_id: providerData.id,
-            policy_number: `POL-${phoneDigits}-${Date.now()}`,
-            status: 'active',
-            start_date: new Date().toISOString().split('T')[0],
-            monthly_premium: 385,
-            amount_funded: 0
-          });
-        }
-
-        alert('Account created successfully!');
-        navigate('/member/dashboard');
-      }
+      showSuccess(
+        'Account Created Successfully!',
+        'You can now log in with your mobile number and PIN. Redirecting...'
+      );
+      
+      setTimeout(() => {
+        navigate('/member/login');
+      }, 2000);
     } catch (err: any) {
-      if (err.message?.includes('already registered') || err.message?.includes('User already exists')) {
-        setError('This email is already registered');
-      } else if (err.message?.includes('phone')) {
+      if (err.message?.includes('already registered') || err.message?.includes('duplicate')) {
         setError('This phone number is already registered');
       } else {
         setError('Registration failed: ' + err.message);
@@ -111,6 +154,15 @@ export default function MemberRegister() {
         { value: 'R385', label: 'Monthly Target' },
       ]}
     >
+      {notification && (
+        <Notification
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+          onClose={hideNotification}
+        />
+      )}
+
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-black text-gray-900">Create your account</h2>
@@ -138,6 +190,7 @@ export default function MemberRegister() {
             placeholder="Sarah Dlamini"
             value={formData.name}
             onChange={handleInputChange}
+            autoComplete="name"
             required
           />
           <AuthInput
@@ -149,25 +202,29 @@ export default function MemberRegister() {
             placeholder="082 555 1234"
             value={formData.phone}
             onChange={handleInputChange}
+            autoComplete="tel"
             required
           />
           <AuthInput
-            label="Password"
-            icon="lock"
-            id="password"
-            name="password"
-            type={showPassword ? 'text' : 'password'}
-            placeholder="Min. 8 characters"
-            value={formData.password}
+            label="6-Digit PIN"
+            icon="pin"
+            id="pin"
+            name="pin"
+            type={showPin ? 'text' : 'password'}
+            placeholder="Enter 6-digit PIN"
+            value={formData.pin}
             onChange={handleInputChange}
+            autoComplete="new-password"
             required
-            minLength={8}
+            maxLength={6}
+            pattern="\d{6}"
             suffix={
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-gray-600">
-                <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
+              <button type="button" onClick={() => setShowPin(!showPin)} className="text-gray-400 hover:text-gray-600">
+                <span className="material-symbols-outlined text-xl">{showPin ? 'visibility_off' : 'visibility'}</span>
               </button>
             }
           />
+          <p className="text-xs text-gray-500 -mt-2">Your PIN will be used with your mobile number to log in</p>
 
           <label className="flex items-start gap-2.5 text-sm text-gray-600 cursor-pointer">
             <div className="checkbox-container mt-0.5">
@@ -189,9 +246,25 @@ export default function MemberRegister() {
             </div>
             <span>
               I agree to the{' '}
-              <a href="#" className="font-semibold" style={{ color: BLUE }}>Terms of Service</a>
+              <a 
+                href="/terms-of-service" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="font-semibold hover:underline" 
+                style={{ color: BLUE }}
+              >
+                Terms of Service
+              </a>
               {' '}and{' '}
-              <a href="#" className="font-semibold" style={{ color: BLUE }}>Privacy Policy</a>
+              <a 
+                href="/privacy-policy" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="font-semibold hover:underline" 
+                style={{ color: BLUE }}
+              >
+                Privacy Policy
+              </a>
             </span>
           </label>
 

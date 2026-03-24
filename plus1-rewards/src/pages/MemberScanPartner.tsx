@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { getSession, clearSession } from '../lib/session';
 import jsQR from 'jsqr';
 import { parsePartnerQR } from '../lib/config';
 import MemberLayout from '../components/member/MemberLayout';
@@ -39,8 +40,8 @@ export function MemberScanPartner() {
 
   const loadMemberData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { 
+      const session = getSession();
+      if (!session) { 
         navigate('/member/login'); 
         return; 
       }
@@ -48,12 +49,13 @@ export function MemberScanPartner() {
       const { data: memberData } = await supabase
         .from('members')
         .select('id, name, phone')
-        .eq('id', user.id)
+        .eq('id', session.user.id)
         .single();
         
       if (memberData) {
         setMember(memberData);
       } else {
+        clearSession();
         navigate('/member/login');
         return;
       }
@@ -196,42 +198,13 @@ export function MemberScanPartner() {
     setError('');
     
     try {
-      // Check if already connected
-      const { data: existingWallet } = await supabase
-        .from('wallets')
-        .select('id')
-        .eq('member_id', member.id)
-        .eq('partner_id', scannedPartnerId)
-        .single();
-
-      if (existingWallet) {
-        alert('You are already connected to this partner!');
-        setConnecting(false);
-        navigate('/member/dashboard');
-        return;
-      }
-
-      // Create wallet directly - no approval needed
-      const { error: walletError } = await supabase
-        .from('wallets')
-        .insert([{
-          member_id: member.id,
-          partner_id: scannedPartnerId,
-          balance: 0,
-          status: 'active'
-        }]);
-
-      if (walletError) {
-        console.error('Wallet creation error:', walletError);
-        setError('Failed to connect to partner. Please try again.');
-        setConnecting(false);
-        return;
-      }
-
-      // Success
+      // In the current system, members don't need to "connect" to partners
+      // They can simply make transactions at any active partner
+      // The connection is established through the first transaction
+      
       setError('');
       setConnecting(false);
-      alert(`Successfully connected to ${partnerName}! You can now start earning rewards.`);
+      alert(`${partnerName} is now available! Visit their store and make a purchase to start earning cashback rewards.`);
       navigate('/member/dashboard');
 
     } catch (err: any) {

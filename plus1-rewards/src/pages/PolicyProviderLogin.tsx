@@ -1,56 +1,62 @@
 // plus1-rewards/src/pages/PolicyProviderLogin.tsx
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 import AuthLayout from '../components/auth/AuthLayout';
 import { AuthInput, AuthButton, AuthError } from '../components/auth/AuthComponents';
 
 const BLUE = '#1a558b'
 const BLUE_LIGHT = 'rgba(26,85,139,0.08)'
 
-// Hardcoded Day1Health credentials
-const DAY1_HEALTH_EMAIL = 'provider@day1health.co.za';
-const DAY1_HEALTH_PASSWORD = 'Day1Health2024!';
-
 export default function PolicyProviderLogin() {
   const navigate = useNavigate();
-  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const form = e.currentTarget;
-    const email = (form.querySelector('#email') as HTMLInputElement)?.value;
-    const password = (form.querySelector('#password') as HTMLInputElement)?.value;
-
-    if (!email || !password) { 
-      setError('Please enter email and password'); 
-      return; 
-    }
-
     setLoading(true);
     setError('');
 
     try {
-      // Check against hardcoded Day1Health credentials
-      if (email === DAY1_HEALTH_EMAIL && password === DAY1_HEALTH_PASSWORD) {
-        // Store Day1Health provider info
-        localStorage.setItem('currentProvider', JSON.stringify({
-          id: 'day1health',
-          name: 'Day1Health',
-          email: DAY1_HEALTH_EMAIL,
-          company_name: 'Day1Health',
-          status: 'active'
-        }));
+      // Validate PIN is 6 digits
+      if (pin.length !== 6 || !/^\d{6}$/.test(pin)) {
+        setError('PIN must be exactly 6 digits');
+        setLoading(false);
+        return;
+      }
 
-        // Navigate to provider dashboard
+      // Hardcoded Day1Health credentials (local authentication)
+      const PROVIDER_EMAIL = 'provider@day1health.co.za';
+      const PROVIDER_PIN = '123456';
+
+      if (email.toLowerCase() === PROVIDER_EMAIL.toLowerCase() && pin === PROVIDER_PIN) {
+        // Create provider session object
+        const providerData = {
+          id: 'day1health',
+          provider_name: 'Day1Health',
+          email: PROVIDER_EMAIL,
+          status: 'active',
+          access_level: 'full'
+        };
+
+        // Store provider session
+        if (rememberMe) {
+          localStorage.setItem('currentProvider', JSON.stringify(providerData));
+        } else {
+          sessionStorage.setItem('currentProvider', JSON.stringify(providerData));
+        }
+        
         navigate('/provider/dashboard');
       } else {
-        setError('Invalid email or password. Only Day1Health is authorized.');
+        setError('Invalid email or PIN');
       }
-    } catch {
-      setError('Login failed. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -83,21 +89,27 @@ export default function PolicyProviderLogin() {
             id="email"
             type="email"
             placeholder="provider@day1health.co.za"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             disabled={loading}
             required
           />
 
           <AuthInput
-            label="Password"
+            label="6-Digit PIN"
             icon="lock"
-            id="password"
-            type={showPassword ? 'text' : 'password'}
-            placeholder="••••••••"
+            id="pin"
+            type={showPin ? 'text' : 'password'}
+            placeholder="••••••"
+            value={pin}
+            onChange={(e) => setPin(e.target.value)}
             disabled={loading}
             required
+            maxLength={6}
+            pattern="\d{6}"
             suffix={
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-gray-600" disabled={loading}>
-                <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
+              <button type="button" onClick={() => setShowPin(!showPin)} className="text-gray-400 hover:text-gray-600" disabled={loading}>
+                <span className="material-symbols-outlined text-xl">{showPin ? 'visibility_off' : 'visibility'}</span>
               </button>
             }
           />
@@ -122,7 +134,7 @@ export default function PolicyProviderLogin() {
               </div>
               Keep me signed in
             </label>
-            <a href="#" className="text-sm font-semibold" style={{ color: BLUE }}>Forgot password?</a>
+            <a href="#" className="text-sm font-semibold" style={{ color: BLUE }}>Contact Admin</a>
           </div>
 
           <AuthButton type="submit" loading={loading} loadingText="Authenticating...">
@@ -135,9 +147,9 @@ export default function PolicyProviderLogin() {
         <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: '#e5e7eb', backgroundColor: BLUE_LIGHT }}>
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-xl" style={{ color: BLUE }}>security</span>
-            <span className="font-bold text-sm text-gray-900">Day1Health Authorized Access</span>
+            <span className="font-bold text-sm text-gray-900">Policy Provider Access</span>
           </div>
-          <p className="text-xs text-gray-500">This portal is exclusively for Day1Health policy provider. Contact admin for access credentials.</p>
+          <p className="text-xs text-gray-500">This portal is for approved policy providers. Use your registered email and 6-digit PIN to access your dashboard.</p>
         </div>
       </div>
     </AuthLayout>

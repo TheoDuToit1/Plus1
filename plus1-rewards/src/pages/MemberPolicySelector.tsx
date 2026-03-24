@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { getSession, clearSession } from '../lib/session';
 import MemberLayout from '../components/member/MemberLayout';
 
 interface PolicyPlan {
@@ -33,9 +34,9 @@ export function MemberPolicySelector() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate("/member/login"); return; }
-      const { data: memberDetails } = await supabase.from("members").select("*").eq("id", user.id).single();
+      const session = getSession();
+      if (!session) { navigate("/member/login"); return; }
+      const { data: memberDetails } = await supabase.from("members").select("*").eq("id", session.user.id).single();
       if (memberDetails) setMember(memberDetails);
       const { data: plansData } = await supabase.from("policy_plans").select("*").eq("is_active", true).order("family");
       const usePlans = (plansData && plansData.length > 0) ? plansData : FALLBACK_PLANS;
@@ -121,7 +122,7 @@ export function MemberPolicySelector() {
       member={member}
       isOnline={true}
       pendingTransactions={0}
-      onSignOut={() => supabase.auth.signOut().then(() => navigate('/member/login'))}
+      onSignOut={() => { clearSession(); navigate('/member/login'); }}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-6">

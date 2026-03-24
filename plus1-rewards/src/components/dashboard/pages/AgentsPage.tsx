@@ -19,13 +19,22 @@ export default function AgentsPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabaseAdmin.from('agents').select('*').order('created_at', { ascending: false });
+      // Join agents with users table to get full_name
+      const { data, error } = await supabaseAdmin
+        .from('agents')
+        .select('*, users!agents_user_id_fkey(full_name, mobile_number, email)')
+        .order('created_at', { ascending: false });
       if (error) throw error;
       
       const totalAgents = data?.length || 0;
       const verified = data?.filter(a => a.status === 'active')?.length || 0;
       const pending = data?.filter(a => a.status === 'pending')?.length || 0;
-      const commissions = data?.reduce((sum, a) => sum + (parseFloat(a.total_commission) || 0), 0) || 0;
+      
+      // Get commission totals from agent_commissions table
+      const { data: commissionsData } = await supabaseAdmin
+        .from('agent_commissions')
+        .select('total_amount');
+      const commissions = commissionsData?.reduce((sum, c) => sum + (parseFloat(c.total_amount) || 0), 0) || 0;
       
       setStats({ totalAgents, verified, pending, sales: 0, commissions });
       setAgents(data || []);
@@ -97,11 +106,11 @@ export default function AgentsPage() {
     const searchTerms = searchLower.split(/\s+/);
     
     const matchesSearch = searchLower === '' || searchTerms.every(term => 
-      a.name?.toLowerCase().includes(term) ||
-      a.surname?.toLowerCase().includes(term) ||
-      a.email?.toLowerCase().includes(term) ||
+      a.users?.full_name?.toLowerCase().includes(term) ||
+      a.users?.email?.toLowerCase().includes(term) ||
+      a.users?.mobile_number?.includes(term) ||
       a.id?.toLowerCase().includes(term) ||
-      a.phone?.includes(term)
+      a.id_number?.includes(term)
     );
 
     // Filters
@@ -243,7 +252,12 @@ export default function AgentsPage() {
                     filteredAgents.map((agent) => (
                       <tr key={agent.id} className="hover:bg-gray-50 transition-colors group">
                         <td className="px-6 py-4"><span className="text-xs font-mono font-bold text-[#1a558b] px-2 py-1 bg-[#1a558b]/10 rounded">{agent.id.substring(0, 8).toUpperCase()}</span></td>
-                        <td className="px-6 py-4"><span className="text-sm font-semibold text-gray-900">{agent.name} {agent.surname}</span></td>
+                        <td className="px-6 py-4">
+                          <div>
+                            <span className="text-sm font-semibold text-gray-900">{agent.users?.full_name || 'No name'}</span>
+                            <div className="text-xs text-gray-600">{agent.users?.mobile_number || 'No phone'}</div>
+                          </div>
+                        </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
                             agent.status === 'active' 
@@ -260,7 +274,7 @@ export default function AgentsPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center"><span className="text-sm font-bold text-gray-900">0</span></td>
-                        <td className="px-6 py-4 text-center"><span className="text-sm font-bold text-gray-900">R{parseFloat(agent.total_commission || 0).toFixed(2)}</span></td>
+                        <td className="px-6 py-4 text-center"><span className="text-sm font-bold text-gray-900">R0.00</span></td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center gap-2">
                             {agent.status === 'pending' ? (

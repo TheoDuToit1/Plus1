@@ -17,8 +17,8 @@ export default function ProtectedPolicyProviderRoute({ children }: ProtectedPoli
 
   const checkAuthorization = () => {
     try {
-      // Check if Day1Health provider is logged in via localStorage
-      const providerData = localStorage.getItem('currentProvider');
+      // Check if Day1Health provider is logged in via sessionStorage or localStorage
+      const providerData = sessionStorage.getItem('currentProvider') || localStorage.getItem('currentProvider');
       
       if (!providerData) {
         navigate('/provider/login');
@@ -31,11 +31,13 @@ export default function ProtectedPolicyProviderRoute({ children }: ProtectedPoli
       if (provider.id === 'day1health' && provider.status === 'active') {
         setAuthorized(true);
       } else {
+        sessionStorage.removeItem('currentProvider');
         localStorage.removeItem('currentProvider');
         navigate('/provider/login');
       }
     } catch (error) {
       console.error('Authorization check failed:', error);
+      sessionStorage.removeItem('currentProvider');
       localStorage.removeItem('currentProvider');
       navigate('/provider/login');
     } finally {

@@ -27,14 +27,18 @@ export default function TransactionsPage() {
     try {
       const { data, error } = await supabaseAdmin
         .from('transactions')
-        .select('*, members(name, phone, email), partners(name, location, commission_rate)')
+        .select(`
+          *,
+          members(full_name, phone, email),
+          partners(shop_name, address, cashback_percent)
+        `)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
       
       const total = data?.length || 0;
-      const completed = data?.filter(t => t.status === 'synced').length || 0;
-      const pending = data?.filter(t => t.status === 'pending_sync').length || 0;
+      const completed = data?.filter(t => t.status === 'completed').length || 0;
+      const pending = data?.filter(t => t.status === 'pending').length || 0;
       const volume = data?.reduce((sum, t) => sum + (parseFloat(t.purchase_amount) || 0), 0) || 0;
       
       setStats({ total, completed, pending, volume });
@@ -93,8 +97,8 @@ export default function TransactionsPage() {
     
     const matchesSearch = searchLower === '' || searchTerms.every(term => 
       t.id?.toLowerCase().includes(term) ||
-      t.members?.name?.toLowerCase().includes(term) ||
-      t.partners?.name?.toLowerCase().includes(term) ||
+      t.members?.full_name?.toLowerCase().includes(term) ||
+      t.partners?.shop_name?.toLowerCase().includes(term) ||
       t.purchase_amount?.toString().includes(term) ||
       t.status?.toLowerCase().includes(term)
     );
@@ -168,8 +172,10 @@ export default function TransactionsPage() {
                     className="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-3 text-xs text-gray-900 focus:ring-1 focus:ring-[#1a558b] outline-none"
                   >
                     <option value="">All Statuses</option>
-                    <option value="synced">Synced</option>
-                    <option value="pending_sync">Pending Sync</option>
+                    <option value="completed">Completed</option>
+                    <option value="pending">Pending</option>
+                    <option value="reversed">Reversed</option>
+                    <option value="disputed">Disputed</option>
                   </select>
                 </div>
                 <div>
@@ -218,32 +224,47 @@ export default function TransactionsPage() {
                 <thead>
                   <tr className="bg-gray-50">
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600">Transaction ID</th>
-                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600">Type</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600">Member</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600">Partner</th>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600">Status</th>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600">Amount</th>
+                    <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600">Member Cashback</th>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600">Date</th>
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600 text-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {loading ? (
-                    <tr><td className="px-6 py-12 text-center" colSpan={6}><p className="text-gray-600">Loading transactions...</p></td></tr>
+                    <tr><td className="px-6 py-12 text-center" colSpan={8}><p className="text-gray-600">Loading transactions...</p></td></tr>
                   ) : filteredTransactions.length === 0 ? (
-                    <tr><td className="px-6 py-4" colSpan={6}><p className="text-sm text-gray-600 text-center">No transactions found</p></td></tr>
+                    <tr><td className="px-6 py-4" colSpan={8}><p className="text-sm text-gray-600 text-center">No transactions found</p></td></tr>
                   ) : (
                     filteredTransactions.map((tx) => (
                       <tr key={tx.id} className="hover:bg-gray-50 transition-colors group">
                         <td className="px-6 py-4"><span className="text-xs font-mono font-bold text-[#1a558b] px-2 py-1 bg-[#1a558b]/10 rounded">{tx.id.substring(0, 8).toUpperCase()}</span></td>
-                        <td className="px-6 py-4"><span className="text-sm font-semibold text-gray-900">{tx.is_spend ? 'Spend' : 'Earn'}</span></td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-semibold text-gray-900">{tx.members?.full_name || 'Unknown'}</div>
+                          <div className="text-xs text-gray-600">{tx.members?.phone || 'No phone'}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm font-semibold text-gray-900">{tx.partners?.shop_name || 'Unknown'}</div>
+                          <div className="text-xs text-gray-600">{tx.partners?.address || 'No address'}</div>
+                        </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                            tx.status === 'synced' ? 'bg-[#1a558b]/20 text-[#1a558b] border border-[#1a558b]/30' : 'bg-yellow-500/20 text-yellow-600 border border-yellow-500/30'
+                            tx.status === 'completed' ? 'bg-[#1a558b]/20 text-[#1a558b] border border-[#1a558b]/30' : 
+                            tx.status === 'pending' ? 'bg-yellow-500/20 text-yellow-600 border border-yellow-500/30' :
+                            'bg-red-500/20 text-red-600 border border-red-500/30'
                           }`}>
-                            <span className={`size-1.5 rounded-full ${tx.status === 'synced' ? 'bg-[#1a558b]' : 'bg-yellow-400'}`}></span>
+                            <span className={`size-1.5 rounded-full ${
+                              tx.status === 'completed' ? 'bg-[#1a558b]' : 
+                              tx.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
+                            }`}></span>
                             {tx.status}
                           </span>
                         </td>
                         <td className="px-6 py-4"><span className="text-sm font-bold text-gray-900">R{parseFloat(tx.purchase_amount || 0).toFixed(2)}</span></td>
+                        <td className="px-6 py-4"><span className="text-sm font-bold text-[#1a558b]">R{parseFloat(tx.member_amount || 0).toFixed(2)}</span></td>
                         <td className="px-6 py-4"><span className="text-sm text-gray-600">{new Date(tx.created_at).toLocaleDateString()}</span></td>
                         <td className="px-6 py-4 text-center">
                           <button
@@ -257,7 +278,7 @@ export default function TransactionsPage() {
                     ))
                   )}
                   <tr className="bg-gray-50">
-                    <td className="px-6 py-3 text-center" colSpan={6}><p className="text-[10px] text-gray-600 font-medium uppercase tracking-widest">Showing {filteredTransactions.length} of {transactions.length} total records</p></td>
+                    <td className="px-6 py-3 text-center" colSpan={8}><p className="text-[10px] text-gray-600 font-medium uppercase tracking-widest">Showing {filteredTransactions.length} of {transactions.length} total records</p></td>
                   </tr>
                 </tbody>
               </table>
@@ -304,20 +325,20 @@ export default function TransactionsPage() {
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <p className="text-[10px] text-gray-600 uppercase font-black tracking-widest mb-2">Transaction Status</p>
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
-                        selectedTransaction.status === 'synced' ? 'bg-[#1a558b]/20 text-[#1a558b]' : 'bg-yellow-500/20 text-yellow-600'
+                        selectedTransaction.status === 'completed' ? 'bg-[#1a558b]/20 text-[#1a558b]' : 
+                        selectedTransaction.status === 'pending' ? 'bg-yellow-500/20 text-yellow-600' :
+                        'bg-red-500/20 text-red-600'
                       }`}>
-                        <span className={`size-1.5 rounded-full ${selectedTransaction.status === 'synced' ? 'bg-[#1a558b]' : 'bg-yellow-500'}`}></span>
+                        <span className={`size-1.5 rounded-full ${
+                          selectedTransaction.status === 'completed' ? 'bg-[#1a558b]' : 
+                          selectedTransaction.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}></span>
                         {selectedTransaction.status}
                       </span>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <p className="text-[10px] text-gray-600 uppercase font-black tracking-widest mb-2">Transaction Type</p>
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase ${
-                        selectedTransaction.is_spend ? 'bg-red-500/20 text-red-600' : 'bg-green-500/20 text-green-600'
-                      }`}>
-                        <span className={`size-1.5 rounded-full ${selectedTransaction.is_spend ? 'bg-red-500' : 'bg-green-500'}`}></span>
-                        {selectedTransaction.is_spend ? 'Spend (Redemption)' : 'Earn (Accumulation)'}
-                      </span>
+                      <p className="text-[10px] text-gray-600 uppercase font-black tracking-widest mb-2">Transaction Date</p>
+                      <p className="text-sm text-gray-900">{new Date(selectedTransaction.created_at).toLocaleString()}</p>
                     </div>
                   </div>
 
@@ -333,20 +354,20 @@ export default function TransactionsPage() {
                           <p className="text-lg font-black text-gray-900">R{parseFloat(selectedTransaction.purchase_amount || 0).toFixed(2)}</p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Member Reward</p>
-                          <p className="text-lg font-black text-[#1a558b]">R{parseFloat(selectedTransaction.member_reward || 0).toFixed(2)}</p>
+                          <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Member Cashback</p>
+                          <p className="text-lg font-black text-[#1a558b]">R{parseFloat(selectedTransaction.member_amount || 0).toFixed(2)}</p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Partner Contribution</p>
-                          <p className="text-lg font-black text-gray-900">R{parseFloat(selectedTransaction.partner_contribution || 0).toFixed(2)}</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Platform Fee</p>
-                          <p className="text-lg font-black text-gray-600">R{parseFloat(selectedTransaction.platform_fee || 0).toFixed(2)}</p>
+                          <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">System Fee</p>
+                          <p className="text-lg font-black text-gray-900">R{parseFloat(selectedTransaction.system_amount || 0).toFixed(2)}</p>
                         </div>
                         <div>
                           <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Agent Commission</p>
-                          <p className="text-lg font-black text-gray-600">R{parseFloat(selectedTransaction.agent_commission || 0).toFixed(2)}</p>
+                          <p className="text-lg font-black text-gray-600">R{parseFloat(selectedTransaction.agent_amount || 0).toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-gray-500 uppercase font-bold mb-1">Cashback %</p>
+                          <p className="text-lg font-black text-gray-600">{parseFloat(selectedTransaction.cashback_percent || 0).toFixed(1)}%</p>
                         </div>
                       </div>
                     </div>
@@ -360,7 +381,7 @@ export default function TransactionsPage() {
                         Member Information
                       </h3>
                       <div className="space-y-2">
-                        <p className="text-sm font-bold text-gray-900">{selectedTransaction.members?.name || 'Unknown Member'}</p>
+                        <p className="text-sm font-bold text-gray-900">{selectedTransaction.members?.full_name || 'Unknown Member'}</p>
                         <p className="text-xs text-gray-600 flex items-center gap-2">
                           <span className="material-symbols-outlined text-xs">phone</span>
                           {selectedTransaction.members?.phone || 'N/A'}
@@ -377,13 +398,13 @@ export default function TransactionsPage() {
                         Partner Information
                       </h3>
                       <div className="space-y-2">
-                        <p className="text-sm font-bold text-gray-900">{selectedTransaction.partners?.name || 'Unknown Partner'}</p>
+                        <p className="text-sm font-bold text-gray-900">{selectedTransaction.partners?.shop_name || 'Unknown Partner'}</p>
                         <p className="text-xs text-gray-600 flex items-center gap-2">
                           <span className="material-symbols-outlined text-xs">location_on</span>
-                          {selectedTransaction.partners?.location || 'N/A'}
+                          {selectedTransaction.partners?.address || 'N/A'}
                         </p>
                         <p className="text-xs text-gray-600 flex items-center gap-2 font-bold">
-                          Commission Rate: {selectedTransaction.partners?.commission_rate || '0'}%
+                          Cashback Rate: {selectedTransaction.partners?.cashback_percent || '0'}%
                         </p>
                       </div>
                     </div>

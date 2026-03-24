@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { getSession, clearSession } from '../lib/session';
 import MemberLayout from '../components/member/MemberLayout';
+import { Notification, useNotification } from '../components/Notification';
 
 interface Partner {
   id: string;
@@ -26,6 +28,7 @@ export function MemberFindPartners() {
   const [search, setSearch] = useState('');
   const [connectedPartnerIds, setconnectedPartnerIds] = useState<Set<string>>(new Set());
   const [requestingShopId, setRequestingShopId] = useState<string | null>(null);
+  const { notification, showSuccess, showError, hideNotification } = useNotification();
 
   useEffect(() => { 
     loadMemberAndShops(); 
@@ -34,56 +37,76 @@ export function MemberFindPartners() {
   const loadMemberAndShops = async () => {
     setLoading(true);
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const session = getSession();
       
-      if (userError) {
-        console.error('Auth error:', userError);
-        // Don't redirect immediately, try to refresh session first
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !session) {
-          navigate('/member/login');
-          return;
-        }
-      }
-      
-      if (!user) { 
+      if (!session) { 
         navigate('/member/login'); 
         return; 
       }
 
+      console.log('Loading member and shops for:', session.user.id);
+
       // Load member data
       const { data: memberData, error: memberError } = await supabase
         .from('members')
-        .select('id, name, phone, qr_code')
-        .eq('id', user.id)
+        .select('id, full_name, phone, qr_code')
+        .eq('id', session.user.id)
         .single();
       
-      if (memberError || !memberData) {
-        console.log('User is not a member, redirecting to member login');
-        await supabase.auth.signOut();
-        navigate('/member/login');
-        return;
+      if (memberError) {
+        console.error('Member error:', memberError);
       }
-        
+      
       if (memberData) {
-        setMember(memberData);
+        setMember({
+          id: memberData.id,
+          name: memberData.full_name,
+          phone: memberData.phone,
+          qr_code: memberData.qr_code
+        });
       }
 
       // Get all active shops
-      const { data: partnersData } = await supabase
+      console.log('Fetching active partners...');
+      const { data: partnersData, error: partnersError } = await supabase
         .from('partners')
-        .select('id, name, commission_rate, status, phone')
+        .select('id, shop_name, cashback_percent, status, phone')
         .eq('status', 'active')
-        .order('name');
+        .order('shop_name');
 
-      if (partnersData) setShops(partnersData);
+      console.log('Partners query result:', { partnersData, partnersError });
 
-      // Get member's already-connected shop IDs
-      const { data: wallets } = await supabase
-        .from('wallets')
+      if (partnersData) {
+        // Map to expected interface format
+        const mappedPartners = partnersData.map(p => ({
+          id: p.id,
+          name: p.shop_name,
+          commission_rate: Number(p.cashback_percent),
+          status: p.status as 'active' | 'suspended',
+          phone: p.phone
+        }));
+        console.log('Mapped partners:', mappedPartners);
+        setShops(mappedPartners);
+      }
+
+      // Get member's already-connected shop IDs from member_partner_connections table
+      console.log('Fetching member-partner connections...');
+      const { data: connectionsData, error: connectionsError } = await supabase
+        .from('member_partner_connections')
         .select('partner_id')
-        .eq('member_id', user.id);
-      if (wallets) setconnectedPartnerIds(new Set(wallets.map(w => w.partner_id)));
+        .eq('member_id', session.user.id)
+        .eq('status', 'active');
+
+      console.log('Connections query result:', { connectionsData, connectionsError });
+
+      if (connectionsData && connectionsData.length > 0) {
+        // Extract unique partner IDs from connections
+        const connectedIds = new Set(connectionsData.map(conn => conn.partner_id));
+        console.log('Connected partner IDs:', Array.from(connectedIds));
+        setconnectedPartnerIds(connectedIds);
+      } else {
+        setconnectedPartnerIds(new Set());
+      }
 
     } catch (error) {
       console.error('Error loading data:', error);
@@ -104,41 +127,41 @@ export function MemberFindPartners() {
     try {
       setRequestingShopId(partnerId);
 
-      // Get the partner's commission rate
-      const { data: partnerData } = await supabase
-        .from('partners')
-        .select('commission_rate')
-        .eq('id', partnerId)
-        .single();
-
-      const commissionRate = partnerData?.commission_rate || 5;
-      
-      // Member earns partner commission minus 2% (platform fee)
-      const memberCommissionRate = Math.max(commissionRate - 2, 1);
-
-      // Create wallet directly - no approval needed
-      const { error } = await supabase
-        .from('wallets')
+      // Create connection in member_partner_connections table
+      const { error: connectionError } = await supabase
+        .from('member_partner_connections')
         .insert({
           member_id: member.id,
           partner_id: partnerId,
-          balance: 0,
-          commission_rate: memberCommissionRate,
           status: 'active'
         });
 
-      if (error) {
-        if (error.code === '23505') {
-          alert('You are already connected to this partner');
+      if (connectionError) {
+        // Check if already connected
+        if (connectionError.code === '23505') { // Unique constraint violation
+          showSuccess(
+            'Already Connected!',
+            `You're already connected to ${partnerName}. Visit their store to start earning cashback!`
+          );
         } else {
-          throw error;
+          throw connectionError;
         }
       } else {
-        alert(`Successfully connected to ${partnerName}! You can now start earning rewards.`);
-        setconnectedPartnerIds(prev => new Set([...prev, partnerId]));
+        showSuccess(
+          'Connected Successfully!',
+          `You're now connected to ${partnerName}! Visit their store and make a purchase to start earning cashback rewards. Show your QR code at checkout.`
+        );
       }
+      
+      // Add to connected list immediately
+      setconnectedPartnerIds(prev => new Set([...prev, partnerId]));
+      
     } catch (err: any) {
-      alert('Failed to Connect to Partner: ' + err.message);
+      console.error('Error connecting to partner:', err);
+      showError(
+        'Connection Error',
+        'Failed to connect to partner. Please try again.'
+      );
     } finally {
       setRequestingShopId(null);
     }
@@ -162,6 +185,16 @@ export function MemberFindPartners() {
       pendingTransactions={0}
       onSignOut={() => supabase.auth.signOut().then(() => navigate('/member/login'))}
     >
+      {/* Notification */}
+      {notification && (
+        <Notification
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+          onClose={hideNotification}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -208,14 +241,14 @@ export function MemberFindPartners() {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-gray-900 font-bold text-lg mb-1">Ready to Shop?</h3>
-            <p className="text-gray-700">Show your QR code or scan a shop's code to connect instantly</p>
+            <p className="text-gray-700">Show your QR code at any partner store to earn cashback</p>
           </div>
           <button 
-            onClick={() => navigate('/member/scan-partner')}
+            onClick={() => navigate('/member/qr')}
             className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold px-6 py-3 rounded-xl transition-colors flex items-center gap-2"
           >
-            <span className="material-symbols-outlined">qr_code_scanner</span>
-            Scan Partner QR
+            <span className="material-symbols-outlined">qr_code</span>
+            Show My QR Code
           </button>
         </div>
       </div>

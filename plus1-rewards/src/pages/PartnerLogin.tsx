@@ -4,14 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import AuthLayout from '../components/auth/AuthLayout';
 import { AuthInput, AuthButton, AuthDivider, AuthError, AuthLink } from '../components/auth/AuthComponents';
+import { useNotification, Notification } from '../components/Notification';
 
 const BLUE = '#1a558b'
 
 export default function PartnerLogin() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const { showNotification, hideNotification, notification } = useNotification();
+  const [identifier, setIdentifier] = useState(''); // mobile number OR email
+  const [pin, setPin] = useState('');
+  const [showPin, setShowPin] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -22,24 +24,121 @@ export default function PartnerLogin() {
     setError('');
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email, password, options: { persistSession: rememberMe }
-      });
-
-      if (signInError) throw signInError;
-
-      if (data.user) {
-        const { data: partnerData, error: partnerError } = await supabase
-          .from('partners').select('status, name').eq('email', email).single();
-
-        if (partnerError) { setError('No partner account found with this email address.'); return; }
-        if (partnerData.status === 'pending') { setError(`Your business "${partnerData.name}" is still pending admin approval.`); return; }
-        if (partnerData.status === 'suspended') { setError(`Your business "${partnerData.name}" has been suspended.`); return; }
-        if (partnerData.status === 'active') { navigate('/partner/dashboard'); }
-        else { setError('Your account status is unknown. Please contact support.'); }
+      // Validate PIN is 6 digits
+      if (!/^\d{6}$/.test(pin)) {
+        showNotification('error', 'Invalid PIN', 'PIN must be exactly 6 digits');
+        setLoading(false);
+        return;
       }
+
+      // Determine if identifier is mobile number or email
+      const isMobile = /^\d{10}$/.test(identifier);
+      const isEmail = identifier.includes('@');
+
+      if (!isMobile && !isEmail) {
+        showNotification('error', 'Invalid Input', 'Please enter a valid 10-digit mobile number or email address');
+        setLoading(false);
+        return;
+      }
+
+      // Query users table first (centralized auth)
+      let userQuery = supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'partner');
+
+      if (isMobile) {
+        userQuery = userQuery.eq('mobile_number', identifier);
+      } else {
+        // For email, we need to check partners table since email is there
+        const { data: partnerByEmail } = await supabase
+          .from('partners')
+          .select('user_id')
+          .eq('email', identifier)
+          .single();
+        
+        if (!partnerByEmail) {
+          showNotification('error', 'Account Not Found', 'Partner account not found');
+          setLoading(false);
+          return;
+        }
+        
+        userQuery = userQuery.eq('id', partnerByEmail.user_id);
+      }
+
+      const { data: userData, error: userError } = await userQuery.single();
+
+      if (userError || !userData) {
+        showNotification('error', 'Account Not Found', 'Partner account not found');
+        setLoading(false);
+        return;
+      }
+
+      // Verify PIN
+      if (userData.pin_code !== pin) {
+        showNotification('error', 'Incorrect PIN', 'The PIN you entered is incorrect');
+        setLoading(false);
+        return;
+      }
+
+      // Get partner data
+      const { data: partnerData, error: partnerError } = await supabase
+        .from('partners')
+        .select('*')
+        .eq('user_id', userData.id)
+        .single();
+
+      if (partnerError || !partnerData) {
+        showNotification('error', 'Partner Data Not Found', 'Partner profile not found');
+        setLoading(false);
+        return;
+      }
+
+      // Check partner status
+      if (partnerData.status === 'pending') {
+        showNotification('warning', 'Pending Approval', `Your business "${partnerData.shop_name}" is still pending admin approval.`);
+        setLoading(false);
+        return;
+      }
+      if (partnerData.status === 'suspended') {
+        showNotification('error', 'Account Suspended', `Your business "${partnerData.shop_name}" has been suspended. Please contact admin.`);
+        setLoading(false);
+        return;
+      }
+
+      // Only allow active partners to login
+      if (partnerData.status !== 'active') {
+        showNotification('error', 'Login Not Allowed', 'Your account status does not allow login. Please contact admin.');
+        setLoading(false);
+        return;
+      }
+
+      // Create session
+      const sessionData = {
+        user: {
+          id: userData.id,
+          role: userData.role,
+          full_name: userData.full_name,
+          mobile_number: userData.mobile_number,
+          status: userData.status
+        },
+        partner: partnerData,
+        loggedInAt: new Date().toISOString(),
+        expiresAt: rememberMe ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null,
+        rememberMe
+      };
+
+      // Store session
+      if (rememberMe) {
+        localStorage.setItem('partnerSession', JSON.stringify(sessionData));
+      } else {
+        sessionStorage.setItem('partnerSession', JSON.stringify(sessionData));
+      }
+
+      showNotification('success', 'Welcome Back!', `Welcome back, ${partnerData.shop_name}!`);
+      navigate('/partner/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in');
+      showNotification('error', 'Login Failed', err.message || 'Failed to sign in');
     } finally {
       setLoading(false);
     }
@@ -57,6 +156,15 @@ export default function PartnerLogin() {
         { value: '100%', label: 'Offline Ready' },
       ]}
     >
+      {notification && (
+        <Notification
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+          onClose={hideNotification}
+        />
+      )}
+
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-black text-gray-900">Partner Login</h2>
@@ -67,28 +175,31 @@ export default function PartnerLogin() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <AuthInput
-            label="Partner Email Address"
+            label="Mobile Number or Email"
             icon="storefront"
-            id="email"
-            type="email"
-            placeholder="partner@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            id="identifier"
+            type="text"
+            placeholder="0812345678 or partner@example.com"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
             required
           />
 
           <AuthInput
-            label="Password"
-            icon="lock"
-            id="password"
-            type={showPassword ? 'text' : 'password'}
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            label="6-Digit PIN"
+            icon="pin"
+            id="pin"
+            type={showPin ? 'text' : 'password'}
+            placeholder="••••••"
+            value={pin}
+            onChange={(e) => {
+              const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+              setPin(value);
+            }}
             required
             suffix={
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-gray-600">
-                <span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span>
+              <button type="button" onClick={() => setShowPin(!showPin)} className="text-gray-400 hover:text-gray-600">
+                <span className="material-symbols-outlined text-xl">{showPin ? 'visibility_off' : 'visibility'}</span>
               </button>
             }
           />
@@ -110,9 +221,9 @@ export default function PartnerLogin() {
                   </svg>
                 </label>
               </div>
-              Keep me signed in
+              Keep me signed in for 30 days
             </label>
-            <a href="#" className="text-sm font-semibold" style={{ color: BLUE }}>Forgot password?</a>
+            <a href="#" className="text-sm font-semibold" style={{ color: BLUE }}>Forgot PIN?</a>
           </div>
 
           <AuthButton type="submit" loading={loading} loadingText="Signing in...">

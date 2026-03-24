@@ -25,34 +25,50 @@ export default function PartnerLayout({ children }: PartnerLayoutProps) {
 
   const checkAuthAndLoadShop = async () => {
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      // Check for partner session (custom auth)
+      const partnerSessionData = localStorage.getItem('partnerSession') || sessionStorage.getItem('partnerSession');
       
-      if (authError || !user) {
+      if (!partnerSessionData) {
         navigate('/partner/login');
         return;
       }
 
-      // Get shop data from localStorage or database
-      const partnerData = localStorage.getItem('currentPartner');
-      if (partnerData) {
-        const parsedPartner = JSON.parse(partnerData);
-        setPartner(parsedPartner);
-      } else {
-        // Try to find shop by user ID
-        const { data: partnerRecord, error: partnerError } = await supabase
-          .from('partners')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        if (partnerError || !partnerRecord) {
+      const session = JSON.parse(partnerSessionData);
+      
+      // Check if session has expired
+      if (session.expiresAt) {
+        const expiryDate = new Date(session.expiresAt);
+        const now = new Date();
+        
+        if (now > expiryDate) {
+          // Session expired, clear it
+          localStorage.removeItem('partnerSession');
+          sessionStorage.removeItem('partnerSession');
           navigate('/partner/login');
           return;
         }
-
-        setPartner(partnerRecord);
-        localStorage.setItem('currentPartner', JSON.stringify(partnerRecord));
       }
+
+      const partnerId = session.partner?.id;
+      
+      if (!partnerId) {
+        navigate('/partner/login');
+        return;
+      }
+
+      // Get fresh partner data from database
+      const { data: partnerRecord, error: partnerError } = await supabase
+        .from('partners')
+        .select('*')
+        .eq('id', partnerId)
+        .single();
+
+      if (partnerError || !partnerRecord) {
+        navigate('/partner/login');
+        return;
+      }
+
+      setPartner(partnerRecord);
     } catch (error) {
       console.error('Auth check failed:', error);
       navigate('/partner/login');
@@ -62,8 +78,8 @@ export default function PartnerLayout({ children }: PartnerLayoutProps) {
   };
 
   const handleSignOut = async () => {
-    localStorage.removeItem('currentPartner');
-    await supabase.auth.signOut();
+    localStorage.removeItem('partnerSession');
+    sessionStorage.removeItem('partnerSession');
     navigate('/partner/login');
   };
 

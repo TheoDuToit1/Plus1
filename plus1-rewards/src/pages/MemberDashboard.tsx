@@ -1,302 +1,457 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import QRCode from 'qrcode';
-import { encodeMemberQR } from '../lib/config';
+import { getSession, clearSession } from '../lib/session';
 import MemberLayout from '../components/member/MemberLayout';
-import WelcomeSection from '../components/member/components/WelcomeSection';
-import QuickActionsGrid from '../components/member/components/QuickActionsGrid';
-import RewardsBalanceCard from '../components/member/components/RewardsBalanceCard';
-import QRCodeCard from '../components/member/components/QRCodeCard';
-import PartnerShopsSection from '../components/member/components/PartnerShopsSection';
-import BlockedFundsNotification from '../components/member/BlockedFundsNotification';
-import ProfileCompletionModal from '../components/member/ProfileCompletionModal';
 
-interface Wallet {
-  id: string; member_id: string; partner_id: string;
-  rewards_total?: number; balance?: number; blocked_balance?: number;
-  policies: { name: string; current: number; target: number; status: 'active' | 'suspended' } | null;
-}
-interface Partner { id: string; name: string; status: 'active' | 'suspended' }
-interface Member { id: string; name: string; phone: string; email?: string; qr_code: string; active_policy?: string }
-
-interface PolicyInfo {
+interface Member {
+  id: string;
   name: string;
-  monthly_target: number;
-  current_amount: number;
+  phone: string;
+  email?: string;
+  qr_code: string;
+  status: string;
+}
+
+interface MemberCoverPlan {
+  id: string;
+  creation_order: number;
+  target_amount: number | string;
+  funded_amount: number | string;
+  status: string;
+  active_from: string | null;
+  active_to: string | null;
+  cover_plans: {
+    plan_name: string;
+  };
+}
+
+interface Transaction {
+  id: string;
+  purchase_amount: number;
+  member_amount: number;
+  created_at: string;
+  partners: {
+    shop_name: string;
+  };
 }
 
 export function MemberDashboard() {
   const navigate = useNavigate();
   const [member, setMember] = useState<Member | null>(null);
-  const [wallets, setWallets] = useState<Wallet[]>([]);
-  const [shops, setShops] = useState<Map<string, Partner>>(new Map());
+  const [mainCoverPlan, setMainCoverPlan] = useState<MemberCoverPlan | null>(null);
+  const [totalCoverPlans, setTotalCoverPlans] = useState(0);
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [pendingTransactions, setPendingTransactions] = useState(0);
-  const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [qrLoading, setQrLoading] = useState(false);
-  const [policyInfo, setPolicyInfo] = useState<PolicyInfo | null>(null);
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [profileIncomplete, setProfileIncomplete] = useState(false);
 
   useEffect(() => {
-    const onOnline = () => setIsOnline(true);
-    const onOffline = () => setIsOnline(false);
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
     loadDashboardData();
-    return () => { window.removeEventListener('online', onOnline); window.removeEventListener('offline', onOffline); };
   }, []);
 
-  useEffect(() => {
-    if (!member) return;
-    generateQRDataUrl(member);
-    
-    // Check if member needs to complete profile (no email or SA ID)
-    // We'll check if they have an email in auth
-    checkProfileCompletion();
-  }, [member]);
-
-  const checkProfileCompletion = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email?.includes('@plus1rewards.local')) {
-        // Temporary email, profile not completed
-        setProfileIncomplete(true);
-        setShowProfileModal(true);
-      }
-    } catch (error) {
-      console.error('Error checking profile:', error);
-    }
-  };
-
-  const generateQRDataUrl = async (m: Member) => {
-    setQrLoading(true);
-    try {
-      const qrValue = encodeMemberQR(m.qr_code, m.phone || m.id);
-      const url = await QRCode.toDataURL(qrValue, {
-        width: 210,
-        margin: 2,
-        color: { dark: '#102216', light: '#ffffff' },
-        errorCorrectionLevel: 'M',
-      });
-      setQrDataUrl(url);
-    } catch {
-      try {
-        const url = await QRCode.toDataURL(m.phone || m.id, {
-          width: 210, margin: 2,
-          color: { dark: '#102216', light: '#ffffff' },
-          errorCorrectionLevel: 'M',
-        });
-        setQrDataUrl(url);
-      } catch { /* silent */ }
-    } finally { setQrLoading(false); }
-  };
-
   const loadDashboardData = async () => {
-    setLoading(true);
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const session = getSession();
       
-      if (userError) {
-        console.error('Auth error:', userError);
-        // Don't redirect immediately, try to refresh session first
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !session) {
-          navigate('/member/login');
-          return;
-        }
-      }
-      
-      if (!user) { 
-        navigate('/member/login'); 
-        return; 
-      }
-      
-      // Check if user is actually a member (not shop/agent/provider)
-      const { data: memberData, error: memberError } = await supabase
-        .from('members')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-        
-      if (memberError || !memberData) {
-        // User is not a member, redirect to appropriate login
-        console.log('User is not a member, redirecting to member login');
-        await supabase.auth.signOut();
+      if (!session) {
         navigate('/member/login');
         return;
       }
-      
-      setMember(memberData);
-      
-      const { data: walletsData } = await supabase.from('wallets').select('*').eq('member_id', user.id);
-      if (walletsData) {
-        setWallets(walletsData);
-        
-        // Load policy information if member has an active policy
-        if (memberData?.active_policy) {
-          await loadPolicyInfo(memberData.active_policy, walletsData);
-        }
-        
-        const partnerIds = walletsData.map(w => w.partner_id);
-        if (partnerIds.length > 0) {
-          const { data: partnersData } = await supabase.from('partners').select('id, name, status').in('id', partnerIds);
-          if (partnersData) setShops(new Map(partnersData.map(s => [s.id, s])));
-        }
-      }
-    } catch { /* silent */ } finally { setLoading(false); }
-  };
 
-  const loadPolicyInfo = async (policyId: string, walletsData: Wallet[]) => {
-    try {
-      // Get policy plan details
-      const { data: policyPlan } = await supabase
-        .from('policy_plans')
-        .select('name, monthly_target')
-        .eq('id', policyId)
+      // Get member data
+      const { data: memberData } = await supabase
+        .from('members')
+        .select('id, full_name, phone, email, qr_code, status')
+        .eq('user_id', session.user.id)
         .single();
 
-      if (policyPlan) {
-        // Calculate current amount from wallets (sum of all rewards_total for this member)
-        const currentAmount = walletsData.reduce((sum, wallet) => sum + (wallet.rewards_total || 0), 0);
-        
-        setPolicyInfo({
-          name: policyPlan.name,
-          monthly_target: policyPlan.monthly_target,
-          current_amount: currentAmount
+      if (memberData) {
+        setMember({
+          ...memberData,
+          name: memberData.full_name
         });
-      }
-    } catch (error) {
-      console.error('Error loading policy info:', error);
-    }
-  };
 
-  const handleSync = async () => {
-    setSyncing(true);
-    await loadDashboardData();
-    setPendingTransactions(0);
-    setSyncing(false);
-  };
+        // Get main cover plan (first by creation order) using member.id
+        const { data: coverPlansData, error: coverPlansError } = await supabase
+          .from('member_cover_plans')
+          .select(`
+            *,
+            cover_plans (plan_name)
+          `)
+          .eq('member_id', memberData.id)
+          .order('creation_order', { ascending: true });
 
-  const handlePolicySelected = async (policyId: string) => {
-    // Reload member data to get updated policy
-    await loadDashboardData();
-    
-    // Move blocked funds to available balance
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+        console.log('Cover Plans Query Result:', { coverPlansData, coverPlansError, memberId: memberData.id });
 
-      // Get wallets with blocked balance
-      const { data: walletsWithBlocked } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('member_id', user.id)
-        .gt('blocked_balance', 0);
-
-      if (walletsWithBlocked && walletsWithBlocked.length > 0) {
-        // Move blocked balance to available balance for each wallet
-        for (const wallet of walletsWithBlocked) {
-          const newBalance = (wallet.balance || 0) + (wallet.blocked_balance || 0);
-          await supabase
-            .from('wallets')
-            .update({ 
-              balance: newBalance,
-              blocked_balance: 0 
-            })
-            .eq('id', wallet.id);
+        if (coverPlansData && coverPlansData.length > 0) {
+          console.log('Setting main cover plan:', coverPlansData[0]);
+          // Convert string amounts to numbers
+          const planWithNumbers = {
+            ...coverPlansData[0],
+            target_amount: typeof coverPlansData[0].target_amount === 'string' 
+              ? parseFloat(coverPlansData[0].target_amount) 
+              : coverPlansData[0].target_amount,
+            funded_amount: typeof coverPlansData[0].funded_amount === 'string' 
+              ? parseFloat(coverPlansData[0].funded_amount) 
+              : coverPlansData[0].funded_amount
+          };
+          setMainCoverPlan(planWithNumbers);
+          setTotalCoverPlans(coverPlansData.length);
+        } else {
+          console.log('No cover plans found for member');
         }
-        
-        // Reload data to show updated balances
-        await loadDashboardData();
+
+        // Get recent transactions using member.id
+        const { data: txData } = await supabase
+          .from('transactions')
+          .select(`
+            id,
+            purchase_amount,
+            member_amount,
+            created_at,
+            partners (shop_name)
+          `)
+          .eq('member_id', memberData.id)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (txData) {
+          setRecentTransactions(txData as any);
+        }
       }
+
     } catch (error) {
-      console.error('Error moving blocked funds:', error);
+      console.error('Error loading dashboard:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const totalBalance = wallets.reduce((s, w) => s + (w.rewards_total || w.balance || 0), 0);
-  const totalBlockedBalance = wallets.reduce((s, w) => s + (w.blocked_balance || 0), 0);
+  const handleSignOut = () => {
+    clearSession();
+    navigate('/member/login');
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-ZA', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const targetAmount = mainCoverPlan ? Number(mainCoverPlan.target_amount) : 0;
+  const fundedAmount = mainCoverPlan ? Number(mainCoverPlan.funded_amount) : 0;
+
+  const progressPercent = mainCoverPlan 
+    ? Math.min((fundedAmount / targetAmount) * 100, 100)
+    : 0;
+
+  const amountStillNeeded = mainCoverPlan 
+    ? Math.max(targetAmount - fundedAmount, 0)
+    : 0;
+
+  // Calculate overflow cashback (amount beyond the first cover plan's target)
+  const overflowCashback = mainCoverPlan && fundedAmount > targetAmount
+    ? fundedAmount - targetAmount
+    : 0;
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#f5f8fc' }}>
-        <div className="text-center">
-          <div className="w-10 h-10 border-4 rounded-full animate-spin mx-auto mb-4" style={{ borderColor: 'rgba(26, 85, 139, 0.2)', borderTopColor: '#1a558b' }} />
-          <p style={{ color: '#6b7280' }}>Loading your dashboard...</p>
+      <MemberLayout
+        member={member}
+        isOnline={navigator.onLine}
+        pendingTransactions={0}
+        onSignOut={handleSignOut}
+      >
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-[#1a558b]/20 border-t-[#1a558b] rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading dashboard...</p>
+          </div>
         </div>
-      </div>
+      </MemberLayout>
     );
   }
 
   return (
-    <MemberLayout 
+    <MemberLayout
       member={member}
-      isOnline={isOnline}
-      pendingTransactions={pendingTransactions}
-      onSignOut={() => supabase.auth.signOut().then(() => navigate('/member/login'))}
+      isOnline={navigator.onLine}
+      pendingTransactions={0}
+      onSignOut={handleSignOut}
     >
-      <WelcomeSection 
-        name={member?.name || 'Member'}
-        phone={member?.phone || ''}
-        avatarUrl={`https://ui-avatars.com/api/?name=${encodeURIComponent(member?.name || 'Member')}&background=11d452&color=102216&size=256&bold=true`}
-      />
-
-      {/* Show blocked funds notification if no policy selected */}
-      {!member?.active_policy && totalBlockedBalance > 0 && (
-        <BlockedFundsNotification 
-          blockedAmount={totalBlockedBalance}
-          onSelectPolicy={() => setShowPolicyModal(true)}
-        />
-      )}
-
-      <QuickActionsGrid 
-        onScanQR={() => navigate('/member/scan-partner')}
-        onMyPolicies={() => navigate('/member/policies')}
-        onHistory={() => navigate('/member/history')}
-        onMyProfile={() => {
-          if (profileIncomplete) {
-            setShowProfileModal(true);
-          } else {
-            navigate('/member/profile');
-          }
-        }}
-        showProfileBadge={profileIncomplete}
-      />
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <RewardsBalanceCard 
-          balance={totalBalance}
-          lastUpdated="Just now"
-          policyInfo={policyInfo}
-          memberId={member?.id}
-          onOverflowHandled={loadDashboardData}
-        />
-        <QRCodeCard 
-          phone={member?.phone || ''}
-          qrCodeUrl={qrDataUrl}
-          qrLoading={qrLoading}
-          onRefresh={() => member && generateQRDataUrl(member)}
-          onFullScreen={() => navigate('/member/qr')}
-        />
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Member Dashboard</h1>
+        <p className="text-gray-600">Welcome back, {member?.name || 'Member'}</p>
       </div>
 
-      <PartnerShopsSection 
-        shopCount={wallets.length}
-        wallets={wallets}
-        shops={shops}
-        syncing={syncing}
-        onSync={handleSync}
-        onFindShops={() => navigate('/member/find-partners')}
-      />
+      {/* Status Banner */}
+      <div className={`border rounded-xl p-6 mb-6 shadow-sm ${
+        member?.status === 'active' ? 'bg-green-50 border-green-200' :
+        member?.status === 'pending' ? 'bg-yellow-50 border-yellow-200' :
+        'bg-red-50 border-red-200'
+      }`}>
+        <div className="flex items-center gap-3">
+          <span className={`material-symbols-outlined text-2xl ${
+            member?.status === 'active' ? 'text-green-600' :
+            member?.status === 'pending' ? 'text-yellow-600' :
+            'text-red-600'
+          }`}>
+            {member?.status === 'active' ? 'check_circle' : member?.status === 'pending' ? 'schedule' : 'warning'}
+          </span>
+          <div>
+            <p className="font-bold text-gray-900">Account Status: {member?.status?.toUpperCase()}</p>
+            <p className="text-sm text-gray-600">{member?.phone}</p>
+          </div>
+        </div>
+      </div>
 
-      <ProfileCompletionModal
-        isOpen={showProfileModal}
-        onClose={() => setShowProfileModal(false)}
-      />
+      {/* Default Cover Plan Card - Main Focus */}
+      {!mainCoverPlan && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6 mb-6">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-yellow-600 text-2xl">warning</span>
+            <div>
+              <p className="font-bold text-yellow-900">No Cover Plan Found</p>
+              <p className="text-sm text-yellow-700">Please contact support to set up your default cover plan.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {mainCoverPlan && (
+        <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900">Your Default Cover Plan</h2>
+            <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+              mainCoverPlan.status === 'active' ? 'bg-green-100 text-green-700' :
+              mainCoverPlan.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+              'bg-red-100 text-red-700'
+            }`}>
+              {mainCoverPlan.status === 'active' ? '🟢 ACTIVE' : 
+               mainCoverPlan.status === 'in_progress' ? '🟡 IN PROGRESS' : 
+               '🔴 SUSPENDED'}
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <p className="font-bold text-gray-900 text-lg mb-3">{mainCoverPlan.cover_plans.plan_name}</p>
+              
+              {/* Progress Section */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <p className="text-sm text-gray-600 mb-2">Cashback Progress</p>
+                <div className="flex justify-between text-sm text-gray-900 font-bold mb-2">
+                  <span>R{fundedAmount.toFixed(2)} funded</span>
+                  <span>R{targetAmount.toFixed(2)} target</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
+                  <div 
+                    className={`h-4 rounded-full transition-all ${
+                      mainCoverPlan.status === 'active' ? 'bg-green-500' :
+                      mainCoverPlan.status === 'in_progress' ? 'bg-blue-500' :
+                      'bg-red-500'
+                    }`}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+                <p className="text-sm text-gray-600">
+                  {progressPercent.toFixed(0)}% complete
+                  {amountStillNeeded > 0 && ` • R${amountStillNeeded.toFixed(2)} still needed`}
+                </p>
+              </div>
+
+              {/* Status Messages */}
+              {mainCoverPlan.status === 'active' && mainCoverPlan.active_to && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
+                  <p className="text-green-800 text-sm font-bold">
+                    ✓ Your cover is fully active until {new Date(mainCoverPlan.active_to).toLocaleDateString('en-ZA')}
+                  </p>
+                </div>
+              )}
+
+              {mainCoverPlan.status === 'in_progress' && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                  <p className="text-blue-800 text-sm font-bold">
+                    ⏳ Keep shopping to build up your cashback! R{amountStillNeeded.toFixed(2)} more needed.
+                  </p>
+                </div>
+              )}
+
+              {mainCoverPlan.status === 'suspended' && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
+                  <p className="text-red-800 text-sm font-bold">
+                    ⚠ Not enough cashback yet. Shop more or top up to reactivate your cover.
+                  </p>
+                </div>
+              )}
+
+              {/* Overflow Cashback */}
+              {overflowCashback > 0 && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-purple-900 font-bold text-sm">Overflow Cashback</p>
+                      <p className="text-purple-700 text-xs">Extra cashback beyond your plan target</p>
+                    </div>
+                    <p className="text-purple-900 font-bold text-lg">R{overflowCashback.toFixed(2)}</p>
+                  </div>
+                  <p className="text-purple-700 text-xs mt-2">
+                    This can help with your next 30-day cycle, higher cover plans, or linked people.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-[#1a558b] text-2xl">health_and_safety</span>
+            <div>
+              <p className="text-gray-900 font-bold text-xl">{totalCoverPlans}</p>
+              <p className="text-gray-600 text-sm">Total Cover Plans</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-[#1a558b] text-2xl">payments</span>
+            <div>
+              <p className="text-gray-900 font-bold text-xl">
+                R{fundedAmount.toFixed(2)}
+              </p>
+              <p className="text-gray-600 text-sm">Current Cashback</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-[#1a558b] text-2xl">receipt</span>
+            <div>
+              <p className="text-gray-900 font-bold text-xl">{recentTransactions.length}</p>
+              <p className="text-gray-600 text-sm">Recent Transactions</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Transactions */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6 shadow-sm">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900">Recent Transactions</h2>
+        </div>
+
+        {recentTransactions.length === 0 ? (
+          <div className="p-12 text-center">
+            <span className="material-symbols-outlined text-gray-400 text-6xl mb-4 block">receipt_long</span>
+            <h3 className="text-gray-900 font-bold text-lg mb-2">No transactions yet</h3>
+            <p className="text-gray-600 mb-6">Start shopping at partner stores to earn cashback!</p>
+            <button
+              onClick={() => navigate('/member/find-partners')}
+              className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold px-6 py-3 rounded-xl transition-colors"
+            >
+              Find Partner Stores
+            </button>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-200">
+            {recentTransactions.map((tx) => (
+              <div key={tx.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-[#1a558b]/10 rounded-xl flex items-center justify-center">
+                      <span className="material-symbols-outlined text-[#1a558b] text-xl">store</span>
+                    </div>
+                    <div>
+                      <h3 className="text-gray-900 font-bold">
+                        {tx.partners?.shop_name || 'Partner Store'}
+                      </h3>
+                      <p className="text-gray-600 text-sm">{formatDate(tx.created_at)}</p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <p className="text-gray-900 font-bold text-lg">R{tx.purchase_amount.toFixed(2)}</p>
+                    <p className="text-green-600 text-sm">+R{tx.member_amount.toFixed(2)} cashback</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
+        </div>
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <button
+            onClick={() => navigate('/member/qr')}
+            className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined">qr_code</span>
+            Show QR Code
+          </button>
+
+          <button
+            onClick={() => navigate('/member/find-partners')}
+            className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined">store</span>
+            Find Partners
+          </button>
+
+          <button
+            onClick={() => navigate('/member/cover-plans')}
+            className="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-900 font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined">health_and_safety</span>
+            My Cover Plans
+          </button>
+
+          <button
+            onClick={() => navigate('/member/transactions')}
+            className="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-900 font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined">history</span>
+            View All Transactions
+          </button>
+
+          <button
+            onClick={() => navigate('/member/top-up')}
+            className="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-900 font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined">account_balance</span>
+            Top Up
+          </button>
+
+          <button
+            onClick={() => navigate('/member/linked-people')}
+            className="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-900 font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined">group</span>
+            Linked People
+          </button>
+
+          <button
+            onClick={() => navigate('/member/support')}
+            className="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-900 font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined">support_agent</span>
+            Support
+          </button>
+        </div>
+      </div>
     </MemberLayout>
   );
 }

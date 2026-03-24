@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { getSession, clearSession } from '../lib/session';
 import MemberLayout from '../components/member/MemberLayout';
 
 interface Transaction {
@@ -39,28 +40,18 @@ export function MemberHistory() {
   const loadHistory = async () => {
     setLoading(true);
     try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const session = getSession();
       
-      if (userError) {
-        console.error('Auth error:', userError);
-        // Don't redirect immediately, try to refresh session first
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !session) {
-          navigate('/member/login');
-          return;
-        }
-      }
-      
-      if (!user) { 
+      if (!session) { 
         navigate('/member/login'); 
         return; 
       }
 
-      const { data: memberData, error: memberError } = await supabase.from('members').select('*').eq('id', user.id).single();
+      const { data: memberData, error: memberError } = await supabase.from('members').select('*').eq('id', session.user.id).single();
       
       if (memberError || !memberData) {
-        console.log('User is not a member, redirecting to member login');
-        await supabase.auth.signOut();
+        console.log('Member not found, redirecting to login');
+        clearSession();
         navigate('/member/login');
         return;
       }
@@ -70,7 +61,7 @@ export function MemberHistory() {
       const { data: txData } = await supabase
         .from('transactions')
         .select('id, purchase_amount, member_reward, policy_filled, created_at, partners(name)')
-        .eq('member_id', user.id)
+        .eq('member_id', session.user.id)
         .order('created_at', { ascending: false });
 
       const formatted: Transaction[] = (txData || []).map(tx => ({

@@ -29,7 +29,12 @@ export default function Sidebar() {
       <nav className="px-4 space-y-1">
         <a className={getLinkClasses('/admin/dashboard')} href="/admin/dashboard">
           <span className="material-symbols-outlined">dashboard</span>
-          <span className={getTextClasses('/admin/dashboard')}>Overview</span>
+          <span className={getTextClasses('/admin/dashboard')}>Dashboard Home</span>
+        </a>
+        
+        <a className={getLinkClasses('/admin/approvals')} href="/admin/approvals">
+          <span className="material-symbols-outlined">approval</span>
+          <span className={getTextClasses('/admin/approvals')}>Approvals</span>
         </a>
         
         <a className={getLinkClasses('/admin/members')} href="/admin/members">
@@ -37,9 +42,19 @@ export default function Sidebar() {
           <span className={getTextClasses('/admin/members')}>Members</span>
         </a>
         
+        <a className={getLinkClasses('/admin/cover-plans')} href="/admin/cover-plans">
+          <span className="material-symbols-outlined">health_and_safety</span>
+          <span className={getTextClasses('/admin/cover-plans')}>Member Cover Plans</span>
+        </a>
+        
         <a className={getLinkClasses('/admin/partners')} href="/admin/partners">
           <span className="material-symbols-outlined">storefront</span>
           <span className={getTextClasses('/admin/partners')}>Partners</span>
+        </a>
+        
+        <a className={getLinkClasses('/admin/invoices')} href="/admin/invoices">
+          <span className="material-symbols-outlined">receipt</span>
+          <span className={getTextClasses('/admin/invoices')}>Partner Billing</span>
         </a>
         
         <a className={getLinkClasses('/admin/agents')} href="/admin/agents">
@@ -47,14 +62,44 @@ export default function Sidebar() {
           <span className={getTextClasses('/admin/agents')}>Agents</span>
         </a>
         
-        <a className={getLinkClasses('/admin/policies')} href="/admin/policies">
-          <span className="material-symbols-outlined">description</span>
-          <span className={getTextClasses('/admin/policies')}>Policies</span>
+        <a className={getLinkClasses('/admin/commissions')} href="/admin/commissions">
+          <span className="material-symbols-outlined">account_balance_wallet</span>
+          <span className={getTextClasses('/admin/commissions')}>Agent Commission</span>
+        </a>
+        
+        <a className={getLinkClasses('/admin/providers')} href="/admin/providers">
+          <span className="material-symbols-outlined">business</span>
+          <span className={getTextClasses('/admin/providers')}>Providers</span>
         </a>
         
         <a className={getLinkClasses('/admin/transactions')} href="/admin/transactions">
           <span className="material-symbols-outlined">receipt_long</span>
           <span className={getTextClasses('/admin/transactions')}>Transactions</span>
+        </a>
+        
+        <a className={getLinkClasses('/admin/disputes')} href="/admin/disputes">
+          <span className="material-symbols-outlined">report_problem</span>
+          <span className={getTextClasses('/admin/disputes')}>Disputes</span>
+        </a>
+        
+        <a className={getLinkClasses('/admin/top-ups')} href="/admin/top-ups">
+          <span className="material-symbols-outlined">add_card</span>
+          <span className={getTextClasses('/admin/top-ups')}>Top-Ups</span>
+        </a>
+        
+        <a className={getLinkClasses('/admin/exports')} href="/admin/exports">
+          <span className="material-symbols-outlined">upload_file</span>
+          <span className={getTextClasses('/admin/exports')}>Exports</span>
+        </a>
+        
+        <a className={getLinkClasses('/admin/audit-logs')} href="/admin/audit-logs">
+          <span className="material-symbols-outlined">history</span>
+          <span className={getTextClasses('/admin/audit-logs')}>Audit Logs</span>
+        </a>
+        
+        <a className={getLinkClasses('/admin/settings')} href="/admin/settings">
+          <span className="material-symbols-outlined">settings</span>
+          <span className={getTextClasses('/admin/settings')}>Settings / Config</span>
         </a>
       </nav>
       

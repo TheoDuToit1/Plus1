@@ -29,12 +29,12 @@ export default function MembersPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch members with all their data using admin client
+      // Fetch members with member_cover_plans to calculate stats
       const { data: membersData, error: membersError } = await supabaseAdmin
         .from('members')
         .select(`
           *,
-          wallets(balance, rewards_total)
+          member_cover_plans(funded_amount, status)
         `)
         .order('created_at', { ascending: false });
 
@@ -42,10 +42,10 @@ export default function MembersPage() {
 
       // Calculate stats
       const totalMembers = membersData?.length || 0;
-      const verified = membersData?.filter(m => m.active_policy)?.length || 0;
+      const verified = membersData?.filter(m => m.status === 'active')?.length || 0;
       const qrCodes = membersData?.filter(m => m.qr_code)?.length || 0;
       const totalRewards = membersData?.reduce((sum, m) => {
-        const memberRewards = m.wallets?.reduce((s: number, w: any) => s + (parseFloat(w.rewards_total) || 0), 0) || 0;
+        const memberRewards = m.member_cover_plans?.reduce((s: number, p: any) => s + (parseFloat(p.funded_amount) || 0), 0) || 0;
         return sum + memberRewards;
       }, 0) || 0;
 
@@ -78,19 +78,14 @@ export default function MembersPage() {
 
   const handleExport = () => {
     const csv = [
-      ['ID', 'Name', 'Phone', 'Email', 'SA ID', 'City', 'Suburb', 'Policy', 'Balance', 'Rewards', 'QR Code', 'Joined'].join(','),
+      ['ID', 'Name', 'Phone', 'Email', 'QR Code', 'Status', 'Joined'].join(','),
       ...members.map(m => [
         m.id,
-        m.name,
+        m.full_name || '',
         m.phone || '',
         m.email || '',
-        m.sa_id || '',
-        m.city || '',
-        m.suburb || '',
-        m.active_policy || '',
-        m.wallets?.reduce((s: number, w: any) => s + (parseFloat(w.balance) || 0), 0) || 0,
-        m.wallets?.reduce((s: number, w: any) => s + (parseFloat(w.rewards_total) || 0), 0) || 0,
-        m.qr_code ? 'Yes' : 'No',
+        m.qr_code || '',
+        m.status || '',
         new Date(m.created_at).toLocaleDateString()
       ].join(','))
     ].join('\n');
@@ -109,24 +104,22 @@ export default function MembersPage() {
     const searchTerms = searchLower.split(/\s+/);
     
     const matchesSearch = searchLower === '' || searchTerms.every(term => 
-      m.name?.toLowerCase().includes(term) ||
+      m.full_name?.toLowerCase().includes(term) ||
       m.phone?.includes(term) ||
       m.email?.toLowerCase().includes(term) ||
       m.id?.toLowerCase().includes(term) ||
-      m.sa_id?.toLowerCase().includes(term) ||
-      m.city?.toLowerCase().includes(term) ||
-      m.suburb?.toLowerCase().includes(term)
+      m.qr_code?.toLowerCase().includes(term)
     );
 
     // Filters
-    const isIncomplete = !m.email || m.email.includes('@plus1rewards.local') || !m.sa_id || !m.city || !m.suburb;
+    const isIncomplete = !m.email || !m.phone;
     const matchesStatus = filters.status === '' || 
       (filters.status === 'complete' && !isIncomplete) || 
       (filters.status === 'incomplete' && isIncomplete);
     
     const matchesPolicy = filters.hasPolicy === '' || 
-      (filters.hasPolicy === 'yes' && m.active_policy) || 
-      (filters.hasPolicy === 'no' && !m.active_policy);
+      (filters.hasPolicy === 'yes' && m.status === 'active') || 
+      (filters.hasPolicy === 'no' && m.status !== 'active');
 
     const matchesQR = filters.hasQR === '' || 
       (filters.hasQR === 'yes' && m.qr_code) || 
@@ -145,40 +138,85 @@ export default function MembersPage() {
         .eq('id', memberId)
         .single();
 
-      // Get wallets with shop info
-      const { data: wallets } = await supabaseAdmin
-        .from('wallets')
-        .select('*, shops(name, commission_rate)')
-        .eq('member_id', memberId);
-
-      // Get policy holder info
-      const { data: policyHolder } = await supabaseAdmin
-        .from('policy_holders')
+      // Get member cover plans with plan details
+      const { data: coverPlans } = await supabaseAdmin
+        .from('member_cover_plans')
         .select(`
           *,
-          policy_plans(name, monthly_target, family, variant, adults, children),
-          policy_providers(name, company_name)
+          cover_plans(plan_name, monthly_target_amount, provider_id)
         `)
         .eq('member_id', memberId)
-        .single();
+        .order('creation_order', { ascending: true });
 
-      // Get recent transactions
+      // Get wallet entries (cashback history)
+      const { data: walletEntries } = await supabaseAdmin
+        .from('cover_plan_wallet_entries')
+        .select('*')
+        .eq('member_id', memberId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      // Get recent transactions with partner info
       const { data: transactions } = await supabaseAdmin
         .from('transactions')
         .select(`
           *,
-          shops(name),
-          agents(name)
+          partners(shop_name, address),
+          agents(id, users!agents_user_id_fkey(full_name))
         `)
         .eq('member_id', memberId)
         .order('created_at', { ascending: false })
+        .limit(15);
+
+      // Get top-ups
+      const { data: topUps } = await supabaseAdmin
+        .from('top_ups')
+        .select('*')
+        .eq('payer_id', memberId)
+        .eq('payer_type', 'member')
+        .order('created_at', { ascending: false })
         .limit(10);
+
+      // Get disputes
+      const { data: disputes } = await supabaseAdmin
+        .from('disputes')
+        .select(`
+          *,
+          partners(shop_name),
+          transactions(purchase_amount)
+        `)
+        .eq('member_id', memberId)
+        .order('created_at', { ascending: false });
+
+      // Get linked people (dependants)
+      const { data: linkedPeople } = await supabaseAdmin
+        .from('linked_people')
+        .select('*')
+        .in('member_cover_plan_id', coverPlans?.map(cp => cp.id) || []);
+
+      // Calculate totals
+      const totalFunded = coverPlans?.reduce((sum, cp) => sum + (parseFloat(cp.funded_amount) || 0), 0) || 0;
+      const totalTarget = coverPlans?.reduce((sum, cp) => sum + (parseFloat(cp.target_amount) || 0), 0) || 0;
+      const totalTransactions = transactions?.length || 0;
+      const totalSpent = transactions?.reduce((sum, t) => sum + (parseFloat(t.purchase_amount) || 0), 0) || 0;
+      const totalCashback = transactions?.reduce((sum, t) => sum + (parseFloat(t.member_amount) || 0), 0) || 0;
 
       setMemberDetails({
         member,
-        wallets: wallets || [],
-        policyHolder,
-        transactions: transactions || []
+        coverPlans: coverPlans || [],
+        walletEntries: walletEntries || [],
+        transactions: transactions || [],
+        topUps: topUps || [],
+        disputes: disputes || [],
+        linkedPeople: linkedPeople || [],
+        stats: {
+          totalFunded,
+          totalTarget,
+          totalTransactions,
+          totalSpent,
+          totalCashback,
+          fundingProgress: totalTarget > 0 ? (totalFunded / totalTarget) * 100 : 0
+        }
       });
     } catch (error) {
       console.error('Error fetching member details:', error);
@@ -317,27 +355,27 @@ export default function MembersPage() {
             {showFilters && (
               <div className="px-6 py-4 border-b border-gray-200 bg-white grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-top duration-200">
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Profile Status</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Member Status</label>
                   <select 
                     value={filters.status}
                     onChange={(e) => setFilters({...filters, status: e.target.value})}
                     className="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-3 text-xs text-gray-900 focus:ring-1 focus:ring-[#1a558b] outline-none"
                   >
-                    <option value="">All Statuses</option>
+                    <option value="">All Members</option>
                     <option value="complete">Complete Profiles</option>
                     <option value="incomplete">Incomplete Profiles</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Policy Status</label>
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Has Cover Plans</label>
                   <select 
                     value={filters.hasPolicy}
                     onChange={(e) => setFilters({...filters, hasPolicy: e.target.value})}
                     className="w-full bg-gray-50 border border-gray-200 rounded-lg py-1.5 px-3 text-xs text-gray-900 focus:ring-1 focus:ring-[#1a558b] outline-none"
                   >
                     <option value="">All Members</option>
-                    <option value="yes">With Active Policy</option>
-                    <option value="no">No Active Policy</option>
+                    <option value="yes">With Cover Plans</option>
+                    <option value="no">No Cover Plans</option>
                   </select>
                 </div>
                 <div>
@@ -377,36 +415,27 @@ export default function MembersPage() {
                     <tr className="bg-gray-50">
                       <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Member</th>
                       <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Contact</th>
-                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Location</th>
-                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">SA ID</th>
-                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Policy</th>
-                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Balance</th>
-                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Rewards</th>
                       <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">QR Code</th>
+                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Status</th>
+                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Funded Amount</th>
                       <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Joined</th>
-                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Profile</th>
                       <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {filteredMembers.map((member) => {
-                      const balance = member.wallets?.reduce((s: number, w: any) => s + (parseFloat(w.balance) || 0), 0) || 0;
-                      const rewards = member.wallets?.reduce((s: number, w: any) => s + (parseFloat(w.rewards_total) || 0), 0) || 0;
-                      const isIncomplete = !member.email || member.email.includes('@plus1rewards.local') || !member.sa_id || !member.city || !member.suburb;
+                      const fundedAmount = member.member_cover_plans?.reduce((s: number, p: any) => s + (parseFloat(p.funded_amount) || 0), 0) || 0;
+                      const isIncomplete = !member.email || !member.phone;
                       
                       return (
                         <tr key={member.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-4 py-4">
                             <div className="flex items-center gap-3">
                               <div className="size-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
-                                {member.profile_picture_url ? (
-                                  <img src={member.profile_picture_url} alt={member.name} className="size-full object-cover" />
-                                ) : (
-                                  <span className="text-[#1a558b] font-bold text-lg">{member.name?.charAt(0)}</span>
-                                )}
+                                <span className="text-[#1a558b] font-bold text-lg">{member.full_name?.charAt(0) || 'M'}</span>
                               </div>
                               <div>
-                                <div className="text-sm font-semibold text-gray-900">{member.name}</div>
+                                <div className="text-sm font-semibold text-gray-900">{member.full_name || 'No name'}</div>
                                 <div className="text-[10px] font-mono text-gray-600">{member.id.substring(0, 8)}</div>
                               </div>
                             </div>
@@ -416,33 +445,13 @@ export default function MembersPage() {
                             <div className="text-[10px] text-gray-600">{member.email || 'No email'}</div>
                           </td>
                           <td className="px-4 py-4">
-                            <div className="text-xs text-gray-700">{member.city || '-'}</div>
-                            <div className="text-[10px] text-gray-600">{member.suburb || '-'}</div>
-                          </td>
-                          <td className="px-4 py-4">
-                            <div className="text-xs text-gray-700">{member.sa_id || '-'}</div>
-                          </td>
-                          <td className="px-4 py-4">
-                            {member.active_policy ? (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-[#1a558b]/20 text-[#1a558b] border border-[#1a558b]/30">
-                                <span className="size-1.5 rounded-full bg-[#1a558b]"></span>
-                                {member.active_policy}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-gray-600">No policy</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="text-sm font-bold text-gray-900">R{balance.toFixed(2)}</span>
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="text-sm font-bold text-[#1a558b]">R{rewards.toFixed(2)}</span>
-                          </td>
-                          <td className="px-4 py-4">
                             {member.qr_code ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold bg-green-500/20 text-green-600">
-                                ✓ Yes
-                              </span>
+                              <div>
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold bg-green-500/20 text-green-600">
+                                  ✓ Yes
+                                </span>
+                                <div className="text-[10px] text-gray-600 mt-1 font-mono">{member.qr_code}</div>
+                              </div>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold bg-red-500/20 text-red-700">
                                 ✗ No
@@ -450,18 +459,25 @@ export default function MembersPage() {
                             )}
                           </td>
                           <td className="px-4 py-4">
-                            <span className="text-xs text-gray-600">{new Date(member.created_at).toLocaleDateString()}</span>
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                              member.status === 'active' 
+                                ? 'bg-[#1a558b]/20 text-[#1a558b] border border-[#1a558b]/30'
+                                : member.status === 'pending'
+                                ? 'bg-yellow-500/20 text-yellow-600 border border-yellow-500/30'
+                                : 'bg-red-500/20 text-red-600 border border-red-500/30'
+                            }`}>
+                              <span className={`size-1.5 rounded-full ${
+                                member.status === 'active' ? 'bg-[#1a558b]' : 
+                                member.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}></span>
+                              {member.status}
+                            </span>
                           </td>
                           <td className="px-4 py-4">
-                            {isIncomplete ? (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold bg-yellow-500/20 text-yellow-600">
-                                ⚠ Incomplete
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold bg-green-500/20 text-green-600">
-                                ✓ Complete
-                              </span>
-                            )}
+                            <span className="text-sm font-bold text-[#1a558b]">R{fundedAmount.toFixed(2)}</span>
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className="text-xs text-gray-600">{new Date(member.created_at).toLocaleDateString()}</span>
                           </td>
                           <td className="px-4 py-4">
                             <button
@@ -509,14 +525,10 @@ export default function MembersPage() {
               <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ backgroundColor: '#ffffff' }}>
                 <div className="flex items-center gap-4">
                   <div className="size-16 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
-                    {selectedMember.profile_picture_url ? (
-                      <img src={selectedMember.profile_picture_url} alt={selectedMember.name} className="size-full object-cover" />
-                    ) : (
-                      <span className="text-[#1a558b] font-bold text-2xl">{selectedMember.name?.charAt(0)}</span>
-                    )}
+                    <span className="text-[#1a558b] font-bold text-2xl">{selectedMember.full_name?.charAt(0) || 'M'}</span>
                   </div>
                   <div>
-                    <h2 className="text-2xl font-black text-gray-900">{selectedMember.name}</h2>
+                    <h2 className="text-2xl font-black text-gray-900">{selectedMember.full_name || 'Member'}</h2>
                     <p className="text-sm text-gray-600">Member ID: {selectedMember.id}</p>
                   </div>
                 </div>
@@ -536,206 +548,260 @@ export default function MembersPage() {
                   </div>
                 ) : memberDetails ? (
                   <div className="px-6 py-6 space-y-6 bg-gray-50">
-                  {/* Personal Information */}
-                  <div className="bg-white border border-gray-200 rounded-xl p-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#1a558b]">person</span>
-                      Personal Information
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-600 uppercase tracking-wider">Full Name</p>
-                        <p className="text-sm text-gray-900 font-semibold">{memberDetails.member.name}</p>
+                    {/* Stats Overview */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <p className="text-xs text-gray-600 uppercase font-bold mb-1">Total Funded</p>
+                        <p className="text-2xl font-black text-[#1a558b]">R{memberDetails.stats.totalFunded.toFixed(2)}</p>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-600 uppercase tracking-wider">Phone</p>
-                        <p className="text-sm text-gray-900 font-semibold">{memberDetails.member.phone || '-'}</p>
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <p className="text-xs text-gray-600 uppercase font-bold mb-1">Total Target</p>
+                        <p className="text-2xl font-black text-gray-900">R{memberDetails.stats.totalTarget.toFixed(2)}</p>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-600 uppercase tracking-wider">Email</p>
-                        <p className="text-sm text-gray-900 font-semibold break-all">{memberDetails.member.email || '-'}</p>
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <p className="text-xs text-gray-600 uppercase font-bold mb-1">Transactions</p>
+                        <p className="text-2xl font-black text-gray-900">{memberDetails.stats.totalTransactions}</p>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-600 uppercase tracking-wider">SA ID Number</p>
-                        <p className="text-sm text-gray-900 font-semibold">{memberDetails.member.sa_id || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600 uppercase tracking-wider">City</p>
-                        <p className="text-sm text-gray-900 font-semibold">{memberDetails.member.city || 'Cape Town'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600 uppercase tracking-wider">Suburb</p>
-                        <p className="text-sm text-gray-900 font-semibold">{memberDetails.member.suburb || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600 uppercase tracking-wider">QR Code</p>
-                        <p className="text-sm text-gray-900 font-semibold font-mono">{memberDetails.member.qr_code || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-600 uppercase tracking-wider">Joined</p>
-                        <p className="text-sm text-gray-900 font-semibold">{new Date(memberDetails.member.created_at).toLocaleDateString()}</p>
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <p className="text-xs text-gray-600 uppercase font-bold mb-1">Total Cashback</p>
+                        <p className="text-2xl font-black text-green-600">R{memberDetails.stats.totalCashback.toFixed(2)}</p>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Policy Information */}
-                  {memberDetails.policyHolder ? (
+                    {/* Personal Information */}
                     <div className="bg-white border border-gray-200 rounded-xl p-6">
                       <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[#1a558b]">health_and_safety</span>
-                        Active Policy
+                        <span className="material-symbols-outlined text-[#1a558b]">person</span>
+                        Personal Information
                       </h3>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <div>
-                          <p className="text-xs text-gray-600 uppercase tracking-wider">Policy Number</p>
-                          <p className="text-sm text-gray-900 font-semibold">{memberDetails.policyHolder.policy_number}</p>
+                          <p className="text-xs text-gray-600 uppercase tracking-wider">Full Name</p>
+                          <p className="text-sm text-gray-900 font-semibold">{memberDetails.member.full_name || 'No name'}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600 uppercase tracking-wider">Plan Name</p>
-                          <p className="text-sm text-gray-900 font-semibold">{memberDetails.policyHolder.policy_plans?.name}</p>
+                          <p className="text-xs text-gray-600 uppercase tracking-wider">Phone</p>
+                          <p className="text-sm text-gray-900 font-semibold">{memberDetails.member.phone || '-'}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600 uppercase tracking-wider">Provider</p>
-                          <p className="text-sm text-gray-900 font-semibold">{memberDetails.policyHolder.policy_providers?.company_name}</p>
+                          <p className="text-xs text-gray-600 uppercase tracking-wider">Email</p>
+                          <p className="text-sm text-gray-900 font-semibold break-all">{memberDetails.member.email || '-'}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600 uppercase tracking-wider">Family Type</p>
-                          <p className="text-sm text-gray-900 font-semibold">{memberDetails.policyHolder.policy_plans?.family} ({memberDetails.policyHolder.policy_plans?.variant})</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-600 uppercase tracking-wider">Coverage</p>
-                          <p className="text-sm text-gray-900 font-semibold">{memberDetails.policyHolder.policy_plans?.adults} Adults, {memberDetails.policyHolder.policy_plans?.children} Children</p>
+                          <p className="text-xs text-gray-600 uppercase tracking-wider">QR Code</p>
+                          <p className="text-sm text-gray-900 font-semibold font-mono">{memberDetails.member.qr_code || '-'}</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-600 uppercase tracking-wider">Status</p>
-                          <p className="text-sm text-gray-900 font-semibold capitalize">{memberDetails.policyHolder.status}</p>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                            memberDetails.member.status === 'active' ? 'bg-[#1a558b]/20 text-[#1a558b]' : 'bg-yellow-500/20 text-yellow-600'
+                          }`}>
+                            {memberDetails.member.status}
+                          </span>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-600 uppercase tracking-wider">Monthly Target</p>
-                          <p className="text-sm text-[#1a558b] font-bold">R{parseFloat(memberDetails.policyHolder.policy_plans?.monthly_target || 0).toFixed(2)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-600 uppercase tracking-wider">Amount Funded</p>
-                          <p className="text-sm text-green-600 font-bold">R{parseFloat(memberDetails.policyHolder.amount_funded || 0).toFixed(2)}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-600 uppercase tracking-wider">Progress</p>
-                          <div className="mt-1">
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-[#1a558b] h-2 rounded-full transition-all"
-                                style={{ width: `${Math.min(100, (parseFloat(memberDetails.policyHolder.amount_funded || 0) / parseFloat(memberDetails.policyHolder.policy_plans?.monthly_target || 1)) * 100)}%` }}
-                              ></div>
-                            </div>
-                            <p className="text-xs text-gray-600 mt-1">
-                              {((parseFloat(memberDetails.policyHolder.amount_funded || 0) / parseFloat(memberDetails.policyHolder.policy_plans?.monthly_target || 1)) * 100).toFixed(1)}%
-                            </p>
-                          </div>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-600 uppercase tracking-wider">Start Date</p>
-                          <p className="text-sm text-gray-900 font-semibold">{memberDetails.policyHolder.start_date}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-600 uppercase tracking-wider">Last Funded</p>
-                          <p className="text-sm text-gray-900 font-semibold">{memberDetails.policyHolder.last_funded_date || '-'}</p>
+                          <p className="text-xs text-gray-600 uppercase tracking-wider">Joined</p>
+                          <p className="text-sm text-gray-900 font-semibold">{new Date(memberDetails.member.created_at).toLocaleDateString()}</p>
                         </div>
                       </div>
                     </div>
-                  ) : (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
-                      <p className="text-yellow-600 text-sm">⚠ No active policy found for this member</p>
-                    </div>
-                  )}
 
-                  {/* Wallets */}
-                  <div className="bg-white border border-gray-200 rounded-xl p-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#1a558b]">account_balance_wallet</span>
-                      Wallets ({memberDetails.wallets.length})
-                    </h3>
-                    {memberDetails.wallets.length > 0 ? (
-                      <div className="space-y-3">
-                        {memberDetails.wallets.map((wallet: any) => (
-                          <div key={wallet.id} className="bg-gray-100 rounded-lg p-4 border border-gray-200">
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="text-sm font-bold text-gray-900">{wallet.shops?.name || 'Unknown Shop'}</p>
-                              <span className={`px-2 py-1 rounded text-xs font-bold ${wallet.status === 'active' ? 'bg-green-500/20 text-green-600' : 'bg-red-500/20 text-red-700'}`}>
-                                {wallet.status}
+                    {/* Cover Plans */}
+                    {memberDetails.coverPlans.length > 0 ? (
+                      <div className="bg-white border border-gray-200 rounded-xl p-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#1a558b]">health_and_safety</span>
+                          Cover Plans ({memberDetails.coverPlans.length})
+                        </h3>
+                        <div className="space-y-4">
+                          {memberDetails.coverPlans.map((plan: any) => (
+                            <div key={plan.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                              <div className="flex justify-between items-start mb-3">
+                                <div>
+                                  <p className="font-bold text-gray-900">{plan.cover_plans?.plan_name || 'Cover Plan'}</p>
+                                  <p className="text-xs text-gray-600">Priority: {plan.creation_order}</p>
+                                </div>
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                  plan.status === 'active' ? 'bg-green-500/20 text-green-600' :
+                                  plan.status === 'in_progress' ? 'bg-blue-500/20 text-blue-600' :
+                                  'bg-gray-500/20 text-gray-600'
+                                }`}>
+                                  {plan.status}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-3 gap-4 mb-3">
+                                <div>
+                                  <p className="text-xs text-gray-600">Target</p>
+                                  <p className="text-sm font-bold text-gray-900">R{parseFloat(plan.target_amount || 0).toFixed(2)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-600">Funded</p>
+                                  <p className="text-sm font-bold text-[#1a558b]">R{parseFloat(plan.funded_amount || 0).toFixed(2)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-600">Progress</p>
+                                  <p className="text-sm font-bold text-gray-900">
+                                    {((parseFloat(plan.funded_amount || 0) / parseFloat(plan.target_amount || 1)) * 100).toFixed(1)}%
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="bg-[#1a558b] h-2 rounded-full transition-all"
+                                  style={{ width: `${Math.min(100, (parseFloat(plan.funded_amount || 0) / parseFloat(plan.target_amount || 1)) * 100)}%` }}
+                                ></div>
+                              </div>
+                              {plan.active_from && (
+                                <p className="text-xs text-gray-600 mt-2">Active from: {new Date(plan.active_from).toLocaleDateString()}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+                        <p className="text-yellow-800 flex items-center gap-2">
+                          <span className="material-symbols-outlined">warning</span>
+                          No cover plans found for this member
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Recent Transactions */}
+                    <div className="bg-white border border-gray-200 rounded-xl p-6">
+                      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[#1a558b]">receipt_long</span>
+                        Recent Transactions ({memberDetails.transactions.length})
+                      </h3>
+                      {memberDetails.transactions.length > 0 ? (
+                        <div className="space-y-3">
+                          {memberDetails.transactions.slice(0, 10).map((tx: any) => (
+                            <div key={tx.id} className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50">
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <p className="font-semibold text-gray-900">{tx.partners?.shop_name || 'Unknown Partner'}</p>
+                                  <p className="text-xs text-gray-600">{new Date(tx.created_at).toLocaleString()}</p>
+                                </div>
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                  tx.status === 'completed' ? 'bg-green-500/20 text-green-600' :
+                                  tx.status === 'pending' ? 'bg-yellow-500/20 text-yellow-600' :
+                                  'bg-red-500/20 text-red-600'
+                                }`}>
+                                  {tx.status}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-3 gap-2 text-sm">
+                                <div>
+                                  <p className="text-xs text-gray-600">Purchase</p>
+                                  <p className="font-bold text-gray-900">R{parseFloat(tx.purchase_amount || 0).toFixed(2)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-600">Cashback</p>
+                                  <p className="font-bold text-[#1a558b]">R{parseFloat(tx.member_amount || 0).toFixed(2)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-gray-600">Rate</p>
+                                  <p className="font-bold text-gray-900">{parseFloat(tx.cashback_percent || 0).toFixed(1)}%</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-gray-600 text-center py-4">No transactions found</p>
+                      )}
+                    </div>
+
+                    {/* Top-Ups */}
+                    {memberDetails.topUps.length > 0 && (
+                      <div className="bg-white border border-gray-200 rounded-xl p-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#1a558b]">account_balance_wallet</span>
+                          Top-Ups ({memberDetails.topUps.length})
+                        </h3>
+                        <div className="space-y-3">
+                          {memberDetails.topUps.map((topUp: any) => (
+                            <div key={topUp.id} className="border border-gray-200 rounded-lg p-3">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <p className="font-semibold text-gray-900">R{parseFloat(topUp.amount || 0).toFixed(2)}</p>
+                                  <p className="text-xs text-gray-600">{new Date(topUp.created_at).toLocaleDateString()}</p>
+                                </div>
+                                <span className="text-xs text-gray-600">{topUp.payment_method || 'N/A'}</span>
+                              </div>
+                              {topUp.reference_note && (
+                                <p className="text-xs text-gray-600 mt-2">{topUp.reference_note}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Disputes */}
+                    {memberDetails.disputes.length > 0 && (
+                      <div className="bg-white border border-gray-200 rounded-xl p-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-red-600">report_problem</span>
+                          Disputes ({memberDetails.disputes.length})
+                        </h3>
+                        <div className="space-y-3">
+                          {memberDetails.disputes.map((dispute: any) => (
+                            <div key={dispute.id} className="border border-red-200 rounded-lg p-3 bg-red-50">
+                              <div className="flex justify-between items-start mb-2">
+                                <div>
+                                  <p className="font-semibold text-gray-900">{dispute.dispute_type}</p>
+                                  <p className="text-xs text-gray-600">{new Date(dispute.created_at).toLocaleDateString()}</p>
+                                </div>
+                                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                  dispute.status === 'resolved' ? 'bg-green-500/20 text-green-600' :
+                                  dispute.status === 'rejected' ? 'bg-red-500/20 text-red-600' :
+                                  'bg-yellow-500/20 text-yellow-600'
+                                }`}>
+                                  {dispute.status}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-700">{dispute.description}</p>
+                              {dispute.resolution_note && (
+                                <p className="text-xs text-gray-600 mt-2 italic">Resolution: {dispute.resolution_note}</p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Linked People */}
+                    {memberDetails.linkedPeople.length > 0 && (
+                      <div className="bg-white border border-gray-200 rounded-xl p-6">
+                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#1a558b]">group</span>
+                          Linked People ({memberDetails.linkedPeople.length})
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {memberDetails.linkedPeople.map((person: any) => (
+                            <div key={person.id} className="border border-gray-200 rounded-lg p-3">
+                              <p className="font-semibold text-gray-900">{person.full_name}</p>
+                              <p className="text-xs text-gray-600">{person.linked_type}</p>
+                              <p className="text-xs text-gray-600">ID: {person.id_number}</p>
+                              <span className={`inline-block mt-2 px-2 py-1 rounded text-xs font-bold ${
+                                person.status === 'approved' ? 'bg-green-500/20 text-green-600' :
+                                person.status === 'rejected' ? 'bg-red-500/20 text-red-600' :
+                                'bg-yellow-500/20 text-yellow-600'
+                              }`}>
+                                {person.status}
                               </span>
                             </div>
-                            <div className="grid grid-cols-4 gap-3">
-                              <div>
-                                <p className="text-xs text-gray-600">Balance</p>
-                                <p className="text-sm text-gray-900 font-bold">R{parseFloat(wallet.balance || 0).toFixed(2)}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-600">Total Rewards</p>
-                                <p className="text-sm text-[#1a558b] font-bold">R{parseFloat(wallet.rewards_total || 0).toFixed(2)}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-600">Blocked Balance</p>
-                                <p className="text-sm text-yellow-600 font-bold">R{parseFloat(wallet.blocked_balance || 0).toFixed(2)}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-600">Commission Rate</p>
-                                <p className="text-sm text-gray-900 font-bold">{wallet.commission_rate}%</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    ) : (
-                      <p className="text-gray-600 text-sm">No wallets found</p>
                     )}
                   </div>
-
-                  {/* Recent Transactions */}
-                  <div className="bg-white border border-gray-200 rounded-xl p-6">
-                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#1a558b]">receipt_long</span>
-                      Recent Transactions ({memberDetails.transactions.length})
-                    </h3>
-                    {memberDetails.transactions.length > 0 ? (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                          <thead>
-                            <tr className="border-b border-gray-200">
-                              <th className="pb-2 text-xs text-gray-600 uppercase">Date</th>
-                              <th className="pb-2 text-xs text-gray-600 uppercase">Shop</th>
-                              <th className="pb-2 text-xs text-gray-600 uppercase">Amount</th>
-                              <th className="pb-2 text-xs text-gray-600 uppercase">Reward</th>
-                              <th className="pb-2 text-xs text-gray-600 uppercase">Type</th>
-                              <th className="pb-2 text-xs text-gray-600 uppercase">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {memberDetails.transactions.map((tx: any) => (
-                              <tr key={tx.id} className="border-b border-gray-100">
-                                <td className="py-2 text-gray-700">{new Date(tx.created_at).toLocaleDateString()}</td>
-                                <td className="py-2 text-gray-700">{tx.shops?.name || '-'}</td>
-                                <td className="py-2 text-gray-900 font-bold">R{parseFloat(tx.purchase_amount || 0).toFixed(2)}</td>
-                                <td className="py-2 text-[#1a558b] font-bold">R{parseFloat(tx.member_reward || 0).toFixed(2)}</td>
-                                <td className="py-2">
-                                  <span className={`px-2 py-1 rounded text-xs font-bold ${tx.is_spend ? 'bg-red-500/20 text-red-700' : 'bg-green-500/20 text-green-600'}`}>
-                                    {tx.is_spend ? 'Spend' : 'Earn'}
-                                  </span>
-                                </td>
-                                <td className="py-2">
-                                  <span className="text-xs text-gray-600 capitalize">{tx.status}</span>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <p className="text-gray-600 text-sm">No transactions found</p>
-                    )}
+                ) : (
+                  <div className="px-6 py-12 text-center bg-gray-50">
+                    <p className="text-gray-600">No details available</p>
                   </div>
-
-                </div>
-              ) : null}
+                )}
               </div>
             </div>
           </div>

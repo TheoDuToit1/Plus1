@@ -2,6 +2,7 @@
 import Header from './Header';
 import HeroSection from './HeroSection';
 import HowItWorks from './HowItWorks';
+import CoverStatus from './CoverStatus';
 import RolesCarousel from './RolesCarousel';
 import OfflineFeature from './OfflineFeature';
 import TrustBadge from './TrustBadge';
@@ -16,6 +17,7 @@ export default function MobileLanding() {
       <main className="flex-1">
         <HeroSection />
         <HowItWorks />
+        <CoverStatus />
         <RolesCarousel />
         <OfflineFeature />
         <TrustBadge />

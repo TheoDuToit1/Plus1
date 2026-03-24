@@ -64,16 +64,7 @@ export default function Dashboard() {
         
         if (!hasIncompleteProfile || !member.active_policy) continue;
         
-        // Get policy plan target
-        const { data: policyPlan } = await supabaseAdmin
-          .from('policy_plans')
-          .select('monthly_target')
-          .eq('id', member.active_policy)
-          .single();
-        
-        if (!policyPlan) continue;
-        
-        // Get member's total rewards
+        // Get member's total cashback (using rewards as cashback)
         const { data: wallets, error: walletError } = await supabaseAdmin
           .from('wallets')
           .select('rewards_total')
@@ -81,10 +72,11 @@ export default function Dashboard() {
         
         console.log(`Member ${member.name} (${member.id}): wallets query returned`, wallets, 'error:', walletError);
         
-        const totalRewards = (wallets || []).reduce((sum, w) => sum + (w.rewards_total || 0), 0);
-        const percentComplete = (totalRewards / policyPlan.monthly_target) * 100;
+        const totalCashback = (wallets || []).reduce((sum, w) => sum + (w.rewards_total || 0), 0);
+        const targetAmount = 385; // Default cover plan target from docs
+        const percentComplete = (totalCashback / targetAmount) * 100;
         
-        console.log(`Member ${member.name}: ${percentComplete.toFixed(1)}% complete (R${totalRewards}/R${policyPlan.monthly_target}), incomplete=${hasIncompleteProfile}`);
+        console.log(`Member ${member.name}: ${percentComplete.toFixed(1)}% complete (R${totalCashback}/R${targetAmount}), incomplete=${hasIncompleteProfile}`);
         
         if (percentComplete >= 90) {
           membersNeedingAttention.push({
@@ -93,8 +85,8 @@ export default function Dashboard() {
             phone: member.phone,
             email: member.email,
             percentComplete: percentComplete.toFixed(1),
-            amountFunded: totalRewards,
-            target: policyPlan.monthly_target
+            amountFunded: totalCashback,
+            target: targetAmount
           });
           console.log(`⚠️ ALERT: Member ${member.name} at ${percentComplete.toFixed(1)}% needs verification!`);
         }
@@ -103,7 +95,7 @@ export default function Dashboard() {
       if (membersNeedingAttention.length > 0) {
         setMembersNeedingVerification(membersNeedingAttention);
         setAlert({
-          message: `${membersNeedingAttention.length} member(s) at 90%+ policy completion need profile verification`,
+          message: `${membersNeedingAttention.length} member(s) at 90%+ cover plan completion need profile verification`,
           action: () => setShowModal(true)
         });
       } else {
@@ -168,7 +160,7 @@ export default function Dashboard() {
                   <div>
                     <h2 className="text-2xl font-black mb-1">Profile Verification Required</h2>
                     <p className="text-yellow-50 text-sm font-medium">
-                      {membersNeedingVerification.length} {membersNeedingVerification.length === 1 ? 'member has' : 'members have'} reached 90%+ policy completion with incomplete profiles
+                      {membersNeedingVerification.length} {membersNeedingVerification.length === 1 ? 'member has' : 'members have'} reached 90%+ cover plan completion with incomplete profiles
                     </p>
                   </div>
                 </div>
@@ -239,7 +231,7 @@ export default function Dashboard() {
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <span className="material-symbols-outlined text-green-600">trending_up</span>
-                          <span className="text-xs text-gray-600 uppercase font-bold tracking-wide">Policy Funding Progress</span>
+                          <span className="text-xs text-gray-600 uppercase font-bold tracking-wide">Cover Plan Funding Progress</span>
                         </div>
                         <span className="text-sm font-black text-green-600">
                           R{member.amountFunded.toFixed(2)} / R{member.target.toFixed(2)}
@@ -267,7 +259,7 @@ export default function Dashboard() {
                         <div className="flex-1">
                           <p className="text-sm font-black text-blue-900 mb-1 uppercase tracking-wide">Urgent Action Required</p>
                           <p className="text-sm text-blue-800 leading-relaxed">
-                            Contact this member immediately to verify their profile information including SA ID, valid email address, and residential address before policy goes live.
+                            Contact this member immediately to verify their profile information including SA ID, valid email address, and residential address before cover plan goes live.
                           </p>
                         </div>
                       </div>

@@ -1,0 +1,387 @@
+// src/components/partner/pages/ProcessTransaction.tsx
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../../lib/supabase';
+
+interface Partner {
+  id: string;
+  shop_name: string;
+  cashback_percent: number;
+  status: string;
+}
+
+interface Member {
+  id: string;
+  full_name: string;
+  phone: string;
+}
+
+export default function ProcessTransaction() {
+  const navigate = useNavigate();
+  const [partner, setPartner] = useState<Partner | null>(null);
+  const [searchMethod, setSearchMethod] = useState<'phone' | 'qr'>('phone');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [purchaseAmount, setPurchaseAmount] = useState('');
+  const [member, setMember] = useState<Member | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  useEffect(() => {
+    loadPartner();
+  }, []);
+
+  const loadPartner = async () => {
+    try {
+      const partnerSessionData = localStorage.getItem('partnerSession') || sessionStorage.getItem('partnerSession');
+      
+      if (!partnerSessionData) {
+        navigate('/partner/login');
+        return;
+      }
+
+      const session = JSON.parse(partnerSessionData);
+      const partnerId = session.partner?.id;
+
+      if (!partnerId) {
+        navigate('/partner/login');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('partners')
+        .select('id, shop_name, cashback_percent, status')
+        .eq('id', partnerId)
+        .single();
+
+      if (error) throw error;
+      setPartner(data);
+    } catch (error) {
+      console.error('Error loading partner:', error);
+    }
+  };
+
+  const handleSearchMember = async () => {
+    if (!phoneNumber || phoneNumber.length !== 10) {
+      setError('Please enter a valid 10-digit phone number');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setMember(null);
+
+    try {
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, full_name, phone')
+        .eq('phone', phoneNumber)
+        .single();
+
+      if (error || !data) {
+        setError('Member not found. Please ask them to register first.');
+        return;
+      }
+
+      setMember(data);
+    } catch (err) {
+      setError('Error searching for member');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitTransaction = async () => {
+    if (!member || !purchaseAmount || !partner) {
+      setError('Please complete all fields');
+      return;
+    }
+
+    // Check if partner is suspended
+    if (partner.status === 'suspended') {
+      setError('Transaction error, please contact administrator');
+      return;
+    }
+
+    const amount = parseFloat(purchaseAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setError('Please enter a valid purchase amount');
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+
+    try {
+      // Calculate split
+      const cashbackPercent = partner.cashback_percent;
+      const totalCashback = (amount * cashbackPercent) / 100;
+      const systemAmount = (amount * 1) / 100;
+      const agentAmount = (amount * 1) / 100;
+      const memberAmount = totalCashback - systemAmount - agentAmount;
+
+      // Create transaction
+      const { data: transaction, error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          partner_id: partner.id,
+          member_id: member.id,
+          purchase_amount: amount,
+          cashback_percent: cashbackPercent,
+          system_percent: 1,
+          agent_percent: 1,
+          member_percent: cashbackPercent - 2,
+          system_amount: systemAmount,
+          agent_amount: agentAmount,
+          member_amount: memberAmount,
+          partner_contribution: totalCashback,
+          status: 'pending_sync'
+        })
+        .select()
+        .single();
+
+      if (txError) throw txError;
+
+      // Create wallet entry for member
+      const { data: memberCoverPlans } = await supabase
+        .from('member_cover_plans')
+        .select('id')
+        .eq('member_id', member.id)
+        .order('creation_order', { ascending: true })
+        .limit(1)
+        .single();
+
+      if (memberCoverPlans) {
+        await supabase
+          .from('cover_plan_wallet_entries')
+          .insert({
+            member_id: member.id,
+            member_cover_plan_id: memberCoverPlans.id,
+            transaction_id: transaction.id,
+            entry_type: 'cashback_added',
+            amount: memberAmount,
+            balance_after: memberAmount
+          });
+      }
+
+      setSuccess(`Transaction successful! R${amount.toFixed(2)} purchase recorded. Member received R${memberAmount.toFixed(2)} cashback.`);
+      
+      // Clear form
+      setTimeout(() => {
+        setMember(null);
+        setPhoneNumber('');
+        setPurchaseAmount('');
+        setSuccess('');
+      }, 3000);
+
+    } catch (err: any) {
+      setError(err.message || 'Failed to process transaction');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleClear = () => {
+    setMember(null);
+    setPhoneNumber('');
+    setPurchaseAmount('');
+    setError('');
+    setSuccess('');
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#1a558b]/20 border-t-[#1a558b] rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const systemAmount = member && purchaseAmount ? (parseFloat(purchaseAmount) * 1) / 100 : 0;
+  const agentAmount = member && purchaseAmount ? (parseFloat(purchaseAmount) * 1) / 100 : 0;
+  const memberAmount = member && purchaseAmount && partner ? 
+    ((parseFloat(purchaseAmount) * partner.cashback_percent) / 100) - systemAmount - agentAmount : 0;
+
+  return (
+    <>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Process Transaction</h1>
+          <p className="text-gray-600">Capture member purchase and issue cashback</p>
+        </div>
+        <button
+          onClick={() => navigate('/partner/dashboard')}
+          className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold px-4 py-2 rounded-xl transition-colors"
+        >
+          ← Back to Dashboard
+        </button>
+      </div>
+
+      {/* Success Message */}
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-6 mb-6 shadow-sm flex items-start gap-4">
+          <span className="material-symbols-outlined text-green-600 text-2xl">check_circle</span>
+          <div>
+            <h3 className="font-bold text-green-900 mb-1">Success!</h3>
+            <p className="text-sm text-green-700">{success}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 mb-6 shadow-sm flex items-start gap-4">
+          <span className="material-symbols-outlined text-red-600 text-2xl">error</span>
+          <div>
+            <h3 className="font-bold text-red-900 mb-1">Error</h3>
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Search Method Toggle */}
+      <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 shadow-sm">
+        <div className="flex gap-3 mb-6">
+          <button
+            onClick={() => setSearchMethod('phone')}
+            className={`flex-1 py-3 rounded-xl font-bold transition-all ${
+              searchMethod === 'phone'
+                ? 'bg-[#1a558b] text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <span className="material-symbols-outlined text-lg mr-2">phone</span>
+            Phone Number
+          </button>
+          <button
+            onClick={() => setSearchMethod('qr')}
+            className={`flex-1 py-3 rounded-xl font-bold transition-all ${
+              searchMethod === 'qr'
+                ? 'bg-[#1a558b] text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <span className="material-symbols-outlined text-lg mr-2">qr_code_scanner</span>
+            QR Scan
+          </button>
+        </div>
+
+        {/* Phone Search */}
+        {searchMethod === 'phone' && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                Member Mobile Number
+              </label>
+              <div className="flex gap-3">
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder="0812345678"
+                  className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#1a558b] focus:outline-none"
+                />
+                <button
+                  onClick={handleSearchMember}
+                  disabled={loading || phoneNumber.length !== 10}
+                  className="bg-[#1a558b] hover:bg-[#1a558b]/90 disabled:bg-gray-300 text-white font-bold px-6 py-3 rounded-xl transition-colors"
+                >
+                  {loading ? 'Searching...' : 'Search'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* QR Scan */}
+        {searchMethod === 'qr' && (
+          <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+            <span className="material-symbols-outlined text-gray-400 text-6xl mb-4">qr_code_scanner</span>
+            <p className="text-gray-600">QR Scanner coming soon</p>
+            <p className="text-sm text-gray-500 mt-2">Use phone number search for now</p>
+          </div>
+        )}
+      </div>
+
+      {/* Member Details & Transaction Form */}
+      {member && (
+        <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 shadow-sm">
+          <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#1a558b]">person</span>
+            Member Found
+          </h2>
+          <div className="bg-green-50 rounded-xl p-4 mb-6 border border-green-200">
+            <p className="font-bold text-gray-900">{member.full_name}</p>
+            <p className="text-sm text-gray-600">{member.phone}</p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                Purchase Amount (R)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={purchaseAmount}
+                onChange={(e) => setPurchaseAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-[#1a558b] focus:outline-none text-2xl font-bold"
+              />
+            </div>
+
+            {purchaseAmount && parseFloat(purchaseAmount) > 0 && partner && (
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                <p className="text-xs font-bold text-gray-700 mb-3">Cashback Split ({partner.cashback_percent}%):</p>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">System Fee (1%)</span>
+                    <span className="font-bold text-[#1a558b]">R{systemAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Agent Commission (1%)</span>
+                    <span className="font-bold text-[#1a558b]">R{agentAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t-2 border-blue-300">
+                    <span className="text-gray-700 font-semibold">Member Reward</span>
+                    <span className="font-black text-green-600 text-lg">R{memberAmount.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={handleClear}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold py-3 rounded-xl transition-colors"
+              >
+                Clear
+              </button>
+              <button
+                onClick={handleSubmitTransaction}
+                disabled={submitting || !purchaseAmount || parseFloat(purchaseAmount) <= 0}
+                className="flex-1 bg-[#1a558b] hover:bg-[#1a558b]/90 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-colors"
+              >
+                {submitting ? 'Processing...' : 'Submit Transaction'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contact Admin */}
+      <button
+        onClick={() => navigate('/partner/support')}
+        className="w-full bg-white hover:bg-gray-50 border border-gray-200 text-gray-900 font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"
+      >
+        <span className="material-symbols-outlined">support_agent</span>
+        Contact Admin
+      </button>
+    </>
+  );
+}

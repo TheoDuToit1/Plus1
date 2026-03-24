@@ -13,13 +13,39 @@ import Dashboard from './components/dashboard/Dashboard'
 import MembersPage from './components/dashboard/pages/MembersPage'
 import PartnersPage from './components/dashboard/pages/PartnersPage'
 import AgentsPage from './components/dashboard/pages/AgentsPage'
-import PoliciesPage from './components/dashboard/pages/PoliciesPage'
 import TransactionsPage from './components/dashboard/pages/TransactionsPage'
+import ApprovalsPage from './components/dashboard/pages/ApprovalsPage'
+import CoverPlansPage from './components/dashboard/pages/CoverPlansPage'
+import InvoicesPage from './components/dashboard/pages/InvoicesPage'
+import CommissionsPage from './components/dashboard/pages/CommissionsPage'
+import DisputesPage from './components/dashboard/pages/DisputesPage'
+import TopUpsPage from './components/dashboard/pages/TopUpsPage'
+import ProvidersPage from './components/dashboard/pages/ProvidersPage'
+import ExportsPage from './components/dashboard/pages/ExportsPage'
+import AuditLogsPage from './components/dashboard/pages/AuditLogsPage'
+import SettingsPage from './components/dashboard/pages/SettingsPage'
 import { MemberDashboard } from './pages/MemberDashboard'
+import MemberCoverPlans from './pages/MemberCoverPlans'
+import MemberTransactions from './pages/MemberTransactions'
+import MemberTopUp from './pages/MemberTopUp'
+import MemberLinkedPeople from './pages/MemberLinkedPeople'
+import MemberSupport from './pages/MemberSupport'
 import PartnerDashboard from './components/partner/PartnerDashboard'
 import TransactionHistory from './components/partner/pages/TransactionHistory'
+import PartnerTransactionDetail from './components/partner/PartnerTransactionDetail'
 import MonthlyInvoice from './components/partner/pages/MonthlyInvoice'
+import PartnerShopProfile from './components/partner/PartnerShopProfile'
+import PartnerSupport from './components/partner/PartnerSupport'
+import PartnerProcessTransaction from './components/partner/PartnerProcessTransaction'
+import QuickTransaction from './components/partner/pages/QuickTransaction'
+import PartnerMemberRegistration from './pages/PartnerMemberRegistration'
+import PartnerSales from './pages/PartnerSales'
 import { AgentDashboard } from './pages/AgentDashboard'
+import { AgentAddShop } from './pages/AgentAddPartner'
+import { AgentCommission } from './pages/AgentCommission'
+import { AgentSupport } from './pages/AgentSupport'
+import { AgentProfile } from './pages/AgentProfile'
+import { AgentShopDetail } from './pages/AgentShopDetail'
 import { PolicyProviderDashboard } from './pages/PolicyProviderDashboard'
 import { MemberScanPartner } from './pages/MemberScanPartner'
 import { MemberPolicySelector } from './pages/MemberPolicySelector'
@@ -29,6 +55,8 @@ import { MemberProfile } from './pages/MemberProfile'
 import { MemberQR } from './pages/MemberQR'
 import { MemberFindPartners } from './pages/MemberFindPartners'
 import ProtectedPolicyProviderRoute from './components/ProtectedPolicyProviderRoute'
+import TermsOfService from './pages/TermsOfService'
+import PrivacyPolicy from './pages/PrivacyPolicy'
 
 export default function App() {
   return (
@@ -36,6 +64,8 @@ export default function App() {
       <Router>
         <Routes>
           <Route path="/" element={<Landing />} />
+          <Route path="/terms-of-service" element={<TermsOfService />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/member/login" element={<MemberLogin />} />
           <Route path="/member/register" element={<MemberRegister />} />
           <Route path="/partner/login" element={<PartnerLogin />} />
@@ -45,12 +75,26 @@ export default function App() {
           <Route path="/provider/login" element={<PolicyProviderLogin />} />
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<Dashboard />} />
+          <Route path="/admin/approvals" element={<ApprovalsPage />} />
           <Route path="/admin/members" element={<MembersPage />} />
+          <Route path="/admin/cover-plans" element={<CoverPlansPage />} />
           <Route path="/admin/partners" element={<PartnersPage />} />
+          <Route path="/admin/invoices" element={<InvoicesPage />} />
           <Route path="/admin/agents" element={<AgentsPage />} />
-          <Route path="/admin/policies" element={<PoliciesPage />} />
+          <Route path="/admin/commissions" element={<CommissionsPage />} />
+          <Route path="/admin/providers" element={<ProvidersPage />} />
           <Route path="/admin/transactions" element={<TransactionsPage />} />
+          <Route path="/admin/disputes" element={<DisputesPage />} />
+          <Route path="/admin/top-ups" element={<TopUpsPage />} />
+          <Route path="/admin/exports" element={<ExportsPage />} />
+          <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
+          <Route path="/admin/settings" element={<SettingsPage />} />
           <Route path="/member/dashboard" element={<MemberDashboard />} />
+          <Route path="/member/cover-plans" element={<MemberCoverPlans />} />
+          <Route path="/member/transactions" element={<MemberTransactions />} />
+          <Route path="/member/top-up" element={<MemberTopUp />} />
+          <Route path="/member/linked-people" element={<MemberLinkedPeople />} />
+          <Route path="/member/support" element={<MemberSupport />} />
           <Route path="/member/scan-partner" element={<MemberScanPartner />} />
           <Route path="/member/policy-selector" element={<MemberPolicySelector />} />
           <Route path="/member/policies" element={<MemberPolicies />} />
@@ -59,9 +103,21 @@ export default function App() {
           <Route path="/member/qr" element={<MemberQR />} />
           <Route path="/member/find-partners" element={<MemberFindPartners />} />
           <Route path="/partner/dashboard" element={<PartnerDashboard />} />
+          <Route path="/partner/process-transaction" element={<PartnerProcessTransaction />} />
+          <Route path="/partner/quick-transaction" element={<QuickTransaction />} />
+          <Route path="/partner/member-registration" element={<PartnerMemberRegistration />} />
+          <Route path="/partner/sales" element={<PartnerSales />} />
           <Route path="/partner/transaction-history" element={<TransactionHistory />} />
+          <Route path="/partner/transaction/:transactionId" element={<PartnerTransactionDetail />} />
           <Route path="/partner/monthly-invoice" element={<MonthlyInvoice />} />
+          <Route path="/partner/profile" element={<PartnerShopProfile />} />
+          <Route path="/partner/support" element={<PartnerSupport />} />
           <Route path="/agent/dashboard" element={<AgentDashboard />} />
+          <Route path="/agent/add-shop" element={<AgentAddShop />} />
+          <Route path="/agent/commission" element={<AgentCommission />} />
+          <Route path="/agent/support" element={<AgentSupport />} />
+          <Route path="/agent/profile" element={<AgentProfile />} />
+          <Route path="/agent/shop/:partnerId" element={<AgentShopDetail />} />
           <Route path="/provider/dashboard" element={
             <ProtectedPolicyProviderRoute>
               <PolicyProviderDashboard />
