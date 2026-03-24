@@ -32,16 +32,6 @@ export default function Hero() {
         </div>
 
         <div className="flex flex-col gap-4 md:gap-8 max-w-full md:max-w-2xl">
-          {/* Badge */}
-          <span
-            className="inline-flex w-fit items-center gap-2 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border"
-            style={{ backgroundColor: BLUE_LIGHT, color: BLUE, borderColor: BLUE_BORDER }}
-          >
-            <span className="material-symbols-outlined text-sm" style={{ color: BLUE }}>health_and_safety</span>
-            <span className="hidden sm:inline">Your Shopping Pays for Your Cover</span>
-            <span className="sm:hidden">Shop & Get Covered</span>
-          </span>
-
           {/* Headline */}
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight text-gray-900">
             Health Cover for All.<br />
