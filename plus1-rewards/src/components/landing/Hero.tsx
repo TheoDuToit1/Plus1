@@ -22,6 +22,11 @@ export default function Hero() {
       </div>
 
       <div className="relative z-10 w-full max-w-[1800px] mx-auto flex-1 flex flex-col justify-center py-8 md:py-12">
+        {/* Mobile hero title - visible only on mobile, above image */}
+        <h1 className="md:hidden text-3xl font-bold text-gray-900 mb-4">
+          Health Cover for All.
+        </h1>
+
         {/* Mobile hero image - visible only on mobile */}
         <div className="md:hidden w-full mb-6 rounded-2xl overflow-hidden">
           <img
@@ -34,11 +39,13 @@ export default function Hero() {
         <div className="flex flex-col gap-4 md:gap-8 max-w-full md:max-w-2xl">
           {/* Headline */}
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight text-gray-900">
-            Health Cover for All.<br />
+            <span className="hidden md:inline">Health Cover for All.<br /></span>
             <span style={{ color: BLUE }}>Shop local. </span>
             <span style={{ color: BLUE }}>Earn rands. </span>
             <br />
-            <span style={{ color: '#16a34a', fontSize: 'calc(1em - 1px)' }}>Your cover plan paid</span>
+            <span style={{ color: '#000000', fontSize: 'calc(1em - 1px)' }}>Enjoy </span>
+            <span style={{ color: '#16a34a', fontSize: 'calc(1em - 1px)' }}>FREE </span>
+            <span style={{ color: '#000000', fontSize: 'calc(1em - 1px)' }}>Medical Cover</span>
           </h1>
 
           {/* Subtext */}
