@@ -18,7 +18,7 @@ export default function HeroSection() {
             Health for Everyone
           </span>
           <h1 className="text-3xl font-bold text-white leading-tight">
-            Health Cover for All. Shop local. Earn rands. Medical cover Plan Payed.
+            Health Cover for All. Shop local. Earn rands. Medical cover Plan Paid.
           </h1>
           <p className="text-blue-100 text-sm leading-relaxed">
             Join +1 Rewards and earn cashback in rands — not points — at participating businesses near you. Your cashback pays directly toward your Day1Health medical cover plan.
