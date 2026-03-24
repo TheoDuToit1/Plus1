@@ -19,6 +19,7 @@ interface MemberCoverPlan {
   creation_order: number;
   target_amount: number | string;
   funded_amount: number | string;
+  overflow_balance: number | string;
   status: string;
   active_from: string | null;
   active_to: string | null;
@@ -90,7 +91,10 @@ export function MemberDashboard() {
               : coverPlansData[0].target_amount,
             funded_amount: typeof coverPlansData[0].funded_amount === 'string' 
               ? parseFloat(coverPlansData[0].funded_amount) 
-              : coverPlansData[0].funded_amount
+              : coverPlansData[0].funded_amount,
+            overflow_balance: typeof coverPlansData[0].overflow_balance === 'string' 
+              ? parseFloat(coverPlansData[0].overflow_balance) 
+              : (coverPlansData[0].overflow_balance || 0)
           };
           setMainCoverPlan(planWithNumbers);
           setTotalCoverPlans(coverPlansData.length);
@@ -130,6 +134,7 @@ export function MemberDashboard() {
 
   const targetAmount = mainCoverPlan ? Number(mainCoverPlan.target_amount) : 0;
   const fundedAmount = mainCoverPlan ? Number(mainCoverPlan.funded_amount) : 0;
+  const overflowBalance = mainCoverPlan ? Number(mainCoverPlan.overflow_balance) : 0;
 
   const progressPercent = mainCoverPlan 
     ? Math.min((fundedAmount / targetAmount) * 100, 100)
@@ -139,48 +144,85 @@ export function MemberDashboard() {
     ? Math.max(targetAmount - fundedAmount, 0)
     : 0;
 
-  // Calculate overflow cashback (amount beyond the first cover plan's target)
-  const overflowCashback = mainCoverPlan && fundedAmount > targetAmount
-    ? fundedAmount - targetAmount
-    : 0;
+  // Total cashback earned = funded amount + overflow balance
+  const totalCashbackEarned = fundedAmount + overflowBalance;
 
-  // Check if we should show upgrade prompt
+  // Check if we should show upgrade prompt (when overflow >= plan amount on login)
+  // This happens AFTER the transaction has been processed and member logs in
   useEffect(() => {
-    if (mainCoverPlan && overflowCashback > 0 && mainCoverPlan.status === 'active') {
-      // Check if user has dismissed the prompt in this session
-      const dismissed = sessionStorage.getItem('upgrade_prompt_dismissed');
-      if (!dismissed) {
+    if (mainCoverPlan && overflowBalance >= targetAmount && mainCoverPlan.status === 'active') {
+      // Check if user has seen the prompt for this overflow level
+      const lastPromptOverflow = sessionStorage.getItem('last_upgrade_prompt_overflow');
+      const currentOverflowKey = `${mainCoverPlan.id}_${Math.floor(overflowBalance)}`;
+      
+      if (lastPromptOverflow !== currentOverflowKey) {
         setShowUpgradePrompt(true);
+        sessionStorage.setItem('last_upgrade_prompt_overflow', currentOverflowKey);
       }
     }
-  }, [mainCoverPlan, overflowCashback]);
+  }, [mainCoverPlan, overflowBalance, targetAmount]);
 
   const handleUpgrade = async () => {
     if (!mainCoverPlan) return;
 
     const currentTarget = Number(mainCoverPlan.target_amount);
-    const nextTarget = currentTarget === 385 ? 500 : currentTarget === 500 ? 750 : 0;
-
-    if (nextTarget === 0) {
+    const currentOverflow = Number(mainCoverPlan.overflow_balance);
+    
+    // Determine next plan tier and cost
+    let nextTarget = 0;
+    let upgradeCost = 0;
+    
+    if (currentTarget === 385) {
+      nextTarget = 500;
+      upgradeCost = 115; // 500 - 385
+    } else if (currentTarget === 500) {
+      nextTarget = 750;
+      upgradeCost = 250; // 750 - 500
+    } else {
       alert('You are already on the highest plan!');
       return;
     }
 
+    // Check if enough overflow to upgrade
+    if (currentOverflow < upgradeCost) {
+      alert(`You need R${upgradeCost.toFixed(2)} to upgrade. You have R${currentOverflow.toFixed(2)}.`);
+      return;
+    }
+
     try {
-      // Update the cover plan target
+      const newOverflow = currentOverflow - upgradeCost;
+      
+      // Update the cover plan: increase target, deduct from overflow, extend active period
       const { error } = await supabase
         .from('member_cover_plans')
         .update({ 
           target_amount: nextTarget,
-          status: fundedAmount >= nextTarget ? 'active' : 'in_progress'
+          funded_amount: nextTarget, // Plan is now funded at new level
+          overflow_balance: newOverflow,
+          status: 'active',
+          active_from: new Date().toISOString(),
+          active_to: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
         })
         .eq('id', mainCoverPlan.id);
 
       if (error) throw error;
 
+      // Record the upgrade in wallet entries
+      await supabase
+        .from('cover_plan_wallet_entries')
+        .insert({
+          member_id: member!.id,
+          member_cover_plan_id: mainCoverPlan.id,
+          entry_type: 'overflow_moved',
+          amount: -upgradeCost,
+          balance_after: newOverflow
+        });
+
       setShowUpgradePrompt(false);
-      sessionStorage.removeItem('upgrade_prompt_dismissed');
+      sessionStorage.removeItem('last_upgrade_prompt_overflow');
       loadDashboardData(); // Reload to show updated plan
+      
+      alert(`Successfully upgraded to R${nextTarget} plan! Remaining overflow: R${newOverflow.toFixed(2)}`);
     } catch (error) {
       console.error('Error upgrading plan:', error);
       alert('Failed to upgrade plan. Please try again.');
@@ -189,7 +231,7 @@ export function MemberDashboard() {
 
   const handleDeclineUpgrade = () => {
     setShowUpgradePrompt(false);
-    sessionStorage.setItem('upgrade_prompt_dismissed', 'true');
+    // Don't remove the session key so it doesn't show again this session
   };
 
   const handleAddDependant = () => {
@@ -345,7 +387,7 @@ export function MemberDashboard() {
                   
                   <div className="flex justify-between text-sm">
                     <span className="text-blue-700">Total Cashback Earned:</span>
-                    <span className="text-blue-900 font-bold">R{fundedAmount.toFixed(2)}</span>
+                    <span className="text-blue-900 font-bold">R{totalCashbackEarned.toFixed(2)}</span>
                   </div>
                   
                   <div className="flex justify-between text-sm">
@@ -356,16 +398,16 @@ export function MemberDashboard() {
                   <div className="border-t border-blue-300 pt-2 mt-2">
                     <div className="flex justify-between">
                       <span className="text-blue-900 font-bold">Available Balance:</span>
-                      <span className={`font-bold text-lg ${overflowCashback > 0 ? 'text-purple-600' : 'text-blue-900'}`}>
-                        R{overflowCashback.toFixed(2)}
+                      <span className={`font-bold text-lg ${overflowBalance > 0 ? 'text-purple-600' : 'text-blue-900'}`}>
+                        R{overflowBalance.toFixed(2)}
                       </span>
                     </div>
-                    {overflowCashback > 0 && (
+                    {overflowBalance > 0 && (
                       <p className="text-xs text-blue-700 mt-1">
                         This overflow can be used to upgrade, add dependants, or sponsor someone
                       </p>
                     )}
-                    {overflowCashback === 0 && (
+                    {overflowBalance === 0 && (
                       <p className="text-xs text-blue-700 mt-1">
                         Keep shopping to build overflow for upgrades or dependants
                       </p>
@@ -427,22 +469,11 @@ export function MemberDashboard() {
             {/* Sponsor Someone Button */}
             <button
               onClick={handleSponsorSomeone}
-              disabled={overflowCashback < (targetAmount * 2)}
-              className="bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-bold py-6 rounded-xl transition-all transform hover:scale-105 disabled:hover:scale-100 flex flex-col items-center justify-center gap-2 relative group"
-              title={overflowCashback < (targetAmount * 2) ? `Need R${(targetAmount * 2).toFixed(2)} overflow to sponsor (2x R${targetAmount})` : 'Sponsor someone!'}
+              className="bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-6 rounded-xl transition-all transform hover:scale-105 flex flex-col items-center justify-center gap-2"
             >
               <span className="material-symbols-outlined text-4xl">card_giftcard</span>
               <span>Sponsor Someone</span>
-              <span className="text-xs opacity-90">
-                {overflowCashback < (targetAmount * 2) 
-                  ? `Need R${(targetAmount * 2).toFixed(2)} overflow` 
-                  : 'Help someone get covered'}
-              </span>
-              {overflowCashback < (targetAmount * 2) && (
-                <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
-                  Locked
-                </div>
-              )}
+              <span className="text-xs opacity-90">Help someone get covered</span>
             </button>
           </div>
         </div>
@@ -465,7 +496,7 @@ export function MemberDashboard() {
             <span className="material-symbols-outlined text-[#1a558b] text-2xl">account_balance_wallet</span>
             <div>
               <p className="text-gray-900 font-bold text-xl">
-                R{overflowCashback.toFixed(2)}
+                R{overflowBalance.toFixed(2)}
               </p>
               <p className="text-gray-600 text-sm">Available Balance</p>
             </div>
@@ -599,7 +630,7 @@ export function MemberDashboard() {
           currentPlanName={mainCoverPlan.cover_plans.plan_name}
           currentTarget={targetAmount}
           fundedAmount={fundedAmount}
-          overflowAmount={overflowCashback}
+          overflowAmount={overflowBalance}
           onUpgrade={handleUpgrade}
           onDecline={handleDeclineUpgrade}
         />

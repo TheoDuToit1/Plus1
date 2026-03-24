@@ -22,6 +22,15 @@ export default function Hero() {
       </div>
 
       <div className="relative z-10 w-full max-w-[1800px] mx-auto flex-1 flex flex-col justify-center py-8 md:py-12">
+        {/* Mobile hero image - visible only on mobile */}
+        <div className="md:hidden w-full mb-6 rounded-2xl overflow-hidden">
+          <img
+            alt="Diverse South African community interaction"
+            className="w-full h-48 object-cover"
+            src="/background hero section.png"
+          />
+        </div>
+
         <div className="flex flex-col gap-4 md:gap-8 max-w-full md:max-w-2xl">
           {/* Badge */}
           <span

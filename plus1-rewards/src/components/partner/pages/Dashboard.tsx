@@ -502,49 +502,106 @@ export default function Dashboard() {
 
       if (txError) throw txError;
 
+      // Get member's first cover plan (by creation order)
       const { data: memberCoverPlans } = await supabase
         .from('member_cover_plans')
-        .select('id, funded_amount, target_amount, status')
+        .select('id, funded_amount, target_amount, status, overflow_balance')
         .eq('member_id', member.id)
-        .eq('status', 'in_progress')
         .order('creation_order', { ascending: true });
 
       if (memberCoverPlans && memberCoverPlans.length > 0) {
-        let remainingAmount = memberAmount;
-
-        for (const plan of memberCoverPlans) {
-          if (remainingAmount <= 0) break;
-
-          const needed = plan.target_amount - plan.funded_amount;
-          const toAdd = Math.min(remainingAmount, needed);
-
-          const newFundedAmount = plan.funded_amount + toAdd;
-          const newStatus = newFundedAmount >= plan.target_amount ? 'active' : 'in_progress';
-
+        const firstPlan = memberCoverPlans[0];
+        const currentFunded = Number(firstPlan.funded_amount);
+        const targetAmount = Number(firstPlan.target_amount);
+        const currentOverflow = Number(firstPlan.overflow_balance || 0);
+        
+        // If plan is already active, all cashback goes to overflow
+        if (firstPlan.status === 'active') {
+          const newOverflow = currentOverflow + memberAmount;
+          
           await supabase
             .from('member_cover_plans')
             .update({
-              funded_amount: newFundedAmount,
-              status: newStatus,
-              ...(newStatus === 'active' && {
-                active_from: new Date().toISOString(),
-                active_to: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-              })
+              overflow_balance: newOverflow
             })
-            .eq('id', plan.id);
+            .eq('id', firstPlan.id);
 
           await supabase
             .from('cover_plan_wallet_entries')
             .insert({
               member_id: member.id,
-              member_cover_plan_id: plan.id,
+              member_cover_plan_id: firstPlan.id,
               transaction_id: transaction.id,
               entry_type: 'cashback_added',
-              amount: toAdd,
-              balance_after: newFundedAmount
+              amount: memberAmount,
+              balance_after: newOverflow
             });
+        } 
+        // If plan is in_progress, check if this cashback will activate it
+        else if (firstPlan.status === 'in_progress') {
+          const totalCashback = currentFunded + memberAmount;
+          
+          // Check if we have enough to activate the plan
+          if (totalCashback >= targetAmount) {
+            // Deduct plan amount, rest goes to overflow
+            const overflow = totalCashback - targetAmount;
+            
+            await supabase
+              .from('member_cover_plans')
+              .update({
+                funded_amount: targetAmount,
+                overflow_balance: overflow,
+                status: 'active',
+                active_from: new Date().toISOString(),
+                active_to: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+              })
+              .eq('id', firstPlan.id);
 
-          remainingAmount -= toAdd;
+            // Record plan activation
+            await supabase
+              .from('cover_plan_wallet_entries')
+              .insert({
+                member_id: member.id,
+                member_cover_plan_id: firstPlan.id,
+                transaction_id: transaction.id,
+                entry_type: 'cashback_added',
+                amount: targetAmount,
+                balance_after: targetAmount
+              });
+
+            // Record overflow if any
+            if (overflow > 0) {
+              await supabase
+                .from('cover_plan_wallet_entries')
+                .insert({
+                  member_id: member.id,
+                  member_cover_plan_id: firstPlan.id,
+                  transaction_id: transaction.id,
+                  entry_type: 'cashback_added',
+                  amount: overflow,
+                  balance_after: overflow
+                });
+            }
+          } else {
+            // Not enough to activate, just add to funded amount
+            await supabase
+              .from('member_cover_plans')
+              .update({
+                funded_amount: totalCashback
+              })
+              .eq('id', firstPlan.id);
+
+            await supabase
+              .from('cover_plan_wallet_entries')
+              .insert({
+                member_id: member.id,
+                member_cover_plan_id: firstPlan.id,
+                transaction_id: transaction.id,
+                entry_type: 'cashback_added',
+                amount: memberAmount,
+                balance_after: totalCashback
+              });
+          }
         }
       }
 
