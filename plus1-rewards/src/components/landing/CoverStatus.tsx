@@ -59,36 +59,6 @@ export default function CoverStatus() {
             </div>
           </div>
         </div>
-
-        {/* Trust Message */}
-        <div className="mt-16 text-center">
-          <div className="inline-flex items-center gap-3 bg-[#1a558b]/10 px-8 py-4 rounded-full">
-            <span className="text-3xl">👉</span>
-            <p className="text-lg font-bold text-[#1a558b]">
-              This removes confusion + builds trust
-            </p>
-          </div>
-        </div>
-
-        {/* Additional Info */}
-        <div className="mt-12 max-w-4xl mx-auto">
-          <div className="bg-gradient-to-r from-[#1a558b] to-[#2d7ab8] rounded-2xl p-8 text-white">
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0">
-                <div className="size-12 rounded-full bg-white/20 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-2xl">info</span>
-                </div>
-              </div>
-              <div>
-                <h4 className="text-xl font-bold mb-2">Always in Control</h4>
-                <p className="text-white/90 leading-relaxed">
-                  Check your status anytime in your dashboard. See exactly how much cashback you've earned, 
-                  how much you need, and when your cover renews. Complete transparency, every step of the way.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   )
