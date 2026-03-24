@@ -109,13 +109,62 @@ export default function PartnerRegister() {
     return true;
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     setError('');
-    if (currentStep === 1 && validateStep1()) {
-      setCurrentStep(2);
-    } else if (currentStep === 2 && validateStep2()) {
-      setFormData(prev => ({ ...prev, cashbackPercent }));
-      setCurrentStep(3);
+    setIsSubmitting(true);
+
+    try {
+      if (currentStep === 1 && validateStep1()) {
+        // Check for duplicate business name
+        const { data: existingBusiness } = await supabase
+          .from('partners')
+          .select('id')
+          .eq('shop_name', formData.businessName.trim())
+          .maybeSingle();
+
+        if (existingBusiness) {
+          setError('A business with this name is already registered');
+          setIsSubmitting(false);
+          return;
+        }
+
+        setCurrentStep(2);
+      } else if (currentStep === 2 && validateStep2()) {
+        // Check for duplicate phone number
+        const cleanPhone = formData.mobileNumber.replace(/\D/g, '');
+        const { data: existingPhone } = await supabase
+          .from('users')
+          .select('id')
+          .eq('mobile_number', cleanPhone)
+          .maybeSingle();
+
+        if (existingPhone) {
+          setError('This mobile number is already registered');
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Check for duplicate email
+        const { data: existingEmail } = await supabase
+          .from('partners')
+          .select('id')
+          .eq('email', formData.email.trim())
+          .maybeSingle();
+
+        if (existingEmail) {
+          setError('This email is already registered');
+          setIsSubmitting(false);
+          return;
+        }
+
+        setFormData(prev => ({ ...prev, cashbackPercent }));
+        setCurrentStep(3);
+      }
+    } catch (err: any) {
+      console.error('Validation error:', err);
+      setError('Failed to validate information. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -330,7 +379,7 @@ export default function PartnerRegister() {
                 required
               />
 
-              <AuthButton type="button" onClick={handleNext}>
+              <AuthButton type="button" onClick={handleNext} loading={isSubmitting} loadingText="Checking...">
                 Next Step →
               </AuthButton>
             </>
@@ -477,7 +526,7 @@ export default function PartnerRegister() {
                 <AuthButton type="button" onClick={handleBack} variant="outline">
                   ← Back
                 </AuthButton>
-                <AuthButton type="button" onClick={handleNext}>
+                <AuthButton type="button" onClick={handleNext} loading={isSubmitting} loadingText="Checking...">
                   Next Step →
                 </AuthButton>
               </div>
