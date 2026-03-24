@@ -148,6 +148,7 @@ export default function Dashboard() {
 
     if (code && code.data) {
       // QR code detected!
+      console.log('QR Code detected:', code.data);
       setQrCode(code.data);
       stopCamera();
       setShowScanner(false);
@@ -157,45 +158,96 @@ export default function Dashboard() {
   };
 
   const searchByQRCode = async (qrCodeValue: string) => {
+    console.log('Searching for member with QR code:', qrCodeValue);
     setSearchLoading(true);
     setError('');
     setMember(null);
 
     try {
+      // First, try exact QR code match
       const { data, error } = await supabase
         .from('members')
-        .select('id, full_name, phone, status')
+        .select('id, full_name, phone, status, qr_code')
         .eq('qr_code', qrCodeValue)
-        .single();
+        .maybeSingle();
 
-      if (error || !data) {
-        setError('Member not found with this QR code');
-        return;
-      }
+      console.log('Exact QR search result:', { data, error });
 
-      if (data.status !== 'active') {
-        setError('Member account is not active');
-        return;
-      }
-
-      // Check if member is connected to this partner
-      if (partner) {
-        const { data: connectionData, error: connectionError } = await supabase
-          .from('member_partner_connections')
-          .select('id, status')
-          .eq('member_id', data.id)
-          .eq('partner_id', partner.id)
-          .eq('status', 'active')
-          .maybeSingle();
-
-        if (connectionError || !connectionData) {
-          setError(`${data.full_name} is not connected to your store yet. Please ask them to connect first via the Find Partners page.`);
+      // If exact match found, validate and return
+      if (data && !error) {
+        if (data.status !== 'active') {
+          setError('Member account is not active');
           return;
         }
+
+        // Check if member is connected to this partner
+        if (partner) {
+          const { data: connectionData, error: connectionError } = await supabase
+            .from('member_partner_connections')
+            .select('id, status')
+            .eq('member_id', data.id)
+            .eq('partner_id', partner.id)
+            .eq('status', 'active')
+            .maybeSingle();
+
+          if (connectionError || !connectionData) {
+            setError(`${data.full_name} is not connected to your store yet. Please ask them to connect first via the Find Partners page.`);
+            return;
+          }
+        }
+
+        setMember(data);
+        return;
       }
 
-      setMember(data);
+      // If no exact match, try extracting phone from PLUS1 format: PLUS1-{phone}-{timestamp}
+      const phoneMatch = qrCodeValue.match(/PLUS1-(\d+)-/);
+      if (phoneMatch && phoneMatch[1]) {
+        const phone = phoneMatch[1];
+        console.log('Extracted phone from QR, searching by phone:', phone);
+        
+        const { data: phoneData, error: phoneError } = await supabase
+          .from('members')
+          .select('id, full_name, phone, status')
+          .eq('phone', phone)
+          .maybeSingle();
+
+        if (phoneError || !phoneData) {
+          console.log('Phone search failed:', phoneError);
+          setError('Member not found with this QR code');
+          return;
+        }
+
+        if (phoneData.status !== 'active') {
+          setError('Member account is not active');
+          return;
+        }
+
+        // Check if member is connected to this partner
+        if (partner) {
+          const { data: connectionData, error: connectionError } = await supabase
+            .from('member_partner_connections')
+            .select('id, status')
+            .eq('member_id', phoneData.id)
+            .eq('partner_id', partner.id)
+            .eq('status', 'active')
+            .maybeSingle();
+
+          if (connectionError || !connectionData) {
+            setError(`${phoneData.full_name} is not connected to your store yet. Please ask them to connect first via the Find Partners page.`);
+            return;
+          }
+        }
+
+        setMember(phoneData);
+        return;
+      }
+
+      // No match found with either method
+      console.log('No match found for QR code:', qrCodeValue);
+      setError('Member not found with this QR code. Please ensure the member is registered and the QR code is valid.');
     } catch (err) {
+      console.error('Error searching for member:', err);
       setError('Error searching for member');
     } finally {
       setSearchLoading(false);

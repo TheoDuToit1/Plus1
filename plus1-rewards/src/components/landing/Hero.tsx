@@ -8,11 +8,11 @@ const BLUE_BORDER = 'rgba(26,85,139,0.20)'
 export default function Hero() {
   return (
     <section
-      className="relative flex flex-col justify-between overflow-hidden px-6 lg:px-20 min-h-screen pt-20"
+      className="relative flex flex-col justify-between overflow-hidden px-4 sm:px-6 lg:px-20 min-h-screen pt-16 md:pt-20"
       style={{ backgroundColor: '#f5f8fc' }}
     >
-      {/* Right image panel */}
-      <div className="absolute top-0 right-0 w-[52%] h-full z-0 overflow-hidden rounded-bl-[80px]">
+      {/* Right image panel - hidden on mobile, visible on larger screens */}
+      <div className="hidden md:block absolute top-0 right-0 w-[52%] h-full z-0 overflow-hidden rounded-bl-[80px]">
         <img
           alt="Diverse South African community interaction"
           className="w-full h-full object-cover"
@@ -21,19 +21,20 @@ export default function Hero() {
         <div className="absolute inset-0 bg-gradient-to-r from-[#f5f8fc] via-[#f5f8fc]/20 to-transparent" />
       </div>
 
-      <div className="relative z-10 w-full max-w-[1800px] mx-auto flex-1 flex flex-col justify-center py-12">
-        <div className="flex flex-col gap-8 max-w-2xl">
+      <div className="relative z-10 w-full max-w-[1800px] mx-auto flex-1 flex flex-col justify-center py-8 md:py-12">
+        <div className="flex flex-col gap-4 md:gap-8 max-w-full md:max-w-2xl">
           {/* Badge */}
           <span
-            className="inline-flex w-fit items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border"
+            className="inline-flex w-fit items-center gap-2 px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border"
             style={{ backgroundColor: BLUE_LIGHT, color: BLUE, borderColor: BLUE_BORDER }}
           >
             <span className="material-symbols-outlined text-sm" style={{ color: BLUE }}>health_and_safety</span>
-            Your Shopping Pays for Your Cover
+            <span className="hidden sm:inline">Your Shopping Pays for Your Cover</span>
+            <span className="sm:hidden">Shop & Get Covered</span>
           </span>
 
           {/* Headline */}
-          <h1 className="text-5xl lg:text-6xl font-black leading-tight tracking-tight text-gray-900">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight text-gray-900">
             Health Cover for All.<br />
             <span style={{ color: BLUE }}>Shop local. </span>
             <span style={{ color: BLUE }}>Earn rands. </span>
@@ -42,14 +43,14 @@ export default function Hero() {
           </h1>
 
           {/* Subtext */}
-          <p className="text-lg text-gray-600 max-w-lg leading-relaxed">
+          <p className="text-sm sm:text-base md:text-lg text-gray-600 max-w-full md:max-w-lg leading-relaxed">
             Every time you shop at a +1 Rewards partner near you, you earn real cashback — in rands, not points. That cashback goes straight toward your Day1Health medical cover plan. No extra cost. No extra effort. Just shop where you already shop.
           </p>
 
           {/* CTAs */}
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
             <button
-              className="Explore-Button"
+              className="Explore-Button w-full sm:w-auto"
               onClick={() => window.location.href = '/partner/register'}
             >
               <span className="IconContainer">
@@ -130,7 +131,7 @@ export default function Hero() {
               <span className="text">Partner Registration</span>
             </button>
             <button
-              className="Explore-Button"
+              className="Explore-Button w-full sm:w-auto"
               onClick={() => window.location.href = '/member/register'}
             >
               <span className="IconContainer">
@@ -213,10 +214,10 @@ export default function Hero() {
           </div>
 
           {/* Trust indicators */}
-          <div className="flex flex-wrap items-center gap-6 mt-1">
+          <div className="flex flex-wrap items-center gap-3 md:gap-6 mt-1">
             {['R0 to join', 'Works without data', 'FSP Licensed', 'Cover starts from Day 1'].map((item) => (
-              <div key={item} className="flex items-center gap-2 text-sm text-gray-500">
-                <span className="material-symbols-outlined text-base" style={{ color: BLUE }}>check_circle</span>
+              <div key={item} className="flex items-center gap-2 text-xs md:text-sm text-gray-500">
+                <span className="material-symbols-outlined text-sm md:text-base" style={{ color: BLUE }}>check_circle</span>
                 {item}
               </div>
             ))}
