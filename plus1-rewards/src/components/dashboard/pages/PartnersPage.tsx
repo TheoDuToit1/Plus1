@@ -550,11 +550,11 @@ export default function PartnersPage() {
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <p className="text-xs text-gray-600 uppercase font-bold mb-1">Partner Name</p>
-                      <p className="text-sm text-gray-900 font-semibold">{partnerDetails.partner.name}</p>
+                      <p className="text-sm text-gray-900 font-semibold">{partnerDetails.partner.shop_name || 'Not provided'}</p>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <p className="text-xs text-gray-600 uppercase font-bold mb-1">Business Type</p>
-                      <p className="text-sm text-gray-900">{partnerDetails.partner.business_type || 'Not specified'}</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.category || 'Not specified'}</p>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <p className="text-xs text-gray-600 uppercase font-bold mb-1">Status</p>
@@ -562,15 +562,15 @@ export default function PartnersPage() {
                         partnerDetails.partner.status === 'active' 
                           ? 'bg-[#1a558b]/20 text-[#1a558b] border border-[#1a558b]/30'
                           : partnerDetails.partner.status === 'pending'
-                          ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
-                          : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                          ? 'bg-yellow-500/20 text-yellow-700 border border-yellow-500/30'
+                          : 'bg-red-500/20 text-red-700 border border-red-500/30'
                       }`}>
                         {partnerDetails.partner.status}
                       </span>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <p className="text-xs text-gray-600 uppercase font-bold mb-1">Commission Rate</p>
-                      <p className="text-lg text-[#1a558b] font-bold">{partnerDetails.partner.commission_rate}%</p>
+                      <p className="text-lg text-[#1a558b] font-bold">{partnerDetails.partner.cashback_percent || 0}%</p>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <p className="text-xs text-gray-600 uppercase font-bold mb-1">Registration Number</p>
@@ -585,7 +585,7 @@ export default function PartnersPage() {
                     <span className="material-symbols-outlined">contact_phone</span>
                     Contact Information
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <p className="text-xs text-gray-600 uppercase font-bold mb-1">Phone Number</p>
                       <p className="text-sm text-gray-900">{partnerDetails.partner.phone || 'Not provided'}</p>
@@ -593,14 +593,6 @@ export default function PartnersPage() {
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <p className="text-xs text-gray-600 uppercase font-bold mb-1">Email Address</p>
                       <p className="text-sm text-gray-900">{partnerDetails.partner.email || 'Not provided'}</p>
-                    </div>
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Website</p>
-                      <p className="text-sm text-blue-400">{partnerDetails.partner.website || 'Not provided'}</p>
-                    </div>
-                    <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Location</p>
-                      <p className="text-sm text-gray-900">{partnerDetails.partner.location || 'Not provided'}</p>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4 md:col-span-2">
                       <p className="text-xs text-gray-600 uppercase font-bold mb-1">Physical Address</p>
@@ -618,7 +610,7 @@ export default function PartnersPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <p className="text-xs text-gray-600 uppercase font-bold mb-1">Owner Name</p>
-                      <p className="text-sm text-gray-900">{partnerDetails.partner.owner_name || 'Not provided'}</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.responsible_person || 'Not provided'}</p>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <p className="text-xs text-gray-600 uppercase font-bold mb-1">Owner ID Number</p>
@@ -626,11 +618,11 @@ export default function PartnersPage() {
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
                       <p className="text-xs text-gray-600 uppercase font-bold mb-1">Owner Phone</p>
-                      <p className="text-sm text-gray-900">{partnerDetails.partner.owner_phone || 'Not provided'}</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.phone || 'Not provided'}</p>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4 md:col-span-2">
                       <p className="text-xs text-gray-600 uppercase font-bold mb-1">Owner Email</p>
-                      <p className="text-sm text-gray-900">{partnerDetails.partner.owner_email || 'Not provided'}</p>
+                      <p className="text-sm text-gray-900">{partnerDetails.partner.email || 'Not provided'}</p>
                     </div>
                   </div>
                 </section>

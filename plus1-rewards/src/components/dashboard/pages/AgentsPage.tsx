@@ -15,20 +15,45 @@ export default function AgentsPage() {
   const [filters, setFilters] = useState({
     status: ''
   });
+  const [selectedAgent, setSelectedAgent] = useState<any>(null);
+  const [agentDetails, setAgentDetails] = useState<any>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Join agents with users table to get full_name
-      const { data, error } = await supabaseAdmin
+      // Fetch agents first
+      const { data: agentsData, error: agentsError } = await supabaseAdmin
         .from('agents')
-        .select('*, users!agents_user_id_fkey(full_name, mobile_number, email)')
+        .select('*')
         .order('created_at', { ascending: false });
-      if (error) throw error;
       
-      const totalAgents = data?.length || 0;
-      const verified = data?.filter(a => a.status === 'active')?.length || 0;
-      const pending = data?.filter(a => a.status === 'pending')?.length || 0;
+      if (agentsError) {
+        console.error('Error fetching agents:', agentsError);
+        setAgents([]);
+        setLoading(false);
+        return;
+      }
+
+      // Fetch users data for all agents
+      const userIds = agentsData?.map(a => a.user_id).filter(Boolean) || [];
+      const { data: usersData } = await supabaseAdmin
+        .from('users')
+        .select('id, full_name, mobile_number, email')
+        .in('id', userIds);
+
+      // Create a map of users by id
+      const usersMap = new Map(usersData?.map(u => [u.id, u]) || []);
+
+      // Combine agents with their user data
+      const agentsWithUsers = agentsData?.map(agent => ({
+        ...agent,
+        users: usersMap.get(agent.user_id) || null
+      })) || [];
+      
+      const totalAgents = agentsWithUsers.length;
+      const verified = agentsWithUsers.filter(a => a.status === 'active').length;
+      const pending = agentsWithUsers.filter(a => a.status === 'pending').length;
       
       // Get commission totals from agent_commissions table
       const { data: commissionsData } = await supabaseAdmin
@@ -37,9 +62,10 @@ export default function AgentsPage() {
       const commissions = commissionsData?.reduce((sum, c) => sum + (parseFloat(c.total_amount) || 0), 0) || 0;
       
       setStats({ totalAgents, verified, pending, sales: 0, commissions });
-      setAgents(data || []);
+      setAgents(agentsWithUsers);
     } catch (error) {
       console.error('Error fetching agents:', error);
+      setAgents([]);
     } finally {
       setLoading(false);
     }
@@ -51,8 +77,7 @@ export default function AgentsPage() {
         .from('agents')
         .update({ 
           status: 'active', 
-          approved_at: new Date().toISOString(),
-          approved_by: null
+          approved_at: new Date().toISOString()
         })
         .eq('id', agentId);
 
@@ -71,7 +96,7 @@ export default function AgentsPage() {
       try {
         const { error } = await supabaseAdmin
           .from('agents')
-          .update({ status: 'suspended' })
+          .update({ status: 'rejected' })
           .eq('id', agentId);
 
         if (error) throw error;
@@ -86,6 +111,40 @@ export default function AgentsPage() {
   };
 
   const handleRefresh = () => { fetchData(); };
+
+  const handleViewAgent = async (agent: any) => {
+    setSelectedAgent(agent);
+    setDetailsLoading(true);
+    try {
+      // Fetch agent's partners
+      const { data: partnerLinks } = await supabaseAdmin
+        .from('partner_agent_links')
+        .select('*, partners(shop_name, phone, status)')
+        .eq('agent_id', agent.id);
+
+      // Fetch agent's commissions
+      const { data: commissions } = await supabaseAdmin
+        .from('agent_commissions')
+        .select('*')
+        .eq('agent_id', agent.id)
+        .order('created_at', { ascending: false });
+
+      setAgentDetails({
+        agent,
+        partners: partnerLinks || [],
+        commissions: commissions || []
+      });
+    } catch (error) {
+      console.error('Error fetching agent details:', error);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const closeAgentModal = () => {
+    setSelectedAgent(null);
+    setAgentDetails(null);
+  };
 
   useEffect(() => { fetchData(); }, []);
 
@@ -120,6 +179,7 @@ export default function AgentsPage() {
   });
 
   return (
+    <>
     <DashboardLayout>
       <main className="flex-1 overflow-y-auto bg-[#f5f8fc]">
         {/* Topbar */}
@@ -277,11 +337,18 @@ export default function AgentsPage() {
                         <td className="px-6 py-4 text-center"><span className="text-sm font-bold text-gray-900">R0.00</span></td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-center gap-2">
+                            <button 
+                              onClick={() => handleViewAgent(agent)}
+                              className="p-2 text-gray-600 hover:text-[#1a558b] transition-colors rounded-lg bg-gray-100 hover:bg-[#1a558b]/10" 
+                              title="View Details"
+                            >
+                              <span className="material-symbols-outlined text-sm">visibility</span>
+                            </button>
                             {agent.status === 'pending' ? (
                               <>
                                 <button 
                                   onClick={() => handleApproveAgent(agent.id)}
-                                  className="p-2 text-gray-600 hover:text-[#1a558b] transition-colors rounded-lg bg-gray-100 hover:bg-[#1a558b]/10" 
+                                  className="p-2 text-gray-600 hover:text-green-600 transition-colors rounded-lg bg-gray-100 hover:bg-green-50" 
                                   title="Approve Agent"
                                 >
                                   <span className="material-symbols-outlined text-sm">check_circle</span>
@@ -296,7 +363,6 @@ export default function AgentsPage() {
                               </>
                             ) : (
                               <>
-                                <button className="p-2 text-gray-600 hover:text-[#1a558b] transition-colors rounded-lg bg-gray-100 hover:bg-[#1a558b]/10" title="View Details"><span className="material-symbols-outlined text-sm">visibility</span></button>
                                 <button className="p-2 text-gray-600 hover:text-[#1a558b] transition-colors rounded-lg bg-gray-100 hover:bg-[#1a558b]/10" title="Edit Agent"><span className="material-symbols-outlined text-sm">edit</span></button>
                                 <button className="p-2 text-gray-600 hover:text-red-500 transition-colors rounded-lg bg-gray-100 hover:bg-red-50" title="Suspend Agent"><span className="material-symbols-outlined text-sm">block</span></button>
                               </>
@@ -324,5 +390,202 @@ export default function AgentsPage() {
         </div>
       </main>
     </DashboardLayout>
+
+    {/* Agent Details Modal */}
+    {selectedAgent && (
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="bg-white border border-gray-200 rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+          {/* Modal Header */}
+          <div className="border-b border-gray-200 px-8 py-6 flex items-center justify-between flex-shrink-0">
+            <div>
+              <h2 className="text-2xl font-black text-gray-900">{selectedAgent.users?.full_name || 'Agent Details'}</h2>
+              <p className="text-sm text-gray-600 mt-1">Complete Agent Information</p>
+            </div>
+            <button
+              onClick={closeAgentModal}
+              className="size-10 rounded-full bg-red-100 hover:bg-red-200 text-red-600 flex items-center justify-center transition-colors"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+
+          {/* Modal Content */}
+          <div className="overflow-y-auto flex-1 px-8 py-6 space-y-6 bg-gray-50">
+            {detailsLoading ? (
+              <div className="text-center py-12">
+                <p className="text-gray-600">Loading agent details...</p>
+              </div>
+            ) : agentDetails ? (
+              <>
+                {/* Basic Information */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">person</span>
+                    Basic Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Agent ID</p>
+                      <p className="text-sm text-gray-900 font-mono">{selectedAgent.id}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Full Name</p>
+                      <p className="text-sm text-gray-900 font-semibold">{selectedAgent.users?.full_name || 'N/A'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Mobile Number</p>
+                      <p className="text-sm text-gray-900">{selectedAgent.users?.mobile_number || 'N/A'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Email</p>
+                      <p className="text-sm text-gray-900">{selectedAgent.users?.email || 'N/A'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">ID Number</p>
+                      <p className="text-sm text-gray-900">{selectedAgent.id_number || 'N/A'}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Status</p>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase ${
+                        selectedAgent.status === 'active' 
+                          ? 'bg-[#1a558b]/20 text-[#1a558b] border border-[#1a558b]/30'
+                          : selectedAgent.status === 'pending'
+                          ? 'bg-yellow-500/20 text-yellow-700 border border-yellow-500/30'
+                          : 'bg-red-500/20 text-red-700 border border-red-500/30'
+                      }`}>
+                        {selectedAgent.status}
+                      </span>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Created At</p>
+                      <p className="text-sm text-gray-900">{new Date(selectedAgent.created_at).toLocaleString()}</p>
+                    </div>
+                    {selectedAgent.approved_at && (
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <p className="text-xs text-gray-600 uppercase font-bold mb-1">Approved At</p>
+                        <p className="text-sm text-green-700 font-semibold">{new Date(selectedAgent.approved_at).toLocaleString()}</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                {/* Recruited Partners */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">storefront</span>
+                    Recruited Partners ({agentDetails.partners.length})
+                  </h3>
+                  {agentDetails.partners.length > 0 ? (
+                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                      <table className="w-full">
+                        <thead className="bg-[#1a558b]/10">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Partner Name</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Phone</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Status</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Linked At</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {agentDetails.partners.map((link: any) => (
+                            <tr key={link.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-sm text-gray-900">{link.partners?.shop_name || 'Unknown'}</td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{link.partners?.phone || 'N/A'}</td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                  link.partners?.status === 'active' ? 'bg-green-500/20 text-green-700' : 'bg-gray-500/20 text-gray-700'
+                                }`}>
+                                  {link.partners?.status || 'unknown'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">{new Date(link.linked_at).toLocaleDateString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                      <p className="text-gray-600">No partners recruited yet</p>
+                    </div>
+                  )}
+                </section>
+
+                {/* Commission History */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">account_balance_wallet</span>
+                    Commission History ({agentDetails.commissions.length})
+                  </h3>
+                  {agentDetails.commissions.length > 0 ? (
+                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                      <table className="w-full">
+                        <thead className="bg-[#1a558b]/10">
+                          <tr>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Month</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Amount</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Status</th>
+                            <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Paid At</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {agentDetails.commissions.map((commission: any) => (
+                            <tr key={commission.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-3 text-sm text-gray-900">{commission.month}</td>
+                              <td className="px-4 py-3 text-sm text-[#1a558b] font-bold">R{parseFloat(commission.total_amount).toFixed(2)}</td>
+                              <td className="px-4 py-3">
+                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                  commission.payout_status === 'paid' ? 'bg-green-500/20 text-green-700' : 'bg-yellow-500/20 text-yellow-700'
+                                }`}>
+                                  {commission.payout_status}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-600">
+                                {commission.paid_at ? new Date(commission.paid_at).toLocaleDateString() : 'Not paid'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                      <p className="text-gray-600">No commission records yet</p>
+                    </div>
+                  )}
+                </section>
+
+                {/* Actions */}
+                {selectedAgent.status === 'pending' && (
+                  <section className="flex gap-4 justify-center pt-4">
+                    <button
+                      onClick={() => {
+                        handleApproveAgent(selectedAgent.id);
+                        closeAgentModal();
+                      }}
+                      className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">check_circle</span>
+                      Approve Agent
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleRejectAgent(selectedAgent.id);
+                        closeAgentModal();
+                      }}
+                      className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">cancel</span>
+                      Reject Agent
+                    </button>
+                  </section>
+                )}
+              </>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

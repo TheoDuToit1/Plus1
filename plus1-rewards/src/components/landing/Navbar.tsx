@@ -54,15 +54,62 @@ export default function Navbar() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="md:hidden mt-3 pb-4 border-t border-white/30 flex flex-col gap-4 pt-4 text-sm font-medium text-gray-800" style={{
-          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        <div className="md:hidden mt-4 pb-6 border-t border-gray-200 flex flex-col gap-1 pt-6" style={{
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
           backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)'
+          WebkitBackdropFilter: 'blur(10px)',
+          borderRadius: '0 0 16px 16px',
+          boxShadow: '0 8px 16px rgba(0, 0, 0, 0.1)'
         }}>
-          <a href="#how-it-works" onClick={() => setMenuOpen(false)}>How it Works</a>
-          <a href="#roles" onClick={() => setMenuOpen(false)}>Roles</a>
-          <a href="#features" onClick={() => setMenuOpen(false)}>Offline Tech</a>
-          <a href="#faq" onClick={() => setMenuOpen(false)}>FAQ</a>
+          <a 
+            href="#how-it-works" 
+            onClick={() => setMenuOpen(false)}
+            className="flex items-center gap-3 px-4 py-3 text-base font-semibold text-gray-800 hover:bg-blue-50 rounded-lg transition-all"
+          >
+            <span className="material-symbols-outlined text-xl" style={{ color: BLUE }}>info</span>
+            <span>How it Works</span>
+          </a>
+          <a 
+            href="#roles" 
+            onClick={() => setMenuOpen(false)}
+            className="flex items-center gap-3 px-4 py-3 text-base font-semibold text-gray-800 hover:bg-blue-50 rounded-lg transition-all"
+          >
+            <span className="material-symbols-outlined text-xl" style={{ color: BLUE }}>groups</span>
+            <span>Roles</span>
+          </a>
+          <a 
+            href="#features" 
+            onClick={() => setMenuOpen(false)}
+            className="flex items-center gap-3 px-4 py-3 text-base font-semibold text-gray-800 hover:bg-blue-50 rounded-lg transition-all"
+          >
+            <span className="material-symbols-outlined text-xl" style={{ color: BLUE }}>wifi_off</span>
+            <span>Offline Tech</span>
+          </a>
+          <a 
+            href="#faq" 
+            onClick={() => setMenuOpen(false)}
+            className="flex items-center gap-3 px-4 py-3 text-base font-semibold text-gray-800 hover:bg-blue-50 rounded-lg transition-all"
+          >
+            <span className="material-symbols-outlined text-xl" style={{ color: BLUE }}>help</span>
+            <span>FAQ</span>
+          </a>
+          <div className="mt-2 px-4 flex flex-col gap-3">
+            <a 
+              href="/member/login" 
+              className="text-center py-3 text-base font-semibold rounded-lg transition-all border-2"
+              style={{ color: BLUE, borderColor: BLUE }}
+              onClick={() => setMenuOpen(false)}
+            >
+              Sign In
+            </a>
+            <button
+              className="py-3 rounded-lg font-bold text-base transition-all shadow-md text-white"
+              style={{ backgroundColor: BLUE }}
+              onClick={() => window.location.href = '/member/register'}
+            >
+              Get Started →
+            </button>
+          </div>
         </div>
       )}
     </nav>

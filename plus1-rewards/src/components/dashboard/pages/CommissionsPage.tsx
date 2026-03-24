@@ -16,31 +16,65 @@ export default function CommissionsPage() {
     totalAmount: 0
   });
   const [loading, setLoading] = useState(true);
+  const [selectedCommission, setSelectedCommission] = useState<any>(null);
+  const [commissionDetails, setCommissionDetails] = useState<any>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Get all agent commissions with agent user info
-      const { data: commissionsData } = await supabaseAdmin
+      // Get all agent commissions
+      const { data: commissionsData, error: commissionsError } = await supabaseAdmin
         .from('agent_commissions')
-        .select(`
-          *,
-          agents(
-            id,
-            users!agents_user_id_fkey(full_name, mobile_number, email)
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      const totalCommissions = commissionsData?.length || 0;
-      const paid = commissionsData?.filter(c => c.payout_status === 'paid').length || 0;
-      const pending = commissionsData?.filter(c => c.payout_status === 'pending').length || 0;
-      const totalAmount = commissionsData?.reduce((sum, c) => sum + (parseFloat(c.total_amount) || 0), 0) || 0;
+      if (commissionsError) {
+        console.error('Error fetching commissions:', commissionsError);
+        setCommissions([]);
+        setLoading(false);
+        return;
+      }
+
+      // Get all agents with user info
+      const agentIds = commissionsData?.map(c => c.agent_id).filter(Boolean) || [];
+      const { data: agentsData } = await supabaseAdmin
+        .from('agents')
+        .select('id, user_id')
+        .in('id', agentIds);
+
+      // Get users data
+      const userIds = agentsData?.map(a => a.user_id).filter(Boolean) || [];
+      const { data: usersData } = await supabaseAdmin
+        .from('users')
+        .select('id, full_name, mobile_number, email')
+        .in('id', userIds);
+
+      // Create maps for quick lookup
+      const usersMap = new Map(usersData?.map(u => [u.id, u]) || []);
+      const agentsMap = new Map(agentsData?.map(a => [a.id, { ...a, user: usersMap.get(a.user_id) }]) || []);
+
+      // Combine commissions with agent/user data
+      const commissionsWithAgents = commissionsData?.map(commission => {
+        const agent = agentsMap.get(commission.agent_id);
+        return {
+          ...commission,
+          agent_name: agent?.user?.full_name || 'Unknown',
+          agent_phone: agent?.user?.mobile_number || 'N/A',
+          agent_email: agent?.user?.email || 'N/A'
+        };
+      }) || [];
+
+      const totalCommissions = commissionsWithAgents.length;
+      const paid = commissionsWithAgents.filter(c => c.payout_status === 'paid').length;
+      const pending = commissionsWithAgents.filter(c => c.payout_status === 'pending').length;
+      const totalAmount = commissionsWithAgents.reduce((sum, c) => sum + (parseFloat(c.total_amount) || 0), 0);
 
       setStats({ totalCommissions, paid, pending, totalAmount });
-      setCommissions(commissionsData || []);
+      setCommissions(commissionsWithAgents);
     } catch (error) {
       console.error('Error fetching commissions:', error);
+      setCommissions([]);
     } finally {
       setLoading(false);
     }
@@ -74,6 +108,37 @@ export default function CommissionsPage() {
   const handleRefresh = () => fetchData();
   const handleLogout = () => navigate('/');
 
+  const handleViewCommission = async (commission: any) => {
+    setSelectedCommission(commission);
+    setDetailsLoading(true);
+    try {
+      // Fetch transactions for this agent in the commission month
+      const { data: transactions } = await supabaseAdmin
+        .from('transactions')
+        .select(`
+          *,
+          members(full_name, phone),
+          partners(shop_name)
+        `)
+        .eq('agent_id', commission.agent_id)
+        .order('created_at', { ascending: false });
+
+      setCommissionDetails({
+        commission,
+        transactions: transactions || []
+      });
+    } catch (error) {
+      console.error('Error fetching commission details:', error);
+    } finally {
+      setDetailsLoading(false);
+    }
+  };
+
+  const closeCommissionModal = () => {
+    setSelectedCommission(null);
+    setCommissionDetails(null);
+  };
+
   const filteredCommissions = commissions.filter(c => {
     const searchLower = searchTerm.toLowerCase();
     return searchLower === '' ||
@@ -89,6 +154,7 @@ export default function CommissionsPage() {
   ];
 
   return (
+    <>
     <DashboardLayout>
       <main className="flex-1 overflow-y-auto bg-[#f5f8fc]">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 md:p-10 pb-6">
@@ -175,10 +241,10 @@ export default function CommissionsPage() {
                           <div className="text-xs text-gray-600">{commission.agent_email}</div>
                         </td>
                         <td className="px-4 py-4">
-                          <span className="text-sm font-bold text-gray-900">{commission.transaction_count}</span>
+                          <span className="text-sm font-bold text-gray-900">{commission.transaction_count || 0}</span>
                         </td>
                         <td className="px-4 py-4">
-                          <span className="text-sm font-bold text-[#1a558b]">R{commission.total_amount.toFixed(2)}</span>
+                          <span className="text-sm font-bold text-[#1a558b]">R{parseFloat(commission.total_amount || 0).toFixed(2)}</span>
                         </td>
                         <td className="px-4 py-4">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
@@ -203,6 +269,7 @@ export default function CommissionsPage() {
                               </button>
                             )}
                             <button
+                              onClick={() => handleViewCommission(commission)}
                               className="p-2 text-gray-600 hover:text-[#1a558b] transition-colors rounded-lg bg-gray-100 hover:bg-[#1a558b]/10"
                               title="View Breakdown"
                             >
@@ -245,5 +312,142 @@ export default function CommissionsPage() {
         </div>
       </main>
     </DashboardLayout>
+
+    {/* Commission Details Modal */}
+    {selectedCommission && (
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="bg-white border border-gray-200 rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+          {/* Modal Header */}
+          <div className="border-b border-gray-200 px-8 py-6 flex items-center justify-between flex-shrink-0">
+            <div>
+              <h2 className="text-2xl font-black text-gray-900">Commission Breakdown</h2>
+              <p className="text-sm text-gray-600 mt-1">{selectedCommission.agent_name} - {selectedCommission.month}</p>
+            </div>
+            <button
+              onClick={closeCommissionModal}
+              className="size-10 rounded-full bg-red-100 hover:bg-red-200 text-red-600 flex items-center justify-center transition-colors"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+
+          {/* Modal Content */}
+          <div className="overflow-y-auto flex-1 px-8 py-6 space-y-6 bg-gray-50">
+            {detailsLoading ? (
+              <div className="text-center py-12">
+                <p className="text-gray-600">Loading commission details...</p>
+              </div>
+            ) : commissionDetails ? (
+              <>
+                {/* Summary */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">summarize</span>
+                    Commission Summary
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Agent Name</p>
+                      <p className="text-sm text-gray-900 font-semibold">{selectedCommission.agent_name}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Month</p>
+                      <p className="text-sm text-gray-900">{selectedCommission.month}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Total Commission</p>
+                      <p className="text-2xl text-[#1a558b] font-bold">R{parseFloat(selectedCommission.total_amount).toFixed(2)}</p>
+                    </div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Payout Status</p>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase ${
+                        selectedCommission.payout_status === 'paid'
+                          ? 'bg-green-500/20 text-green-700 border border-green-500/30'
+                          : 'bg-yellow-500/20 text-yellow-700 border border-yellow-500/30'
+                      }`}>
+                        {selectedCommission.payout_status}
+                      </span>
+                    </div>
+                    {selectedCommission.paid_at && (
+                      <div className="bg-white border border-gray-200 rounded-lg p-4 md:col-span-2">
+                        <p className="text-xs text-gray-600 uppercase font-bold mb-1">Paid At</p>
+                        <p className="text-sm text-green-700 font-semibold">{new Date(selectedCommission.paid_at).toLocaleString()}</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                {/* Transactions */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">receipt_long</span>
+                    Transactions ({commissionDetails.transactions.length})
+                  </h3>
+                  {commissionDetails.transactions.length > 0 ? (
+                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-[#1a558b]/10">
+                            <tr>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Date</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Member</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Partner</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Purchase Amount</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Agent Commission</th>
+                              <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200">
+                            {commissionDetails.transactions.map((transaction: any) => (
+                              <tr key={transaction.id} className="hover:bg-gray-50">
+                                <td className="px-4 py-3 text-sm text-gray-600">{new Date(transaction.created_at).toLocaleDateString()}</td>
+                                <td className="px-4 py-3 text-sm text-gray-900">{transaction.members?.full_name || 'Unknown'}</td>
+                                <td className="px-4 py-3 text-sm text-gray-900">{transaction.partners?.shop_name || 'Unknown'}</td>
+                                <td className="px-4 py-3 text-sm text-gray-900 font-bold">R{parseFloat(transaction.purchase_amount || 0).toFixed(2)}</td>
+                                <td className="px-4 py-3 text-sm text-[#1a558b] font-bold">R{parseFloat(transaction.agent_amount || 0).toFixed(2)}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                    transaction.status === 'completed' ? 'bg-green-500/20 text-green-700' : 
+                                    transaction.status === 'pending' ? 'bg-yellow-500/20 text-yellow-700' :
+                                    'bg-red-500/20 text-red-700'
+                                  }`}>
+                                    {transaction.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                      <p className="text-gray-600">No transactions found for this period</p>
+                    </div>
+                  )}
+                </section>
+
+                {/* Actions */}
+                {selectedCommission.payout_status !== 'paid' && (
+                  <section className="flex gap-4 justify-center pt-4">
+                    <button
+                      onClick={() => {
+                        handleMarkPaid(selectedCommission.id, parseFloat(selectedCommission.total_amount));
+                        closeCommissionModal();
+                      }}
+                      className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold transition-colors flex items-center gap-2"
+                    >
+                      <span className="material-symbols-outlined">check_circle</span>
+                      Mark as Paid
+                    </button>
+                  </section>
+                )}
+              </>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

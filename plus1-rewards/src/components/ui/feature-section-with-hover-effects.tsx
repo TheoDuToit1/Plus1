@@ -6,32 +6,9 @@ import {
 } from "@tabler/icons-react";
 
 export function FeaturesSectionWithHoverEffects() {
-  const features = [
-    {
-      title: "Your cover costs R0 to start",
-      description: "Your shopping pays for it",
-      icon: <IconCurrencyDollar stroke={1.5} className="text-[#16a34a]" />,
-    },
-    {
-      title: "No data needed, ever",
-      description: "Works 100% offline via QR + Zii Chat",
-      icon: <IconWifiOff stroke={1.5} className="text-[#16a34a]" />,
-    },
-    {
-      title: "FSP Licensed. Covered from Day 1.",
-      description: "Underwritten by Day1Health (Pty) Ltd",
-      icon: <IconShieldCheck stroke={1.5} className="text-[#16a34a]" />,
-    },
-  ];
-  return (
-    <div className="w-full border-t border-[#1a558b]/20">
-      <div className="grid grid-cols-1 md:grid-cols-3 relative z-10 pt-0 pb-0 max-w-5xl mr-auto ml-0 w-full">
-        {features.map((feature, index) => (
-          <Feature key={feature.title} {...feature} index={index} />
-        ))}
-      </div>
-    </div>
-  );
+  const features: any[] = [];
+  
+  return null;
 }
 
 const Feature = ({

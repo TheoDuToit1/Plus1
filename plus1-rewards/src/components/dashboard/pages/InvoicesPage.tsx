@@ -16,6 +16,7 @@ export default function InvoicesPage() {
     totalAmount: 0
   });
   const [loading, setLoading] = useState(true);
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -88,6 +89,14 @@ export default function InvoicesPage() {
   const handleRefresh = () => fetchData();
   const handleLogout = () => navigate('/');
 
+  const handleViewInvoice = (invoice: any) => {
+    setSelectedInvoice(invoice);
+  };
+
+  const closeInvoiceModal = () => {
+    setSelectedInvoice(null);
+  };
+
   const filteredInvoices = invoices.filter(inv => {
     const searchLower = searchTerm.toLowerCase();
     return searchLower === '' ||
@@ -103,6 +112,7 @@ export default function InvoicesPage() {
   ];
 
   return (
+    <>
     <DashboardLayout>
       <main className="flex-1 overflow-y-auto bg-[#f5f8fc]">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 md:p-10 pb-6">
@@ -243,6 +253,7 @@ export default function InvoicesPage() {
                                 </>
                               )}
                               <button
+                                onClick={() => handleViewInvoice(invoice)}
                                 className="p-2 text-gray-600 hover:text-[#1a558b] transition-colors rounded-lg bg-gray-100 hover:bg-[#1a558b]/10"
                                 title="View Details"
                               >
@@ -286,5 +297,138 @@ export default function InvoicesPage() {
         </div>
       </main>
     </DashboardLayout>
+
+    {/* Invoice Details Modal */}
+    {selectedInvoice && (
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="bg-white border border-gray-200 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col">
+          {/* Modal Header */}
+          <div className="border-b border-gray-200 px-8 py-6 flex items-center justify-between flex-shrink-0">
+            <div>
+              <h2 className="text-2xl font-black text-gray-900">Invoice Details</h2>
+              <p className="text-sm text-gray-600 mt-1">Invoice #{selectedInvoice.id.substring(0, 8).toUpperCase()}</p>
+            </div>
+            <button
+              onClick={closeInvoiceModal}
+              className="size-10 rounded-full bg-red-100 hover:bg-red-200 text-red-600 flex items-center justify-center transition-colors"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+
+          {/* Modal Content */}
+          <div className="overflow-y-auto flex-1 px-8 py-6 space-y-6 bg-gray-50">
+            {/* Partner Information */}
+            <section>
+              <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined">storefront</span>
+                Partner Information
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <p className="text-xs text-gray-600 uppercase font-bold mb-1">Partner Name</p>
+                  <p className="text-sm text-gray-900 font-semibold">{selectedInvoice.partners?.shop_name || 'Unknown'}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <p className="text-xs text-gray-600 uppercase font-bold mb-1">Contact Phone</p>
+                  <p className="text-sm text-gray-900">{selectedInvoice.partners?.phone || 'Not provided'}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 md:col-span-2">
+                  <p className="text-xs text-gray-600 uppercase font-bold mb-1">Email</p>
+                  <p className="text-sm text-gray-900">{selectedInvoice.partners?.email || 'Not provided'}</p>
+                </div>
+              </div>
+            </section>
+
+            {/* Invoice Details */}
+            <section>
+              <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined">receipt</span>
+                Invoice Details
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <p className="text-xs text-gray-600 uppercase font-bold mb-1">Invoice Month</p>
+                  <p className="text-sm text-gray-900 font-semibold">{selectedInvoice.invoice_month}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <p className="text-xs text-gray-600 uppercase font-bold mb-1">Due Date</p>
+                  <p className="text-sm text-gray-900">{new Date(selectedInvoice.due_date).toLocaleDateString()}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <p className="text-xs text-gray-600 uppercase font-bold mb-1">Total Amount</p>
+                  <p className="text-2xl text-[#1a558b] font-bold">R{parseFloat(selectedInvoice.total_amount).toFixed(2)}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <p className="text-xs text-gray-600 uppercase font-bold mb-1">Status</p>
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold uppercase ${
+                    selectedInvoice.status === 'paid'
+                      ? 'bg-green-500/20 text-green-700 border border-green-500/30'
+                      : new Date(selectedInvoice.due_date) < new Date()
+                      ? 'bg-red-500/20 text-red-700 border border-red-500/30'
+                      : 'bg-yellow-500/20 text-yellow-700 border border-yellow-500/30'
+                  }`}>
+                    {selectedInvoice.status === 'paid' ? 'Paid' : new Date(selectedInvoice.due_date) < new Date() ? 'Overdue' : 'Pending'}
+                  </span>
+                </div>
+                {selectedInvoice.paid_at && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-4 md:col-span-2">
+                    <p className="text-xs text-gray-600 uppercase font-bold mb-1">Paid At</p>
+                    <p className="text-sm text-green-700 font-semibold">{new Date(selectedInvoice.paid_at).toLocaleString()}</p>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {/* Timestamps */}
+            <section>
+              <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined">schedule</span>
+                Timestamps
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <p className="text-xs text-gray-600 uppercase font-bold mb-1">Created At</p>
+                  <p className="text-sm text-gray-900">{new Date(selectedInvoice.created_at).toLocaleString()}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <p className="text-xs text-gray-600 uppercase font-bold mb-1">Updated At</p>
+                  <p className="text-sm text-gray-900">{new Date(selectedInvoice.updated_at).toLocaleString()}</p>
+                </div>
+              </div>
+            </section>
+
+            {/* Actions */}
+            {selectedInvoice.status !== 'paid' && (
+              <section className="flex gap-4 justify-center pt-4">
+                <button
+                  onClick={() => {
+                    handleMarkPaid(selectedInvoice.id);
+                    closeInvoiceModal();
+                  }}
+                  className="px-6 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg font-bold transition-colors flex items-center gap-2"
+                >
+                  <span className="material-symbols-outlined">check_circle</span>
+                  Mark as Paid
+                </button>
+                {new Date(selectedInvoice.due_date) < new Date() && (
+                  <button
+                    onClick={() => {
+                      handleSuspendPartner(selectedInvoice.partner_id);
+                      closeInvoiceModal();
+                    }}
+                    className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition-colors flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined">block</span>
+                    Suspend Partner
+                  </button>
+                )}
+              </section>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

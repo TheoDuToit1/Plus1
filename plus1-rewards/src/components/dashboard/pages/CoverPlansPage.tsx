@@ -70,6 +70,46 @@ export default function CoverPlansPage() {
     }
   };
 
+  const handleManualFunding = async (planId: string, amount: number) => {
+    try {
+      // Get current plan
+      const { data: currentPlan } = await supabaseAdmin
+        .from('member_cover_plans')
+        .select('funded_amount, target_amount')
+        .eq('id', planId)
+        .single();
+
+      if (!currentPlan) {
+        alert('Cover plan not found');
+        return;
+      }
+
+      const newFundedAmount = parseFloat(currentPlan.funded_amount || 0) + amount;
+      const newStatus = newFundedAmount >= parseFloat(currentPlan.target_amount) ? 'active' : 'in_progress';
+
+      // Update the plan
+      const { error } = await supabaseAdmin
+        .from('member_cover_plans')
+        .update({ 
+          funded_amount: newFundedAmount,
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', planId);
+
+      if (error) {
+        alert('Error adding funding: ' + error.message);
+        return;
+      }
+
+      alert(`Successfully added R${amount.toFixed(2)} to cover plan`);
+      fetchData(); // Refresh the data
+    } catch (error) {
+      console.error('Error adding manual funding:', error);
+      alert('Failed to add funding');
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -291,12 +331,19 @@ export default function CoverPlansPage() {
                           <td className="px-4 py-4">
                             <div className="flex items-center gap-2">
                               <button
+                                onClick={() => navigate(`/admin/members?member_id=${plan.member_id}`)}
                                 className="p-2 text-gray-600 hover:text-[#1a558b] transition-colors rounded-lg bg-gray-100 hover:bg-[#1a558b]/10"
-                                title="View Details"
+                                title="View Member Details"
                               >
                                 <span className="material-symbols-outlined text-sm">visibility</span>
                               </button>
                               <button
+                                onClick={() => {
+                                  const amount = prompt('Enter manual funding amount (R):');
+                                  if (amount && !isNaN(parseFloat(amount))) {
+                                    handleManualFunding(plan.id, parseFloat(amount));
+                                  }
+                                }}
                                 className="p-2 text-gray-600 hover:text-green-600 transition-colors rounded-lg bg-gray-100 hover:bg-green-50"
                                 title="Add Manual Funding"
                               >
