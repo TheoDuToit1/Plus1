@@ -76,15 +76,125 @@ export default function DisputesPage() {
             <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
               <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                 <span className="material-symbols-outlined text-[#1a558b]">list_alt</span>
-                All Disputes (0)
+                All Disputes ({disputes.length})
               </h3>
             </div>
             
-            <div className="px-6 py-20 text-center">
-              <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">check_circle</span>
-              <p className="text-gray-600 text-lg font-bold">No disputes found</p>
-              <p className="text-sm text-gray-500 mt-2">Disputes will appear here when members or partners report issues</p>
-            </div>
+            {loading ? (
+              <div className="px-6 py-12 text-center">
+                <p className="text-gray-600">Loading disputes...</p>
+              </div>
+            ) : disputes.length === 0 ? (
+              <div className="px-6 py-20 text-center">
+                <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">check_circle</span>
+                <p className="text-gray-600 text-lg font-bold">No disputes found</p>
+                <p className="text-sm text-gray-500 mt-2">Disputes will appear here when members or partners report issues</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-200">
+                {disputes.map((dispute) => (
+                  <div key={dispute.id} className="p-6 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-3">
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                            dispute.status === 'open' ? 'bg-yellow-100 text-yellow-700' :
+                            dispute.status === 'investigating' ? 'bg-blue-100 text-blue-700' :
+                            dispute.status === 'resolved' ? 'bg-green-100 text-green-700' :
+                            'bg-red-100 text-red-700'
+                          }`}>
+                            {dispute.status}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {new Date(dispute.created_at).toLocaleDateString('en-ZA', { 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                          <div>
+                            <p className="text-xs text-gray-600 uppercase font-bold">Member</p>
+                            <p className="text-sm text-gray-900">{dispute.members?.full_name || 'Unknown'}</p>
+                            <p className="text-xs text-gray-500">{dispute.members?.phone || '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600 uppercase font-bold">Partner</p>
+                            <p className="text-sm text-gray-900">{dispute.partners?.shop_name || 'Unknown'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600 uppercase font-bold">Dispute Type</p>
+                            <p className="text-sm text-gray-900 capitalize">{dispute.dispute_type?.replace('_', ' ') || '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600 uppercase font-bold">Transaction Amount</p>
+                            <p className="text-sm text-gray-900">R{dispute.transactions?.purchase_amount?.toFixed(2) || '0.00'}</p>
+                          </div>
+                        </div>
+
+                        {dispute.description && (
+                          <div className="bg-gray-50 rounded-lg p-3 mb-3">
+                            <p className="text-xs text-gray-600 uppercase font-bold mb-1">Description</p>
+                            <p className="text-sm text-gray-700">{dispute.description}</p>
+                          </div>
+                        )}
+
+                        {dispute.resolution_note && (
+                          <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                            <p className="text-xs text-green-700 uppercase font-bold mb-1">Resolution Note</p>
+                            <p className="text-sm text-green-800">{dispute.resolution_note}</p>
+                            {dispute.resolved_at && (
+                              <p className="text-xs text-green-600 mt-1">
+                                Resolved on {new Date(dispute.resolved_at).toLocaleDateString('en-ZA')}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex flex-col gap-2 ml-4">
+                        {dispute.status === 'open' && (
+                          <>
+                            <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
+                              <span className="material-symbols-outlined text-lg">search</span>
+                              Investigate
+                            </button>
+                            <button className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
+                              <span className="material-symbols-outlined text-lg">check_circle</span>
+                              Resolve
+                            </button>
+                            <button className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
+                              <span className="material-symbols-outlined text-lg">cancel</span>
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        {dispute.status === 'investigating' && (
+                          <>
+                            <button className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
+                              <span className="material-symbols-outlined text-lg">check_circle</span>
+                              Resolve
+                            </button>
+                            <button className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
+                              <span className="material-symbols-outlined text-lg">cancel</span>
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        <button className="px-4 py-2 bg-[#1a558b] hover:bg-[#1a558b]/90 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2">
+                          <span className="material-symbols-outlined text-lg">visibility</span>
+                          View Details
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-start gap-3">

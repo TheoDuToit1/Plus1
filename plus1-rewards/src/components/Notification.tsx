@@ -72,7 +72,7 @@ export function Notification({ type, title, message, onClose, duration = 5000 }:
           
           <div className="flex-1 min-w-0">
             <h3 className="text-lg font-black mb-1">{title}</h3>
-            <p className="text-sm opacity-90 leading-relaxed">{message}</p>
+            <p className="text-sm opacity-90 leading-relaxed whitespace-pre-line">{message}</p>
           </div>
 
           <button
@@ -127,14 +127,16 @@ export function useNotification() {
     type: 'success' | 'error' | 'warning' | 'info';
     title: string;
     message: string;
+    duration?: number;
   } | null>(null);
 
   const showNotification = (
     type: 'success' | 'error' | 'warning' | 'info',
     title: string,
-    message: string
+    message: string,
+    duration?: number
   ) => {
-    setNotification({ type, title, message });
+    setNotification({ type, title, message, duration });
   };
 
   const hideNotification = () => {
@@ -145,9 +147,9 @@ export function useNotification() {
     notification,
     showNotification,
     hideNotification,
-    showSuccess: (title: string, message: string) => showNotification('success', title, message),
-    showError: (title: string, message: string) => showNotification('error', title, message),
-    showWarning: (title: string, message: string) => showNotification('warning', title, message),
-    showInfo: (title: string, message: string) => showNotification('info', title, message),
+    showSuccess: (title: string, message: string, duration?: number) => showNotification('success', title, message, duration),
+    showError: (title: string, message: string, duration?: number) => showNotification('error', title, message, duration),
+    showWarning: (title: string, message: string, duration?: number) => showNotification('warning', title, message, duration),
+    showInfo: (title: string, message: string, duration?: number) => showNotification('info', title, message, duration),
   };
 }

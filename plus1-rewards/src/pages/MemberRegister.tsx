@@ -30,7 +30,14 @@ export default function MemberRegister() {
     e.preventDefault();
     setError('');
 
-    if (!formData.terms) { setError('Please agree to the Terms of Service and Privacy Policy'); return; }
+    // Validate terms first with clear error
+    if (!formData.terms) { 
+      setError('You must agree to the Terms of Service and Privacy Policy to create an account'); 
+      // Scroll to error message
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return; 
+    }
+    
     if (formData.pin.length !== 6) { setError('PIN must be exactly 6 digits'); return; }
     if (!/^\d{6}$/.test(formData.pin)) { setError('PIN must contain only numbers'); return; }
 
@@ -226,7 +233,9 @@ export default function MemberRegister() {
           />
           <p className="text-xs text-gray-500 -mt-2">Your PIN will be used with your mobile number to log in</p>
 
-          <label className="flex items-start gap-2.5 text-sm text-gray-600 cursor-pointer">
+          <label className={`flex items-start gap-2.5 text-sm text-gray-600 cursor-pointer p-3 rounded-lg transition-colors ${
+            error.includes('Terms of Service') ? 'bg-red-50 border-2 border-red-300' : ''
+          }`}>
             <div className="checkbox-container mt-0.5">
               <input
                 type="checkbox"
@@ -244,7 +253,7 @@ export default function MemberRegister() {
                 </svg>
               </label>
             </div>
-            <span>
+            <span className={error.includes('Terms of Service') ? 'text-red-700 font-semibold' : ''}>
               I agree to the{' '}
               <a 
                 href="/terms-of-service" 

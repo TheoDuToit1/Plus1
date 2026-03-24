@@ -123,19 +123,32 @@ export default function PartnerLayout({ children }: PartnerLayoutProps) {
                 </div>
                 <div>
                   <h1 className="text-xl font-bold text-gray-900">{partner.name}</h1>
-                  <p className="text-gray-600 text-sm">
-                    Commission: {partner.commission_rate}% • Status: {partner.status}
-                  </p>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="flex items-center gap-1">
+                      <span className={`material-symbols-outlined text-sm ${
+                        partner.status === 'active' ? 'text-green-600' : 'text-yellow-600'
+                      }`}>
+                        {partner.status === 'active' ? 'check_circle' : 'schedule'}
+                      </span>
+                      <span className="text-gray-600">
+                        Status: <span className="font-semibold text-gray-900">{partner.status?.toUpperCase()}</span>
+                      </span>
+                    </div>
+                    <span className="text-gray-300">•</span>
+                    <span className="text-gray-600">
+                      Cashback Rate: <span className="font-semibold text-gray-900">{partner.cashback_percent || partner.commission_rate}%</span>
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  partner.status === 'active' 
-                    ? 'bg-green-50 text-green-600 border border-green-200' 
-                    : 'bg-yellow-50 text-yellow-600 border border-yellow-200'
-                }`}>
-                  {partner.status === 'active' ? '✓ Active' : '⚠ Pending'}
-                </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => navigate('/partner/profile')}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#1a558b] hover:bg-[#143f66] text-white rounded-lg font-semibold transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg">store</span>
+                  <span className="hidden sm:inline">Shop Profile</span>
+                </button>
                 <button
                   onClick={handleSignOut}
                   className="bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 px-4 py-2 rounded-lg text-sm font-medium transition-all"

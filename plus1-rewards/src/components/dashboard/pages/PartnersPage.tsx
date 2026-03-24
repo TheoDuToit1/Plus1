@@ -45,7 +45,7 @@ export default function PartnersPage() {
       // Fetch transactions for revenue calculation
       const { data: transactionsData, error: transError} = await supabaseAdmin
         .from('transactions')
-        .select('partner_id, partner_contribution');
+        .select('partner_id, purchase_amount, cashback_percent');
 
       if (transError) throw transError;
 
@@ -54,7 +54,8 @@ export default function PartnersPage() {
       const verified = partnersData?.filter(s => s.status === 'active' && s.approved_at)?.length || 0;
       const pending = partnersData?.filter(s => s.status === 'pending')?.length || 0;
       const transactions = transactionsData?.length || 0;
-      const revenue = transactionsData?.reduce((sum, t) => sum + (parseFloat(t.partner_contribution) || 0), 0) || 0;
+      // Revenue is the total purchase amount from all transactions
+      const revenue = transactionsData?.reduce((sum, t) => sum + (parseFloat(t.purchase_amount) || 0), 0) || 0;
 
       setStats({
         totalPartners,

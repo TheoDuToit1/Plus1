@@ -6,7 +6,7 @@ import StatCard from '../components/StatCard';
 import { supabaseAdmin } from '../../../lib/supabase';
 import { Notification, useNotification } from '../../Notification';
 
-type ApprovalTab = 'partners' | 'agents' | 'providers' | 'cover_plans' | 'linked_people';
+type ApprovalTab = 'partners' | 'agents' | 'cover_plans' | 'linked_people';
 
 export default function ApprovalsPage() {
   const navigate = useNavigate();
@@ -17,7 +17,6 @@ export default function ApprovalsPage() {
   // Data states
   const [pendingPartners, setPendingPartners] = useState<any[]>([]);
   const [pendingAgents, setPendingAgents] = useState<any[]>([]);
-  const [pendingProviders, setPendingProviders] = useState<any[]>([]);
   const [coverPlanRequests, setCoverPlanRequests] = useState<any[]>([]);
   const [linkedPeopleRequests, setLinkedPeopleRequests] = useState<any[]>([]);
   
@@ -26,6 +25,7 @@ export default function ApprovalsPage() {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('');
   const [allAgents, setAllAgents] = useState<any[]>([]);
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
   
   // Confirmation modal states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -34,6 +34,19 @@ export default function ApprovalsPage() {
     message: string;
     onConfirm: () => void;
   } | null>(null);
+  
+  // Rejection modal state
+  const [rejectionModal, setRejectionModal] = useState<{
+    show: boolean;
+    type: 'partner' | 'agent' | null;
+    id: string;
+    reason: string;
+  }>({
+    show: false,
+    type: null,
+    id: '',
+    reason: ''
+  });
   
   const [stats, setStats] = useState({
     totalPending: 0,
@@ -134,7 +147,6 @@ export default function ApprovalsPage() {
       if (agentsError) {
         setPendingAgents([]);
       }
-      setPendingProviders(providers || []);
 
       const totalPending = (partners?.length || 0) + (agents?.length || 0) + (providers?.length || 0);
       
@@ -158,6 +170,33 @@ export default function ApprovalsPage() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  // Fetch signature URL when modal opens
+  useEffect(() => {
+    const fetchSignatureUrl = async () => {
+      if (showDetailsModal && selectedItem?.signature_url) {
+        try {
+          const { data, error } = await supabaseAdmin.storage
+            .from('documents')
+            .createSignedUrl(selectedItem.signature_url, 3600); // 1 hour expiry
+
+          if (error) {
+            console.error('Error fetching signature URL:', error);
+            setSignatureUrl(null);
+          } else {
+            setSignatureUrl(data.signedUrl);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          setSignatureUrl(null);
+        }
+      } else {
+        setSignatureUrl(null);
+      }
+    };
+
+    fetchSignatureUrl();
+  }, [showDetailsModal, selectedItem]);
 
   const handleApprovePartner = async (partnerId: string, assignedAgentId?: string) => {
     try {
@@ -201,27 +240,52 @@ export default function ApprovalsPage() {
   };
 
   const handleRejectPartner = async (partnerId: string) => {
-    setConfirmAction({
-      title: 'Reject Partner Application?',
-      message: 'Are you sure you want to reject this partner application? This action cannot be undone.',
-      onConfirm: async () => {
-        try {
-          const { error } = await supabaseAdmin
-            .from('partners')
-            .update({ status: 'rejected' })
-            .eq('id', partnerId);
-
-          if (error) throw error;
-          showSuccess('Rejected', 'Partner application has been rejected.');
-          fetchData();
-        } catch (error) {
-          console.error('Error rejecting partner:', error);
-          showError('Error', 'Failed to reject partner. Please try again.');
-        }
-        setShowConfirmModal(false);
-      }
+    // Show rejection reason modal
+    setRejectionModal({
+      show: true,
+      type: 'partner',
+      id: partnerId,
+      reason: ''
     });
-    setShowConfirmModal(true);
+  };
+
+  const submitRejection = async () => {
+    if (!rejectionModal.reason.trim()) {
+      showError('Rejection Reason Required', 'Please provide a reason for rejecting this application.');
+      return;
+    }
+
+    try {
+      if (rejectionModal.type === 'partner') {
+        const { error } = await supabaseAdmin
+          .from('partners')
+          .update({ 
+            status: 'rejected',
+            rejection_reason: rejectionModal.reason.trim()
+          })
+          .eq('id', rejectionModal.id);
+
+        if (error) throw error;
+        showSuccess('Rejected', 'Partner application has been rejected.');
+      } else if (rejectionModal.type === 'agent') {
+        const { error } = await supabaseAdmin
+          .from('agents')
+          .update({ 
+            status: 'rejected',
+            rejection_reason: rejectionModal.reason.trim()
+          })
+          .eq('id', rejectionModal.id);
+
+        if (error) throw error;
+        showSuccess('Rejected', 'Agent application has been rejected.');
+      }
+
+      setRejectionModal({ show: false, type: null, id: '', reason: '' });
+      fetchData();
+    } catch (error) {
+      console.error('Error rejecting application:', error);
+      showError('Error', 'Failed to reject application. Please try again.');
+    }
   };
 
   const handleApproveAgent = async (agentId: string) => {
@@ -244,27 +308,13 @@ export default function ApprovalsPage() {
   };
 
   const handleRejectAgent = async (agentId: string) => {
-    setConfirmAction({
-      title: 'Reject Agent Application?',
-      message: 'Are you sure you want to reject this agent application? This action cannot be undone.',
-      onConfirm: async () => {
-        try {
-          const { error } = await supabaseAdmin
-            .from('agents')
-            .update({ status: 'rejected' })
-            .eq('id', agentId);
-
-          if (error) throw error;
-          showSuccess('Rejected', 'Agent application has been rejected.');
-          fetchData();
-        } catch (error) {
-          console.error('Error rejecting agent:', error);
-          showError('Error', 'Failed to reject agent. Please try again.');
-        }
-        setShowConfirmModal(false);
-      }
+    // Show rejection reason modal
+    setRejectionModal({
+      show: true,
+      type: 'agent',
+      id: agentId,
+      reason: ''
     });
-    setShowConfirmModal(true);
   };
 
   const handleRefresh = () => fetchData();
@@ -273,8 +323,7 @@ export default function ApprovalsPage() {
   const statsData = [
     { icon: 'pending_actions', title: 'Total Pending', value: stats.totalPending.toString(), change: '', description: 'Awaiting approval' },
     { icon: 'storefront', title: 'Partners', value: stats.partners.toString(), change: '', description: 'Partner applications' },
-    { icon: 'support_agent', title: 'Agents', value: stats.agents.toString(), change: '', description: 'Agent applications' },
-    { icon: 'business', title: 'Providers', value: stats.providers.toString(), change: '', description: 'Provider access requests' }
+    { icon: 'support_agent', title: 'Agents', value: stats.agents.toString(), change: '', description: 'Agent applications' }
   ];
 
   return (
@@ -333,43 +382,63 @@ export default function ApprovalsPage() {
           <div className="flex items-center gap-2 mb-6 bg-white p-1.5 rounded-xl border border-gray-200 w-fit shadow-sm overflow-x-auto">
             <button
               onClick={() => setActiveTab('partners')}
-              className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap relative ${
                 activeTab === 'partners' ? 'bg-[#1a558b] text-white shadow-lg' : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
-              Partners ({stats.partners})
+              Partners
+              {stats.partners > 0 && (
+                <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                  activeTab === 'partners' ? 'bg-white text-[#1a558b]' : 'bg-red-500 text-white'
+                }`}>
+                  {stats.partners}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('agents')}
-              className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap relative ${
                 activeTab === 'agents' ? 'bg-[#1a558b] text-white shadow-lg' : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
-              Agents ({stats.agents})
-            </button>
-            <button
-              onClick={() => setActiveTab('providers')}
-              className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                activeTab === 'providers' ? 'bg-[#1a558b] text-white shadow-lg' : 'text-gray-500 hover:bg-gray-50'
-              }`}
-            >
-              Providers ({stats.providers})
+              Agents
+              {stats.agents > 0 && (
+                <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                  activeTab === 'agents' ? 'bg-white text-[#1a558b]' : 'bg-red-500 text-white'
+                }`}>
+                  {stats.agents}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('cover_plans')}
-              className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap relative ${
                 activeTab === 'cover_plans' ? 'bg-[#1a558b] text-white shadow-lg' : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
-              Cover Plan Changes ({stats.coverPlans})
+              Cover Plan Changes
+              {stats.coverPlans > 0 && (
+                <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                  activeTab === 'cover_plans' ? 'bg-white text-[#1a558b]' : 'bg-red-500 text-white'
+                }`}>
+                  {stats.coverPlans}
+                </span>
+              )}
             </button>
             <button
               onClick={() => setActiveTab('linked_people')}
-              className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+              className={`px-6 py-2.5 rounded-lg text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap relative ${
                 activeTab === 'linked_people' ? 'bg-[#1a558b] text-white shadow-lg' : 'text-gray-500 hover:bg-gray-50'
               }`}
             >
-              Linked People ({stats.linkedPeople})
+              Linked People
+              {stats.linkedPeople > 0 && (
+                <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                  activeTab === 'linked_people' ? 'bg-white text-[#1a558b]' : 'bg-red-500 text-white'
+                }`}>
+                  {stats.linkedPeople}
+                </span>
+              )}
             </button>
           </div>
 
@@ -565,24 +634,6 @@ export default function ApprovalsPage() {
               </div>
             )}
 
-            {/* Providers Tab */}
-            {activeTab === 'providers' && (
-              <div>
-                <div className="px-6 py-5 border-b border-gray-200 bg-gray-50">
-                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#1a558b]">business</span>
-                    Pending Provider Access Requests ({pendingProviders.length})
-                  </h3>
-                </div>
-                
-                <div className="px-6 py-12 text-center">
-                  <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">business</span>
-                  <p className="text-gray-600">No pending provider access requests</p>
-                  <p className="text-sm text-gray-500 mt-2">Provider access management coming soon</p>
-                </div>
-              </div>
-            )}
-
             {/* Cover Plan Changes Tab */}
             {activeTab === 'cover_plans' && (
               <div>
@@ -750,6 +801,48 @@ export default function ApprovalsPage() {
                           </div>
                         </div>
                       </div>
+
+                      {/* Digital Signature */}
+                      {selectedItem.signature_url && (
+                        <div className="bg-white border border-gray-200 rounded-xl p-6">
+                          <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[#1a558b]">draw</span>
+                            Digital Signature
+                          </h3>
+                          <div className="space-y-3">
+                            <p className="text-sm text-gray-600">
+                              Partner agreement signed digitally on {new Date(selectedItem.created_at).toLocaleDateString()}
+                            </p>
+                            <div className="border-2 border-gray-200 rounded-xl p-4 bg-gray-50">
+                              {signatureUrl ? (
+                                <img 
+                                  src={signatureUrl}
+                                  alt="Partner Signature"
+                                  className="max-w-full h-auto max-h-40 mx-auto"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    const errorDiv = e.currentTarget.nextElementSibling as HTMLElement;
+                                    if (errorDiv) errorDiv.classList.remove('hidden');
+                                  }}
+                                />
+                              ) : (
+                                <div className="text-center text-gray-500 text-sm py-8">
+                                  <div className="w-12 h-12 border-4 border-gray-300 border-t-[#1a558b] rounded-full animate-spin mx-auto mb-4"></div>
+                                  Loading signature...
+                                </div>
+                              )}
+                              <div className="hidden text-center text-gray-500 text-sm">
+                                <span className="material-symbols-outlined text-4xl mb-2 block">error</span>
+                                Unable to load signature image
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-green-600">
+                              <span className="material-symbols-outlined text-sm">verified</span>
+                              <span>Digitally signed and verified</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Agent Assignment */}
                       <div className="bg-white border border-gray-200 rounded-xl p-6">
@@ -988,6 +1081,75 @@ export default function ApprovalsPage() {
                 >
                   <span className="material-symbols-outlined text-lg">delete</span>
                   Reject
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Rejection Reason Modal */}
+        {rejectionModal.show && (
+          <div 
+            className="fixed inset-0 flex items-center justify-center z-50 p-4"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)' }}
+            onClick={() => setRejectionModal({ show: false, type: null, id: '', reason: '' })}
+          >
+            <div 
+              className="rounded-xl max-w-lg w-full overflow-hidden shadow-2xl"
+              style={{ backgroundColor: '#ffffff' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="px-6 py-5 border-b border-gray-200 bg-red-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-red-600 text-2xl">cancel</span>
+                  </div>
+                  <h2 className="text-xl font-black text-gray-900">
+                    Reject {rejectionModal.type === 'partner' ? 'Partner' : 'Agent'} Application
+                  </h2>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="px-6 py-6 space-y-4">
+                <p className="text-gray-700 leading-relaxed">
+                  Please provide a brief reason for rejecting this application. This will be shown to the applicant when they try to log in.
+                </p>
+                
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Rejection Reason <span className="text-red-600">*</span>
+                  </label>
+                  <textarea
+                    value={rejectionModal.reason}
+                    onChange={(e) => setRejectionModal(prev => ({ ...prev, reason: e.target.value }))}
+                    placeholder="e.g., Incomplete documentation, Invalid business registration, Does not meet eligibility criteria..."
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-red-500 focus:outline-none resize-none"
+                    rows={4}
+                    maxLength={500}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {rejectionModal.reason.length}/500 characters
+                  </p>
+                </div>
+              </div>
+
+              {/* Modal Actions */}
+              <div className="px-6 py-4 bg-gray-50 flex gap-3">
+                <button
+                  onClick={() => setRejectionModal({ show: false, type: null, id: '', reason: '' })}
+                  className="flex-1 px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-lg text-sm font-bold hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitRejection}
+                  disabled={!rejectionModal.reason.trim()}
+                  className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                >
+                  <span className="material-symbols-outlined text-lg">cancel</span>
+                  Reject Application
                 </button>
               </div>
             </div>

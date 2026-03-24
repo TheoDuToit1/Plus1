@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import AuthLayout from '../components/auth/AuthLayout';
 import { AuthInput, AuthButton, AuthError, AuthLink } from '../components/auth/AuthComponents';
 import { Notification, useNotification } from '../components/Notification';
+import DigitalSignature from '../components/DigitalSignature';
 
 const BLUE = '#1a558b';
 const BLUE_LIGHT = 'rgba(26,85,139,0.08)';
@@ -30,6 +31,8 @@ export default function PartnerRegister() {
   const [showPin, setShowPin] = useState(false);
   const [showConfirmPin, setShowConfirmPin] = useState(false);
   const [error, setError] = useState('');
+  const [showSignature, setShowSignature] = useState(false);
+  const [signatureData, setSignatureData] = useState<string | null>(null);
   const { notification, showSuccess, hideNotification } = useNotification();
   
   const [formData, setFormData] = useState({
@@ -179,6 +182,13 @@ export default function PartnerRegister() {
 
     if (!validateStep3()) return;
 
+    // Show signature popup
+    setShowSignature(true);
+  };
+
+  const handleSignatureComplete = async (signatureDataUrl: string) => {
+    setSignatureData(signatureDataUrl);
+    setShowSignature(false);
     setIsSubmitting(true);
 
     try {
@@ -225,6 +235,22 @@ export default function PartnerRegister() {
 
       if (userError) throw userError;
 
+      // Upload signature to storage
+      const signatureBlob = await fetch(signatureDataUrl).then(r => r.blob());
+      const signatureFileName = `partner-signatures/${userData.id}_${Date.now()}.png`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(signatureFileName, signatureBlob, {
+          contentType: 'image/png',
+          upsert: false
+        });
+
+      if (uploadError) {
+        console.error('Signature upload error:', uploadError);
+        // Continue even if signature upload fails
+      }
+
       // Create partner profile
       const { error: partnerError } = await supabase
         .from('partners')
@@ -240,7 +266,8 @@ export default function PartnerRegister() {
           responsible_person: formData.responsiblePerson,
           included_products: formData.includedProducts || null,
           excluded_products: formData.excludedProducts || null,
-          status: 'pending'
+          status: 'pending',
+          signature_url: uploadError ? null : signatureFileName
         });
 
       if (partnerError) throw partnerError;
@@ -599,6 +626,7 @@ export default function PartnerRegister() {
                   <li>• Cashback is invoiced monthly and payable by month end</li>
                   <li>• You agree to process member transactions accurately</li>
                   <li>• Your account requires admin approval before activation</li>
+                  <li>• You will review and sign the full agreement before submission</li>
                 </ul>
               </div>
 
@@ -621,16 +649,7 @@ export default function PartnerRegister() {
                   </label>
                 </div>
                 <span>
-                  I agree to the{' '}
-                  <a 
-                    href="/partner-agreement.pdf" 
-                    target="_blank" 
-                    className="font-semibold" 
-                    style={{ color: BLUE }}
-                  >
-                    Partner Agreement
-                  </a>
-                  {' '}and understand the terms
+                  I have read and agree to the terms. I will provide my digital signature to complete registration.
                 </span>
               </label>
 
@@ -651,6 +670,16 @@ export default function PartnerRegister() {
           <AuthLink onClick={() => navigate('/partner/login')}>Sign In</AuthLink>
         </p>
       </div>
+
+      {/* Digital Signature Popup */}
+      {showSignature && (
+        <DigitalSignature
+          partnerName={formData.businessName}
+          cashbackPercent={cashbackPercent}
+          onSign={handleSignatureComplete}
+          onCancel={() => setShowSignature(false)}
+        />
+      )}
     </AuthLayout>
   );
 }

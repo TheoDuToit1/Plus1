@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getSession, clearSession } from '../lib/session';
 import MemberLayout from '../components/member/MemberLayout';
+import UpgradePromptModal from '../components/member/UpgradePromptModal';
 
 interface Member {
   id: string;
@@ -43,10 +44,7 @@ export function MemberDashboard() {
   const [totalCoverPlans, setTotalCoverPlans] = useState(0);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
 
   const loadDashboardData = async () => {
     try {
@@ -126,19 +124,9 @@ export function MemberDashboard() {
     }
   };
 
-  const handleSignOut = () => {
-    clearSession();
-    navigate('/member/login');
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-ZA', {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
 
   const targetAmount = mainCoverPlan ? Number(mainCoverPlan.target_amount) : 0;
   const fundedAmount = mainCoverPlan ? Number(mainCoverPlan.funded_amount) : 0;
@@ -155,6 +143,76 @@ export function MemberDashboard() {
   const overflowCashback = mainCoverPlan && fundedAmount > targetAmount
     ? fundedAmount - targetAmount
     : 0;
+
+  // Check if we should show upgrade prompt
+  useEffect(() => {
+    if (mainCoverPlan && overflowCashback > 0 && mainCoverPlan.status === 'active') {
+      // Check if user has dismissed the prompt in this session
+      const dismissed = sessionStorage.getItem('upgrade_prompt_dismissed');
+      if (!dismissed) {
+        setShowUpgradePrompt(true);
+      }
+    }
+  }, [mainCoverPlan, overflowCashback]);
+
+  const handleUpgrade = async () => {
+    if (!mainCoverPlan) return;
+
+    const currentTarget = Number(mainCoverPlan.target_amount);
+    const nextTarget = currentTarget === 385 ? 500 : currentTarget === 500 ? 750 : 0;
+
+    if (nextTarget === 0) {
+      alert('You are already on the highest plan!');
+      return;
+    }
+
+    try {
+      // Update the cover plan target
+      const { error } = await supabase
+        .from('member_cover_plans')
+        .update({ 
+          target_amount: nextTarget,
+          status: fundedAmount >= nextTarget ? 'active' : 'in_progress'
+        })
+        .eq('id', mainCoverPlan.id);
+
+      if (error) throw error;
+
+      setShowUpgradePrompt(false);
+      sessionStorage.removeItem('upgrade_prompt_dismissed');
+      loadDashboardData(); // Reload to show updated plan
+    } catch (error) {
+      console.error('Error upgrading plan:', error);
+      alert('Failed to upgrade plan. Please try again.');
+    }
+  };
+
+  const handleDeclineUpgrade = () => {
+    setShowUpgradePrompt(false);
+    sessionStorage.setItem('upgrade_prompt_dismissed', 'true');
+  };
+
+  const handleAddDependant = () => {
+    navigate('/member/add-dependant');
+  };
+
+  const handleSponsorSomeone = () => {
+    navigate('/member/sponsor');
+  };
+
+  const handleSignOut = () => {
+    clearSession();
+    navigate('/member/login');
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-ZA', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   if (loading) {
     return (
@@ -237,11 +295,15 @@ export function MemberDashboard() {
           </div>
 
           <div className="space-y-4">
+            {/* Plan Name */}
             <div>
-              <p className="font-bold text-gray-900 text-lg mb-3">{mainCoverPlan.cover_plans.plan_name}</p>
-              
-              {/* Progress Section */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+              <p className="font-bold text-gray-900 text-lg mb-1">{mainCoverPlan.cover_plans.plan_name}</p>
+              <p className="text-sm text-gray-600">Target: R{targetAmount.toFixed(2)}</p>
+            </div>
+            
+            {/* Progress Section - Only show if not fully funded */}
+            {mainCoverPlan.status === 'in_progress' && (
+              <div className="bg-gray-50 rounded-lg p-4">
                 <p className="text-sm text-gray-600 mb-2">Cashback Progress</p>
                 <div className="flex justify-between text-sm text-gray-900 font-bold mb-2">
                   <span>R{fundedAmount.toFixed(2)} funded</span>
@@ -249,61 +311,139 @@ export function MemberDashboard() {
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
                   <div 
-                    className={`h-4 rounded-full transition-all ${
-                      mainCoverPlan.status === 'active' ? 'bg-green-500' :
-                      mainCoverPlan.status === 'in_progress' ? 'bg-blue-500' :
-                      'bg-red-500'
-                    }`}
+                    className="h-4 rounded-full transition-all bg-blue-500"
                     style={{ width: `${progressPercent}%` }}
                   />
                 </div>
                 <p className="text-sm text-gray-600">
-                  {progressPercent.toFixed(0)}% complete
-                  {amountStillNeeded > 0 && ` • R${amountStillNeeded.toFixed(2)} still needed`}
+                  {progressPercent.toFixed(0)}% complete • R{amountStillNeeded.toFixed(2)} still needed
                 </p>
               </div>
+            )}
 
-              {/* Status Messages */}
-              {mainCoverPlan.status === 'active' && mainCoverPlan.active_to && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-3">
-                  <p className="text-green-800 text-sm font-bold">
-                    ✓ Your cover is fully active until {new Date(mainCoverPlan.active_to).toLocaleDateString('en-ZA')}
-                  </p>
-                </div>
-              )}
-
-              {mainCoverPlan.status === 'in_progress' && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-                  <p className="text-blue-800 text-sm font-bold">
-                    ⏳ Keep shopping to build up your cashback! R{amountStillNeeded.toFixed(2)} more needed.
-                  </p>
-                </div>
-              )}
-
-              {mainCoverPlan.status === 'suspended' && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
-                  <p className="text-red-800 text-sm font-bold">
-                    ⚠ Not enough cashback yet. Shop more or top up to reactivate your cover.
-                  </p>
-                </div>
-              )}
-
-              {/* Overflow Cashback */}
-              {overflowCashback > 0 && (
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                  <div className="flex items-center justify-between">
+            {/* Active Status - Show funded amount and overflow */}
+            {mainCoverPlan.status === 'active' && (
+              <>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
                     <div>
-                      <p className="text-purple-900 font-bold text-sm">Overflow Cashback</p>
-                      <p className="text-purple-700 text-xs">Extra cashback beyond your plan target</p>
+                      <p className="text-green-800 text-sm font-bold">✓ Policy Active</p>
+                      <p className="text-green-700 text-xs">
+                        Coverage until {mainCoverPlan.active_to ? new Date(mainCoverPlan.active_to).toLocaleDateString('en-ZA') : 'N/A'}
+                      </p>
                     </div>
-                    <p className="text-purple-900 font-bold text-lg">R{overflowCashback.toFixed(2)}</p>
+                    <div className="text-right">
+                      <p className="text-green-900 font-bold text-lg">R{targetAmount.toFixed(2)}</p>
+                      <p className="text-green-700 text-xs">Policy Amount</p>
+                    </div>
                   </div>
-                  <p className="text-purple-700 text-xs mt-2">
-                    This can help with your next 30-day cycle, higher cover plans, or linked people.
-                  </p>
+                </div>
+
+                {/* Cashback Balance Breakdown */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                  <p className="text-blue-900 font-bold text-sm mb-3">Cashback Balance Breakdown</p>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-blue-700">Total Cashback Earned:</span>
+                    <span className="text-blue-900 font-bold">R{fundedAmount.toFixed(2)}</span>
+                  </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-blue-700">Policy Deduction:</span>
+                    <span className="text-blue-900 font-bold">- R{targetAmount.toFixed(2)}</span>
+                  </div>
+                  
+                  <div className="border-t border-blue-300 pt-2 mt-2">
+                    <div className="flex justify-between">
+                      <span className="text-blue-900 font-bold">Available Balance:</span>
+                      <span className={`font-bold text-lg ${overflowCashback > 0 ? 'text-purple-600' : 'text-blue-900'}`}>
+                        R{overflowCashback.toFixed(2)}
+                      </span>
+                    </div>
+                    {overflowCashback > 0 && (
+                      <p className="text-xs text-blue-700 mt-1">
+                        This overflow can be used to upgrade, add dependants, or sponsor someone
+                      </p>
+                    )}
+                    {overflowCashback === 0 && (
+                      <p className="text-xs text-blue-700 mt-1">
+                        Keep shopping to build overflow for upgrades or dependants
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* In Progress Status */}
+            {mainCoverPlan.status === 'in_progress' && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-blue-800 text-sm font-bold">
+                  ⏳ Keep shopping to build up your cashback! R{amountStillNeeded.toFixed(2)} more needed.
+                </p>
+              </div>
+            )}
+
+            {/* Suspended Status */}
+            {mainCoverPlan.status === 'suspended' && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-red-800 text-sm font-bold">
+                  ⚠ Not enough cashback yet. Shop more or top up to reactivate your cover.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Overflow Management Buttons */}
+      {mainCoverPlan && mainCoverPlan.status === 'active' && (
+        <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Manage Your Cashback</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Upgrade Plan Button */}
+            <button
+              onClick={handleUpgrade}
+              disabled={Number(mainCoverPlan.target_amount) >= 750}
+              className="bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-bold py-6 rounded-xl transition-all transform hover:scale-105 disabled:hover:scale-100 flex flex-col items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-4xl">upgrade</span>
+              <span>Upgrade Plan</span>
+              <span className="text-xs opacity-90">
+                {Number(mainCoverPlan.target_amount) >= 750 ? 'Max plan reached' : 'Increase coverage'}
+              </span>
+            </button>
+
+            {/* Add Dependant Button */}
+            <button
+              onClick={handleAddDependant}
+              className="bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold py-6 rounded-xl transition-all transform hover:scale-105 flex flex-col items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-4xl">group_add</span>
+              <span>Add Dependant</span>
+              <span className="text-xs opacity-90">Cover family members</span>
+            </button>
+
+            {/* Sponsor Someone Button */}
+            <button
+              onClick={handleSponsorSomeone}
+              disabled={overflowCashback < (targetAmount * 2)}
+              className="bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-bold py-6 rounded-xl transition-all transform hover:scale-105 disabled:hover:scale-100 flex flex-col items-center justify-center gap-2 relative group"
+              title={overflowCashback < (targetAmount * 2) ? `Need R${(targetAmount * 2).toFixed(2)} overflow to sponsor (2x R${targetAmount})` : 'Sponsor someone!'}
+            >
+              <span className="material-symbols-outlined text-4xl">card_giftcard</span>
+              <span>Sponsor Someone</span>
+              <span className="text-xs opacity-90">
+                {overflowCashback < (targetAmount * 2) 
+                  ? `Need R${(targetAmount * 2).toFixed(2)} overflow` 
+                  : 'Help someone get covered'}
+              </span>
+              {overflowCashback < (targetAmount * 2) && (
+                <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                  Locked
                 </div>
               )}
-            </div>
+            </button>
           </div>
         </div>
       )}
@@ -322,12 +462,12 @@ export function MemberDashboard() {
 
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[#1a558b] text-2xl">payments</span>
+            <span className="material-symbols-outlined text-[#1a558b] text-2xl">account_balance_wallet</span>
             <div>
               <p className="text-gray-900 font-bold text-xl">
-                R{fundedAmount.toFixed(2)}
+                R{overflowCashback.toFixed(2)}
               </p>
-              <p className="text-gray-600 text-sm">Current Cashback</p>
+              <p className="text-gray-600 text-sm">Available Balance</p>
             </div>
           </div>
         </div>
@@ -452,6 +592,18 @@ export function MemberDashboard() {
           </button>
         </div>
       </div>
+
+      {/* Upgrade Prompt Modal */}
+      {showUpgradePrompt && mainCoverPlan && (
+        <UpgradePromptModal
+          currentPlanName={mainCoverPlan.cover_plans.plan_name}
+          currentTarget={targetAmount}
+          fundedAmount={fundedAmount}
+          overflowAmount={overflowCashback}
+          onUpgrade={handleUpgrade}
+          onDecline={handleDeclineUpgrade}
+        />
+      )}
     </MemberLayout>
   );
 }

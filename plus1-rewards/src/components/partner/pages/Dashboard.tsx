@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { Phone, DollarSign, User, CheckCircle, XCircle, Loader, QrCode, Camera, UserPlus } from 'lucide-react';
+import jsQR from 'jsqr';
 
 interface Partner {
   id: string;
@@ -53,7 +54,9 @@ export default function Dashboard() {
   const [success, setSuccess] = useState('');
   const [showScanner, setShowScanner] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const scanIntervalRef = useRef<number | null>(null);
   
   // Registration state
   const [showPin, setShowPin] = useState(false);
@@ -85,6 +88,8 @@ export default function Dashboard() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
+        // Start scanning for QR codes
+        startQRScanning();
       }
     } catch (err) {
       console.error('Camera error:', err);
@@ -96,6 +101,104 @@ export default function Dashboard() {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
+    }
+    stopQRScanning();
+  };
+
+  const startQRScanning = () => {
+    if (scanIntervalRef.current) return;
+    
+    scanIntervalRef.current = window.setInterval(() => {
+      scanQRCode();
+    }, 300); // Scan every 300ms
+  };
+
+  const stopQRScanning = () => {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+  };
+
+  const scanQRCode = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    
+    if (!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA) {
+      return;
+    }
+
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    // Set canvas size to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Draw current video frame to canvas
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Get image data from canvas
+    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+
+    // Scan for QR code
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: 'dontInvert',
+    });
+
+    if (code && code.data) {
+      // QR code detected!
+      setQrCode(code.data);
+      stopCamera();
+      setShowScanner(false);
+      // Automatically search for the member
+      searchByQRCode(code.data);
+    }
+  };
+
+  const searchByQRCode = async (qrCodeValue: string) => {
+    setSearchLoading(true);
+    setError('');
+    setMember(null);
+
+    try {
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, full_name, phone, status')
+        .eq('qr_code', qrCodeValue)
+        .single();
+
+      if (error || !data) {
+        setError('Member not found with this QR code');
+        return;
+      }
+
+      if (data.status !== 'active') {
+        setError('Member account is not active');
+        return;
+      }
+
+      // Check if member is connected to this partner
+      if (partner) {
+        const { data: connectionData, error: connectionError } = await supabase
+          .from('member_partner_connections')
+          .select('id, status')
+          .eq('member_id', data.id)
+          .eq('partner_id', partner.id)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        if (connectionError || !connectionData) {
+          setError(`${data.full_name} is not connected to your store yet. Please ask them to connect first via the Find Partners page.`);
+          return;
+        }
+      }
+
+      setMember(data);
+    } catch (err) {
+      setError('Error searching for member');
+    } finally {
+      setSearchLoading(false);
     }
   };
 
@@ -559,9 +662,9 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 h-full px-2 md:px-0">
       {/* LEFT SIDE - Sales & Registration */}
-      <div className="space-y-4">
+      <div className="space-y-3 md:space-y-4">
         {/* Tab Switcher */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2 flex gap-2">
           <button
@@ -570,14 +673,15 @@ export default function Dashboard() {
               setError('');
               setSuccess('');
             }}
-            className={`flex-1 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2 md:py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-1 md:gap-2 text-xs md:text-base ${
               activeTab === 'sales'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <DollarSign className="w-5 h-5" />
-            Sales Terminal
+            <DollarSign className="w-4 h-4 md:w-5 md:h-5" />
+            <span className="hidden sm:inline">Sales Terminal</span>
+            <span className="sm:hidden">Sales</span>
           </button>
           <button
             onClick={() => {
@@ -585,38 +689,39 @@ export default function Dashboard() {
               setError('');
               setSuccess('');
             }}
-            className={`flex-1 py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+            className={`flex-1 py-2 md:py-3 rounded-lg font-semibold transition-all flex items-center justify-center gap-1 md:gap-2 text-xs md:text-base ${
               activeTab === 'register'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
             }`}
           >
-            <UserPlus className="w-5 h-5" />
-            Register Member
+            <UserPlus className="w-4 h-4 md:w-5 md:h-5" />
+            <span className="hidden sm:inline">Register Member</span>
+            <span className="sm:hidden">Register</span>
           </button>
         </div>
 
         {/* Success/Error Messages */}
         {success && (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3">
-            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-            <p className="text-green-800 text-sm">{success}</p>
+          <div className="bg-green-50 border border-green-200 rounded-xl p-3 md:p-4 flex items-start gap-2 md:gap-3">
+            <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-green-600 flex-shrink-0 mt-0.5" />
+            <p className="text-green-800 text-xs md:text-sm">{success}</p>
           </div>
         )}
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
-            <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-red-800 text-sm">{error}</p>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-3 md:p-4 flex items-start gap-2 md:gap-3">
+            <XCircle className="w-4 h-4 md:w-5 md:h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-red-800 text-xs md:text-sm">{error}</p>
           </div>
         )}
 
         {/* SALES TAB */}
         {activeTab === 'sales' && (
-          <div className="space-y-4">
+          <div className="space-y-3 md:space-y-4">
             {/* Search Method Toggle */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-              <div className="flex gap-2 mb-4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-4">
+              <div className="flex gap-2 mb-3 md:mb-4">
                 <button
                   onClick={() => {
                     setSearchMethod('phone');
@@ -624,13 +729,13 @@ export default function Dashboard() {
                     setMember(null);
                     setError('');
                   }}
-                  className={`flex-1 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm ${
+                  className={`flex-1 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm ${
                     searchMethod === 'phone'
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
-                  <Phone className="w-4 h-4" />
+                  <Phone className="w-3 h-3 md:w-4 md:h-4" />
                   Phone
                 </button>
                 <button
@@ -639,7 +744,7 @@ export default function Dashboard() {
                     setMember(null);
                     setError('');
                   }}
-                  className={`flex-1 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-2 text-sm ${
+                  className={`flex-1 py-2 rounded-lg font-medium transition-all flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm ${
                     searchMethod === 'qr'
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -653,27 +758,27 @@ export default function Dashboard() {
               {/* Phone Search */}
               {searchMethod === 'phone' && (
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
                     Member Phone Number
                   </label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      <Phone className="absolute left-2 md:left-3 top-1/2 -translate-y-1/2 w-3 h-3 md:w-4 md:h-4 text-gray-400" />
                       <input
                         type="tel"
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
                         placeholder="0812345678"
-                        className="w-full pl-9 pr-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-sm"
+                        className="w-full pl-7 md:pl-9 pr-2 md:pr-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-xs md:text-sm"
                         maxLength={10}
                       />
                     </div>
                     <button
                       onClick={handleSearchByPhone}
                       disabled={searchLoading || phoneNumber.length !== 10}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm"
+                      className="px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-xs md:text-sm whitespace-nowrap"
                     >
-                      {searchLoading ? <Loader className="w-4 h-4 animate-spin" /> : 'Search'}
+                      {searchLoading ? <Loader className="w-3 h-3 md:w-4 md:h-4 animate-spin" /> : 'Search'}
                     </button>
                   </div>
                 </div>
@@ -683,35 +788,35 @@ export default function Dashboard() {
               {searchMethod === 'qr' && (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
                       Member QR Code
                     </label>
                     <div className="flex gap-2">
                       <div className="relative flex-1">
-                        <QrCode className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <QrCode className="absolute left-2 md:left-3 top-1/2 -translate-y-1/2 w-3 h-3 md:w-4 md:h-4 text-gray-400" />
                         <input
                           type="text"
                           value={qrCode}
                           onChange={(e) => setQrCode(e.target.value)}
-                          placeholder="PLUS1-0812345678-..."
-                          className="w-full pl-9 pr-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-sm"
+                          placeholder="PLUS1-..."
+                          className="w-full pl-7 md:pl-9 pr-2 md:pr-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-xs md:text-sm"
                         />
                       </div>
                       <button
                         onClick={handleSearchByQR}
                         disabled={searchLoading || !qrCode}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-sm"
+                        className="px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors text-xs md:text-sm whitespace-nowrap"
                       >
-                        {searchLoading ? <Loader className="w-4 h-4 animate-spin" /> : 'Search'}
+                        {searchLoading ? <Loader className="w-3 h-3 md:w-4 md:h-4 animate-spin" /> : 'Search'}
                       </button>
                     </div>
                   </div>
 
                   <button
                     onClick={() => setShowScanner(!showScanner)}
-                    className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm"
+                    className="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-xs md:text-sm"
                   >
-                    <Camera className="w-4 h-4" />
+                    <Camera className="w-3 h-3 md:w-4 md:h-4" />
                     {showScanner ? 'Close Scanner' : 'Open Camera Scanner'}
                   </button>
 
@@ -721,10 +826,16 @@ export default function Dashboard() {
                         ref={videoRef}
                         autoPlay
                         playsInline
-                        className="w-full h-48 object-cover"
+                        className="w-full h-48 md:h-64 object-cover"
                       />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-32 h-32 border-4 border-white/50 rounded-lg"></div>
+                      <canvas ref={canvasRef} className="hidden" />
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="relative">
+                          <div className="w-24 h-24 md:w-32 md:h-32 border-4 border-white/50 rounded-lg"></div>
+                          <div className="absolute -top-6 md:-top-8 left-1/2 -translate-x-1/2 bg-white/90 px-2 md:px-3 py-1 rounded-full">
+                            <p className="text-xs font-semibold text-gray-900">Scanning...</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -734,25 +845,25 @@ export default function Dashboard() {
 
             {/* Member Info & Transaction */}
             {member && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 space-y-4">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 md:p-4 space-y-3 md:space-y-4">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center">
-                      <User className="w-5 h-5 text-white" />
+                    <div className="w-8 h-8 md:w-10 md:h-10 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <User className="w-4 h-4 md:w-5 md:h-5 text-white" />
                     </div>
-                    <div>
-                      <p className="font-bold text-gray-900 text-sm">{member.full_name}</p>
+                    <div className="min-w-0">
+                      <p className="font-bold text-gray-900 text-xs md:text-sm truncate">{member.full_name}</p>
                       <p className="text-xs text-gray-600">{member.phone}</p>
                     </div>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
                     Purchase Amount
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 font-bold text-lg">R</span>
+                    <span className="absolute left-2 md:left-3 top-1/2 -translate-y-1/2 text-gray-600 font-bold text-base md:text-lg">R</span>
                     <input
                       type="number"
                       value={purchaseAmount}
@@ -760,11 +871,11 @@ export default function Dashboard() {
                       placeholder="0.00"
                       step="0.01"
                       min="0"
-                      className="w-full pl-10 pr-3 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-xl font-bold"
+                      className="w-full pl-7 md:pl-10 pr-2 md:pr-3 py-2 md:py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-lg md:text-xl font-bold"
                     />
                   </div>
                   {purchaseAmount && parseFloat(purchaseAmount) > 0 && partner && (
-                    <p className="mt-2 text-sm text-gray-600">
+                    <p className="mt-2 text-xs md:text-sm text-gray-600">
                       Member will earn: R{((parseFloat(purchaseAmount) * (partner.cashback_percent - 2)) / 100).toFixed(2)}
                     </p>
                   )}
@@ -773,17 +884,19 @@ export default function Dashboard() {
                 <button
                   onClick={handleSubmitTransaction}
                   disabled={submitting || !purchaseAmount || parseFloat(purchaseAmount) <= 0}
-                  className="w-full py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-2 md:py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
                 >
                   {submitting ? (
                     <>
-                      <Loader className="w-5 h-5 animate-spin" />
-                      Processing...
+                      <Loader className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
+                      <span className="hidden sm:inline">Processing...</span>
+                      <span className="sm:hidden">...</span>
                     </>
                   ) : (
                     <>
-                      <CheckCircle className="w-5 h-5" />
-                      Complete Sale
+                      <CheckCircle className="w-4 h-4 md:w-5 md:h-5" />
+                      <span className="hidden sm:inline">Complete Sale</span>
+                      <span className="sm:hidden">Complete</span>
                     </>
                   )}
                 </button>
@@ -794,52 +907,52 @@ export default function Dashboard() {
 
         {/* REGISTER TAB */}
         {activeTab === 'register' && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Register New Member</h2>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 md:p-6">
+            <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-3 md:mb-4">Register New Member</h2>
             
-            <form onSubmit={handleRegSubmit} className="space-y-4">
+            <form onSubmit={handleRegSubmit} className="space-y-3 md:space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
                   Full Name
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <User className="absolute left-2 md:left-3 top-1/2 -translate-y-1/2 w-3 h-3 md:w-4 md:h-4 text-gray-400" />
                   <input
                     type="text"
                     name="name"
                     value={regFormData.name}
                     onChange={handleRegInputChange}
                     placeholder="Sarah Dlamini"
-                    className="w-full pl-9 pr-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                    className="w-full pl-7 md:pl-9 pr-2 md:pr-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-sm md:text-base"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
                   Cell Phone Number (10 digits)
                 </label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Phone className="absolute left-2 md:left-3 top-1/2 -translate-y-1/2 w-3 h-3 md:w-4 md:h-4 text-gray-400" />
                   <input
                     type="tel"
                     name="phone"
                     value={regFormData.phone}
                     onChange={handleRegInputChange}
                     placeholder="082 555 1234"
-                    className="w-full pl-9 pr-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                    className="w-full pl-7 md:pl-9 pr-2 md:pr-3 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-sm md:text-base"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-xs md:text-sm font-semibold text-gray-700 mb-2">
                   6-Digit PIN
                 </label>
                 <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg">
+                  <span className="material-symbols-outlined absolute left-2 md:left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base md:text-lg">
                     pin
                   </span>
                   <input
@@ -850,15 +963,15 @@ export default function Dashboard() {
                     placeholder="Enter 6-digit PIN"
                     maxLength={6}
                     pattern="\d{6}"
-                    className="w-full pl-9 pr-10 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                    className="w-full pl-7 md:pl-9 pr-10 py-2 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none text-sm md:text-base"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPin(!showPin)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-2 md:right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
-                    <span className="material-symbols-outlined text-lg">
+                    <span className="material-symbols-outlined text-base md:text-lg">
                       {showPin ? 'visibility_off' : 'visibility'}
                     </span>
                   </button>
@@ -868,7 +981,7 @@ export default function Dashboard() {
                 </p>
               </div>
 
-              <label className="flex items-start gap-2 text-sm text-gray-600 cursor-pointer">
+              <label className="flex items-start gap-2 text-xs md:text-sm text-gray-600 cursor-pointer">
                 <input
                   type="checkbox"
                   name="terms"
@@ -885,17 +998,19 @@ export default function Dashboard() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2"
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-2 md:py-3 rounded-lg transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
               >
                 {submitting ? (
                   <>
-                    <Loader className="w-5 h-5 animate-spin" />
-                    Creating Account...
+                    <Loader className="w-4 h-4 md:w-5 md:h-5 animate-spin" />
+                    <span className="hidden sm:inline">Creating Account...</span>
+                    <span className="sm:hidden">Creating...</span>
                   </>
                 ) : (
                   <>
-                    Create Member Account
-                    <span className="material-symbols-outlined">arrow_forward</span>
+                    <span className="hidden sm:inline">Create Member Account</span>
+                    <span className="sm:hidden">Create Account</span>
+                    <span className="material-symbols-outlined text-base md:text-lg">arrow_forward</span>
                   </>
                 )}
               </button>
@@ -905,62 +1020,41 @@ export default function Dashboard() {
       </div>
 
       {/* RIGHT SIDE - Dashboard Stats */}
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* Header */}
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <h1 className="text-2xl font-bold text-gray-900">Partner Dashboard</h1>
-          <p className="text-gray-600">Welcome back, {partner?.shop_name || partner?.name}</p>
-        </div>
-
-        {/* Status Banner */}
-        <div className={`border rounded-xl p-6 shadow-sm ${
-          partner?.status === 'active' ? 'bg-green-50 border-green-200' :
-          partner?.status === 'pending' ? 'bg-yellow-50 border-yellow-200' :
-          'bg-red-50 border-red-200'
-        }`}>
-          <div className="flex items-center gap-3">
-            <span className={`material-symbols-outlined text-2xl ${
-              partner?.status === 'active' ? 'text-green-600' :
-              partner?.status === 'pending' ? 'text-yellow-600' :
-              'text-red-600'
-            }`}>
-              {partner?.status === 'active' ? 'check_circle' : partner?.status === 'pending' ? 'schedule' : 'warning'}
-            </span>
-            <div>
-              <p className="font-bold text-gray-900">Account Status: {partner?.status?.toUpperCase()}</p>
-              <p className="text-sm text-gray-600">Cashback Rate: {partner?.cashback_percent}%</p>
-            </div>
-          </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 shadow-sm">
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Partner Dashboard</h1>
+          <p className="text-sm md:text-base text-gray-600">Welcome back, {partner?.shop_name || partner?.name}</p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-[#1a558b] text-2xl">receipt</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 shadow-sm">
+            <div className="flex items-center gap-2 md:gap-3">
+              <span className="material-symbols-outlined text-[#1a558b] text-xl md:text-2xl">receipt</span>
               <div>
-                <p className="text-gray-900 font-bold text-xl">{monthlyStats.transactionCount}</p>
-                <p className="text-gray-600 text-sm">This Month's Transactions</p>
+                <p className="text-gray-900 font-bold text-lg md:text-xl">{monthlyStats.transactionCount}</p>
+                <p className="text-gray-600 text-xs md:text-sm">This Month's Transactions</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-[#1a558b] text-2xl">payments</span>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 shadow-sm">
+            <div className="flex items-center gap-2 md:gap-3">
+              <span className="material-symbols-outlined text-[#1a558b] text-xl md:text-2xl">payments</span>
               <div>
-                <p className="text-gray-900 font-bold text-xl">R{monthlyStats.cashbackLiability.toFixed(2)}</p>
-                <p className="text-gray-600 text-sm">Cashback Liability</p>
+                <p className="text-gray-900 font-bold text-lg md:text-xl">R{monthlyStats.cashbackLiability.toFixed(2)}</p>
+                <p className="text-gray-600 text-xs md:text-sm">Cashback Liability</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="material-symbols-outlined text-[#1a558b] text-2xl">support_agent</span>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6 shadow-sm sm:col-span-2 md:col-span-1">
+            <div className="flex items-center gap-2 md:gap-3">
+              <span className="material-symbols-outlined text-[#1a558b] text-xl md:text-2xl">support_agent</span>
               <div>
-                <p className="text-gray-900 font-bold text-xl">{assignedAgent}</p>
-                <p className="text-gray-600 text-sm">Assigned Agent</p>
+                <p className="text-gray-900 font-bold text-lg md:text-xl truncate">{assignedAgent}</p>
+                <p className="text-gray-600 text-xs md:text-sm">Assigned Agent</p>
               </div>
             </div>
           </div>
@@ -1053,14 +1147,6 @@ export default function Dashboard() {
             >
               <span className="material-symbols-outlined text-lg">support_agent</span>
               Contact Admin
-            </button>
-
-            <button
-              onClick={() => navigate('/partner/profile')}
-              className="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-900 font-semibold py-3 rounded-lg transition-colors flex flex-col items-center justify-center gap-1 text-xs col-span-2"
-            >
-              <span className="material-symbols-outlined text-lg">store</span>
-              Shop Profile
             </button>
           </div>
         </div>

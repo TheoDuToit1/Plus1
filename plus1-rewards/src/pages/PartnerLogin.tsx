@@ -105,6 +105,14 @@ export default function PartnerLogin() {
         setLoading(false);
         return;
       }
+      if (partnerData.status === 'rejected') {
+        const rejectionMessage = partnerData.rejection_reason 
+          ? `Your business registration has been rejected by the system admin after review.\n\nReason: ${partnerData.rejection_reason}\n\nPlease contact admin for more information.`
+          : 'Your business registration has been rejected by the system admin after review. Please contact admin for more information.';
+        showNotification('error', 'Application Rejected', rejectionMessage, 40000);
+        setLoading(false);
+        return;
+      }
 
       // Only allow active partners to login
       if (partnerData.status !== 'active') {
@@ -162,6 +170,7 @@ export default function PartnerLogin() {
           title={notification.title}
           message={notification.message}
           onClose={hideNotification}
+          duration={notification.duration}
         />
       )}
 
