@@ -17,8 +17,12 @@ export default function Navbar() {
       <div className="max-w-[1800px] mx-auto flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-2">
-          <span className="material-symbols-outlined text-3xl" style={{ color: BLUE }}>add_circle</span>
-          <span className="text-xl font-extrabold tracking-tight text-gray-900">+1Rewards</span>
+          <img 
+            src="/logo.png" 
+            alt="+1 Rewards" 
+            className="w-auto object-contain"
+            style={{ height: '71px' }}
+          />
         </div>
 
         {/* Desktop Nav */}
