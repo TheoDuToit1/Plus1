@@ -25,26 +25,30 @@ export default function Roles() {
     {
       icon: 'group',
       title: 'Members',
-      headline: 'Your shopping already covers your family.',
-      desc: 'Shop at +1 Rewards partners. Earn 3% cashback in real rands on every purchase. When your cashback hits R385, your Day1Health medical cover activates automatically — with nothing extra to pay.',
-      features: ['R0 joining fee', 'No change to your shopping habits', 'Cover starts from Day 1', 'Secure your family\'s health'],
+      headline: 'Get rewarded with medical cover.',
+      desc: 'Shop at +1 Rewards partners, earn cashback in rands, and let your everyday shopping help protect your family.',
+      features: ['Free to join', 'Shop like normal', 'Cashback in rands', 'Your shopping helps pay for cover'],
       loginPath: '/member/login',
       registerPath: '/member/register',
       highlight: true,
       hasButtons: true,
       buttonType: 'login-register',
+      loginText: 'Member Login',
+      registerText: 'Join as a Member',
     },
     {
       icon: 'storefront',
-      title: 'Shop Owners',
-      headline: 'Give your customers a reason to come back — every single day.',
-      desc: 'Join the +1 Rewards partner network. Your customers earn cashback toward their medical cover every time they shop with you. No cost to your business. Stronger loyalty. And your shop becomes part of something that genuinely changes lives.',
-      features: ['No setup costs', 'Increase foot traffic', 'Better customer retention', 'Your shop powers the community'],
+      title: 'Partners',
+      headline: 'Grow your business by caring for your community.',
+      desc: 'Join the +1 Rewards partner network and give people a real reason to support your shop again and again.',
+      features: ['No setup costs', 'More repeat customers', 'Build customer loyalty', 'Help your community access cover'],
       loginPath: '/partner/login',
       registerPath: '/partner/register',
       highlight: false,
       hasButtons: true,
       buttonType: 'login-register',
+      loginText: 'Partner Login',
+      registerText: 'Join as a Partner',
     },
   ]
 
@@ -53,15 +57,19 @@ export default function Roles() {
       <div className="max-w-[1800px] mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-end mb-14 gap-6">
-          <div className="max-w-xl">
+          <div className="w-full mx-auto text-center">
             <span
               className="inline-block px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-4"
               style={{ backgroundColor: BLUE_ICON_BG, color: BLUE }}
             >
-              For Everyone
+              Join the Community
             </span>
-            <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-6">Built for every side of the community</h2>
-            <p className="text-lg text-gray-600 leading-relaxed">Whether you shop, sell, or spread the word — +1 Rewards works for you.</p>
+            <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-6 max-w-7xl mx-auto">
+              Built for members in need of medical cover.
+              <br />
+              <span style={{ color: BLUE }}>Powered by partners who care about their community.</span>
+            </h2>
+            <p className="text-lg text-gray-600 leading-relaxed max-w-4xl mx-auto">Join the +1 Rewards community as a member or partner and be part of a smarter way to help families get the cover they need.</p>
           </div>
         </div>
 
@@ -104,14 +112,26 @@ export default function Roles() {
                     className="flex-1 py-3 rounded-xl font-bold text-sm text-white transition-all shadow-md hover:shadow-lg hover:opacity-90"
                     style={{ backgroundColor: BLUE }}
                   >
-                    Login
+                    {role.loginText}
                   </button>
                   <button
                     onClick={() => handleNavigation(role.registerPath)}
                     className="flex-1 py-3 border-2 rounded-xl font-bold text-sm transition-all hover:bg-blue-50"
                     style={{ borderColor: BLUE, color: BLUE }}
                   >
-                    Register
+                    {role.registerText}
+                  </button>
+                </div>
+              )}
+
+              {role.hasButtons && role.buttonType === 'single-register' && (
+                <div className="flex gap-3 mt-auto pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => handleNavigation(role.registerPath)}
+                    className="w-full py-3 rounded-xl font-bold text-sm text-white transition-all shadow-md hover:shadow-lg hover:opacity-90"
+                    style={{ backgroundColor: BLUE }}
+                  >
+                    {role.buttonText}
                   </button>
                 </div>
               )}
@@ -177,14 +197,26 @@ export default function Roles() {
                           className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white transition-all shadow-md"
                           style={{ backgroundColor: BLUE }}
                         >
-                          Login
+                          {role.loginText}
                         </button>
                         <button
                           onClick={() => handleNavigation(role.registerPath)}
                           className="flex-1 py-2.5 border-2 rounded-xl font-bold text-sm transition-all"
                           style={{ borderColor: BLUE, color: BLUE }}
                         >
-                          Register
+                          {role.registerText}
+                        </button>
+                      </div>
+                    )}
+
+                    {role.hasButtons && role.buttonType === 'single-register' && (
+                      <div className="flex gap-2 mt-auto pt-3 border-t border-gray-100">
+                        <button
+                          onClick={() => handleNavigation(role.registerPath)}
+                          className="w-full py-2.5 rounded-xl font-bold text-sm text-white transition-all shadow-md"
+                          style={{ backgroundColor: BLUE }}
+                        >
+                          {role.buttonText}
                         </button>
                       </div>
                     )}

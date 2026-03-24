@@ -38,21 +38,21 @@ export default function OfflineFeature() {
           </span>
           <h2 className="text-4xl lg:text-5xl font-bold text-gray-900 leading-tight">No data?<br />No problem.</h2>
           <p className="text-lg text-gray-500 leading-relaxed">
-            Data is expensive. We know. That's why +1 Rewards was built to work completely offline. Our QR technology validates instantly without an internet connection — and syncs automatically the next time your device finds a signal. You can also sign up, chat, and stay connected through Zii Chat, our free Bluetooth messaging app. No SIM, no data, no problem.
+            +1 Rewards is made for real South African conditions. Even when data is finished or signal is weak, you can still open the app, access your code, and use it at checkout. When your phone reconnects, your information updates in the background.
           </p>
           <div className="space-y-4">
             {[
               {
-                title: 'Instant QR validation, no internet needed',
-                desc: 'Works at checkout, every time',
+                title: 'Works without data',
+                desc: 'Access your code and use it at checkout',
               },
               {
-                title: 'Syncs automatically when signal is available',
-                desc: 'Your cashback is never lost',
+                title: 'Updates when signal returns',
+                desc: 'Your information comes through when you reconnect',
               },
               {
-                title: 'Zii Chat — free Bluetooth messaging',
-                desc: 'Sign up and connect without any data',
+                title: 'Built for real life',
+                desc: 'Made for everyday South African shopping',
               },
             ].map((item, i) => (
               <div key={i} className="flex gap-4 items-start">

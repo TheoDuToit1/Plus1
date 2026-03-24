@@ -8,27 +8,27 @@ const BLUE_BORDER = 'rgba(26,85,139,0.35)'
 const faqs = [
   {
     q: 'How do I start earning?',
-    a: 'Sign up free — no data needed, just enable Bluetooth and open Zii Chat, or scan our QR code. Once registered, you\'ll get your unique +1 Rewards QR code. Show it at the till at any partner store and you immediately start earning 3% cashback in rands on everything you buy.',
+    a: 'Join +1 Rewards and shop at any participating partner store. At checkout, give your cell phone number to earn cashback. You can also scan your QR code. Your cashback then goes toward your medical cover.',
   },
   {
     q: 'Is the medical cover comprehensive?',
-    a: 'Your Day1Health plan is medical insurance — not a medical aid scheme. It covers day-to-day medical expenses and emergencies based on the plan you choose. Plans are designed to be affordable and practical for South African families. Visit day1health.co.za to compare plan options.',
+    a: 'You get access to real medical cover, with your benefits clearly shown upfront so you can understand exactly what cover you have.',
   },
   {
-    q: "What happens if I don't reach R385 this month?",
-    a: "Your cashback rands carry over — they never expire and never reset. Just keep shopping at partner stores and your balance builds until it covers your monthly premium. Most families earning at a single partner store reach R385 within 6–8 weeks.",
+    q: "What happens if I don't reach my target this month?",
+    a: "If you do not reach your monthly target, your cover status may change. Keep shopping at +1 Rewards partners to help keep your cover active.",
   },
   {
     q: 'Is this the same as medical aid?',
-    a: 'No — and that\'s actually good news. Medical aid requires high monthly contributions regardless of your income. Day1Health through +1 Rewards is medical insurance — you choose a plan that fits your budget, and your cashback from everyday shopping pays toward it. It\'s designed to be accessible for every South African household.',
+    a: 'No. +1 Rewards is different from medical aid. It helps turn your everyday shopping into cashback that goes toward your medical cover.',
   },
   {
     q: 'Do I need a smartphone or internet to use +1 Rewards?',
-    a: 'No. The +1 Rewards QR code works completely offline at the till. You can also sign up and communicate through Zii Chat, our free Bluetooth messaging app — no SIM card or mobile data needed. Just enable Bluetooth on any device.',
+    a: 'No. The quickest way is to give your cell phone number at checkout. You can also scan your QR code. +1 Rewards is built for real-life shopping, even when data is tight.',
   },
   {
     q: 'Which stores near me are +1 Rewards partners?',
-    a: 'Look for the green +1 Rewards sticker on the door or counter. We\'re actively signing up local retailers across the Voortrekker corridor and surrounding areas in Cape Town. The network grows every week — sign up now and start earning at the stores already on board.',
+    a: 'Look for the +1 Rewards sign at participating stores near you, or check the platform to find partner stores in your area.',
   },
 ]
 
