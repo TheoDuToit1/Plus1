@@ -21,9 +21,9 @@ export default function Hero() {
         <div className="absolute inset-0 bg-gradient-to-r from-[#f5f8fc] via-[#f5f8fc]/20 to-transparent" />
       </div>
 
-      <div className="relative z-10 w-full max-w-[1800px] mx-auto flex-1 flex flex-col justify-center py-8 md:py-12">
+      <div className="relative z-10 w-full max-w-[1800px] mx-auto flex-1 flex flex-col justify-center py-2 md:py-12">
         {/* Mobile hero title - visible only on mobile, above image */}
-        <h1 className="md:hidden text-3xl font-bold text-gray-900 mb-4">
+        <h1 className="md:hidden text-3xl font-black text-gray-900 mb-4">
           Health Cover for All.
         </h1>
 
@@ -40,12 +40,12 @@ export default function Hero() {
           {/* Headline */}
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight text-gray-900">
             <span className="hidden md:inline">Health Cover for All.<br /></span>
-            <span style={{ color: BLUE }}>Shop local. </span>
-            <span style={{ color: BLUE }}>Earn rands. </span>
+            <span style={{ color: BLUE, fontSize: 'calc(1em - 1px)' }}>Shop local. </span>
+            <span style={{ color: BLUE, fontSize: 'calc(1em - 1px)' }}>Earn rands. </span>
             <br />
             <span style={{ color: '#000000', fontSize: 'calc(1em - 1px)' }}>Enjoy </span>
             <span style={{ color: '#16a34a', fontSize: 'calc(1em - 1px)' }}>FREE </span>
-            <span style={{ color: '#000000', fontSize: 'calc(1em - 1px)' }}>Medical Cover</span>
+            <span style={{ color: '#000000', fontSize: 'calc(1em - 1px)' }}>medical cover</span>
           </h1>
 
           {/* Subtext */}
