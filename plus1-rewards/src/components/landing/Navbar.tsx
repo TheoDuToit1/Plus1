@@ -35,7 +35,7 @@ export default function Navbar() {
             Sign In
           </a>
           <button
-            className="px-5 py-2 rounded-lg font-bold text-sm transition-all shadow-sm text-white hover:opacity-90"
+            className="hidden md:block px-5 py-2 rounded-lg font-bold text-sm transition-all shadow-sm text-white hover:opacity-90"
             style={{ backgroundColor: BLUE }}
             onClick={() => window.location.href = '/member/register'}
           >
