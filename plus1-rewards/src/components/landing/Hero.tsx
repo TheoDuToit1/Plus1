@@ -36,16 +36,16 @@ export default function Hero() {
           />
         </div>
 
-        <div className="flex flex-col gap-4 md:gap-8 max-w-full md:max-w-2xl">
+        <div className="flex flex-col gap-2 md:gap-8 max-w-full md:max-w-2xl">
           {/* Headline */}
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight text-gray-900">
             <span className="hidden md:inline">Health Cover for All.<br /></span>
-            <span style={{ color: BLUE, fontSize: 'calc(1em - 1px)' }}>Shop local. </span>
-            <span style={{ color: BLUE, fontSize: 'calc(1em - 1px)' }}>Earn rands. </span>
+            <span style={{ color: BLUE, fontSize: 'calc(1em - 2px)' }}>Shop local. </span>
+            <span style={{ color: BLUE, fontSize: 'calc(1em - 2px)' }}>Earn rands. </span>
             <br />
-            <span style={{ color: '#000000', fontSize: 'calc(1em - 1px)' }}>Enjoy </span>
-            <span style={{ color: '#16a34a', fontSize: 'calc(1em - 1px)' }}>FREE </span>
-            <span style={{ color: '#000000', fontSize: 'calc(1em - 1px)' }}>medical cover</span>
+            <span style={{ color: '#000000', fontSize: 'calc(1em - 2px)' }}>Enjoy </span>
+            <span style={{ color: '#16a34a', fontSize: 'calc(1em - 2px)' }}>FREE </span>
+            <span style={{ color: '#000000', fontSize: 'calc(1em - 2px)' }}>medical cover</span>
           </h1>
 
           {/* Subtext */}
