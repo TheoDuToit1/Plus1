@@ -38,7 +38,7 @@ export default function Hero() {
             <span style={{ color: BLUE }}>Shop local. </span>
             <span style={{ color: BLUE }}>Earn rands. </span>
             <br />
-            <span style={{ color: BLUE }}>Medical cover Plan Paid</span>
+            <span style={{ color: '#16a34a', fontSize: 'calc(1em - 1px)' }}>Your cover plan paid</span>
           </h1>
 
           {/* Subtext */}
