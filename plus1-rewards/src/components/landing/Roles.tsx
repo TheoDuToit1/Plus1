@@ -335,26 +335,6 @@ export default function Roles() {
               </p>
             </div>
 
-            {/* Delivery System */}
-            <div className="flex flex-col items-center text-center p-8 bg-gradient-to-br from-green-50 to-white rounded-3xl border border-green-100 hover:shadow-lg transition-all duration-300">
-              <div className="mb-6 p-4 bg-white rounded-2xl shadow-sm">
-                <img 
-                  src="/plus1-go logo.png" 
-                  alt="Plus1 Go" 
-                  className="w-auto object-contain mx-auto"
-                  style={{ height: '70px' }}
-                />
-              </div>
-              <h3 className="text-xl font-black text-gray-900 mb-2">Plus1 Go</h3>
-              <p className="text-xs font-bold uppercase tracking-widest text-green-600 mb-4">Delivery Platform</p>
-              <p className="text-sm text-gray-600 mb-4 leading-relaxed font-medium">
-                Fast & Reliable Community Delivery
-              </p>
-              <p className="text-xs text-gray-500 leading-relaxed flex-grow">
-                Our seamless food delivery platform connects restaurants with customers in your community. Shop, earn rewards, and support local businesses.
-              </p>
-            </div>
-
             {/* Rewards Programme */}
             <div className="flex flex-col items-center text-center p-8 bg-gradient-to-br from-purple-50 to-white rounded-3xl border border-purple-100 hover:shadow-lg transition-all duration-300">
               <div className="mb-6 p-4 bg-white rounded-2xl shadow-sm">
@@ -372,6 +352,26 @@ export default function Roles() {
               </p>
               <p className="text-xs text-gray-500 leading-relaxed flex-grow">
                 A community cashback programme that turns your everyday shopping into medical cover. Shop at partner stores, earn rands, and help protect your family.
+              </p>
+            </div>
+
+            {/* Delivery System */}
+            <div className="flex flex-col items-center text-center p-8 bg-gradient-to-br from-green-50 to-white rounded-3xl border border-green-100 hover:shadow-lg transition-all duration-300">
+              <div className="mb-6 p-4 bg-white rounded-2xl shadow-sm">
+                <img 
+                  src="/plus1-go logo.png" 
+                  alt="Plus1 Go" 
+                  className="w-auto object-contain mx-auto"
+                  style={{ height: '70px' }}
+                />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 mb-2">Plus1 Go</h3>
+              <p className="text-xs font-bold uppercase tracking-widest text-green-600 mb-4">Delivery Platform</p>
+              <p className="text-sm text-gray-600 mb-4 leading-relaxed font-medium">
+                Fast & Reliable Community Delivery
+              </p>
+              <p className="text-xs text-gray-500 leading-relaxed flex-grow">
+                Our seamless food delivery platform connects restaurants with customers in your community. Shop, earn rewards, and support local businesses.
               </p>
             </div>
           </div>
