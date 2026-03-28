@@ -128,7 +128,7 @@ export default function Hero() {
               custom={4}
               variants={textVariants}
             >
-              FREE{' '}
+              FAMILY{' '}
             </motion.span>
             <motion.span 
               style={{ color: '#000000', fontSize: 'calc(1em - 2px)', whiteSpace: 'nowrap' }}
@@ -234,7 +234,7 @@ export default function Hero() {
                   </defs>
                 </svg>
               </span>
-              <span className="text">Start Earning Free Cover</span>
+              <span className="text">Start Earning Medical Cover</span>
             </motion.button>
             <motion.button
               className="Explore-Button w-full sm:w-auto"

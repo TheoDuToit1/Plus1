@@ -81,7 +81,7 @@ export default function Roles() {
               Join the Community
             </span>
             <h2 className="text-4xl lg:text-5xl font-black text-gray-900 mb-6 max-w-7xl mx-auto">
-              Built for members in need of medical cover.
+              Built for families in need of medical cover.
               <br />
               <span style={{ color: BLUE }}>Powered by partners who care about their community.</span>
             </h2>
