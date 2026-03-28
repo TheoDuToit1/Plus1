@@ -21,10 +21,11 @@ export default function AuthLayout({ portalIcon, portalName, headline, subheadli
       <div
         className="hidden lg:flex lg:w-[45%] relative flex-col justify-between p-14 overflow-hidden"
         style={{ 
-          backgroundImage: 'url(/background image.png)',
+          backgroundImage: 'url("/background%20image.png")',
           backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat'
+          backgroundPosition: 'center center',
+          backgroundRepeat: 'no-repeat',
+          minHeight: '100vh'
         }}
       >
         {/* Dark overlay for better text readability */}
@@ -32,10 +33,12 @@ export default function AuthLayout({ portalIcon, portalName, headline, subheadli
 
         {/* Logo */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="size-11 rounded-xl bg-white/20 flex items-center justify-center">
-            <span className="material-symbols-outlined text-white text-2xl">{portalIcon}</span>
-          </div>
-          <span className="text-xl font-black text-white tracking-tight uppercase">{portalName}</span>
+          <img 
+            src="/logo.png" 
+            alt={portalName} 
+            className="w-auto object-contain"
+            style={{ height: '105px' }}
+          />
         </div>
 
         {/* Headline */}
@@ -60,10 +63,12 @@ export default function AuthLayout({ portalIcon, portalName, headline, subheadli
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="size-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: BLUE }}>
-              <span className="material-symbols-outlined text-white">{portalIcon}</span>
-            </div>
-            <span className="font-black text-gray-900 text-lg uppercase tracking-tight">{portalName}</span>
+            <img 
+              src="/logo.png" 
+              alt={portalName} 
+              className="w-auto object-contain"
+              style={{ height: '95px' }}
+            />
           </div>
 
           {/* Back link */}

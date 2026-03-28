@@ -1,6 +1,6 @@
 // plus1-rewards/src/pages/MemberLogin.tsx
 import { useState, FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import AuthLayout from '../components/auth/AuthLayout';
 import { AuthInput, AuthButton, AuthDivider, AuthError, AuthLink } from '../components/auth/AuthComponents';
@@ -9,6 +9,9 @@ const BLUE = '#1a558b'
 
 export default function MemberLogin() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const platform = searchParams.get('platform') || 'rewards'; // 'rewards' or 'go'
+  
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
   const [showPin, setShowPin] = useState(false);
@@ -83,7 +86,8 @@ export default function MemberLogin() {
         member: memberData,
         loggedInAt: now.toISOString(),
         expiresAt: expiresAt,
-        rememberMe: rememberMe
+        rememberMe: rememberMe,
+        platform: platform // Track which platform they logged in from
       };
 
       if (rememberMe) {
@@ -92,8 +96,12 @@ export default function MemberLogin() {
         sessionStorage.setItem('memberSession', JSON.stringify(sessionData));
       }
 
-      // Navigate to dashboard
-      navigate('/member/dashboard');
+      // Navigate based on platform
+      if (platform === 'go') {
+        window.location.href = '/go/dashboard';
+      } else {
+        navigate('/member/dashboard');
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to sign in');
     } finally {
@@ -116,7 +124,9 @@ export default function MemberLogin() {
       <div className="space-y-6">
         <div>
           <h2 className="text-2xl font-black text-gray-900">Welcome back</h2>
-          <p className="text-sm text-gray-500 mt-1">Sign in to your member account</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Sign in to your {platform === 'go' ? 'delivery' : 'member'} account
+          </p>
         </div>
 
         <AuthError message={error} />
@@ -193,7 +203,7 @@ export default function MemberLogin() {
 
         <p className="text-center text-sm text-gray-500 pt-2">
           Don&apos;t have an account?{' '}
-          <AuthLink onClick={() => navigate('/member/register')}>Register Now</AuthLink>
+          <AuthLink onClick={() => navigate(`/member/register?platform=${platform}`)}>Register Now</AuthLink>
         </p>
       </div>
     </AuthLayout>

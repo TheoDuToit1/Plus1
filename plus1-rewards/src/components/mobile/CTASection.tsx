@@ -12,7 +12,7 @@ export default function CTASection() {
         <button
           className="py-4 px-8 rounded-xl font-bold text-lg shadow-lg text-white active:scale-[0.98] transition-transform"
           style={{ backgroundColor: BLUE }}
-          onClick={() => window.location.href = '/member/register'}
+          onClick={() => window.location.href = '/register'}
         >
           Download for Android
         </button>

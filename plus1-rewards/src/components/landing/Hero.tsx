@@ -1,63 +1,163 @@
 // plus1-rewards/src/components/landing/Hero.tsx
+import { motion } from 'framer-motion'
 import { FeaturesSectionWithHoverEffects } from '../ui/feature-section-with-hover-effects'
 
 const BLUE = '#1a558b'
-const BLUE_LIGHT = 'rgba(26,85,139,0.10)'
-const BLUE_BORDER = 'rgba(26,85,139,0.20)'
 
 export default function Hero() {
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.2,
+      },
+    },
+  }
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.8 },
+    },
+  }
+
+  const textVariants = {
+    hidden: { opacity: 0, x: -30 },
+    visible: (i: number) => ({
+      opacity: 1,
+      x: 0,
+      transition: {
+        duration: 0.8,
+        delay: i * 0.1,
+      },
+    }),
+  }
+
   return (
     <section
       className="relative flex flex-col justify-between overflow-hidden px-4 sm:px-6 lg:px-20 min-h-screen pt-16 md:pt-20"
       style={{ backgroundColor: '#f5f8fc' }}
     >
       {/* Right image panel - hidden on mobile, visible on larger screens */}
-      <div className="hidden md:block absolute top-0 right-0 w-[52%] h-full z-0 overflow-hidden rounded-bl-[80px]">
+      <motion.div 
+        className="hidden md:block absolute top-0 right-0 w-[52%] h-full z-0 overflow-hidden rounded-bl-[80px]"
+        initial={{ opacity: 0, x: 100 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 1, ease: "easeOut", delay: 0.3 }}
+      >
         <img
           alt="Diverse South African community interaction"
           className="w-full h-full object-cover"
           src="/background hero section.png"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-[#f5f8fc] via-[#f5f8fc]/20 to-transparent" />
-      </div>
+      </motion.div>
 
       <div className="relative z-10 w-full max-w-[1800px] mx-auto flex-1 flex flex-col justify-center py-2 md:py-12">
         {/* Mobile hero title - visible only on mobile, above image */}
-        <h1 className="md:hidden text-3xl font-black text-gray-900 mb-4">
+        <motion.h1 
+          className="md:hidden text-3xl font-black text-gray-900 mb-4"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.1 }}
+        >
           Health Cover for All.
-        </h1>
+        </motion.h1>
 
         {/* Mobile hero image - visible only on mobile */}
-        <div className="md:hidden w-full mb-6 rounded-2xl overflow-hidden">
+        <motion.div 
+          className="md:hidden w-full mb-6 rounded-2xl overflow-hidden"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+        >
           <img
             alt="Diverse South African community interaction"
             className="w-full h-48 object-cover"
             src="/background hero section.png"
           />
-        </div>
+        </motion.div>
 
-        <div className="flex flex-col gap-2 md:gap-8 max-w-full md:max-w-2xl">
+        <motion.div 
+          className="flex flex-col gap-2 md:gap-8 max-w-full md:max-w-2xl"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
           {/* Headline */}
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight text-gray-900">
-            <span className="hidden md:inline">Health Cover for All.<br /></span>
-            <span style={{ color: BLUE, fontSize: 'calc(1em - 2px)' }}>Shop local. </span>
-            <span style={{ color: BLUE, fontSize: 'calc(1em - 2px)' }}>Earn rands. </span>
+          <motion.h1 
+            className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight text-gray-900"
+            variants={itemVariants}
+          >
+            <motion.span 
+              className="hidden md:inline block"
+              custom={0}
+              variants={textVariants}
+            >
+              Health Cover for All.
+            </motion.span>
             <br />
-            <span style={{ color: '#000000', fontSize: 'calc(1em - 2px)', whiteSpace: 'nowrap' }}>Enjoy </span>
-            <span style={{ color: '#16a34a', fontSize: 'calc(1em - 2px)', whiteSpace: 'nowrap' }}>FREE </span>
-            <span style={{ color: '#000000', fontSize: 'calc(1em - 2px)', whiteSpace: 'nowrap' }}>medical cover</span>
-          </h1>
+            <motion.span 
+              style={{ color: BLUE, fontSize: 'calc(1em - 2px)' }}
+              custom={1}
+              variants={textVariants}
+            >
+              Shop local.{' '}
+            </motion.span>
+            <motion.span 
+              style={{ color: BLUE, fontSize: 'calc(1em - 2px)' }}
+              custom={2}
+              variants={textVariants}
+            >
+              Earn rands.{' '}
+            </motion.span>
+            <br />
+            <motion.span 
+              style={{ color: '#000000', fontSize: 'calc(1em - 2px)', whiteSpace: 'nowrap' }}
+              custom={3}
+              variants={textVariants}
+            >
+              Enjoy{' '}
+            </motion.span>
+            <motion.span 
+              style={{ color: '#16a34a', fontSize: 'calc(1em - 2px)', whiteSpace: 'nowrap' }}
+              custom={4}
+              variants={textVariants}
+            >
+              FREE{' '}
+            </motion.span>
+            <motion.span 
+              style={{ color: '#000000', fontSize: 'calc(1em - 2px)', whiteSpace: 'nowrap' }}
+              custom={5}
+              variants={textVariants}
+            >
+              medical cover
+            </motion.span>
+          </motion.h1>
 
           {/* Subtext */}
-          <p className="text-sm sm:text-base md:text-lg text-gray-600 max-w-full md:max-w-lg leading-relaxed">
+          <motion.p 
+            className="text-sm sm:text-base md:text-lg text-gray-600 max-w-full md:max-w-lg leading-relaxed"
+            variants={itemVariants}
+          >
             Every time you shop at a +1 Rewards partner near you, you earn real cashback — in rands, not points. That cashback goes straight toward your Day1Health medical cover plan. No extra cost. No extra effort. Just shop where you already shop.
-          </p>
+          </motion.p>
 
           {/* CTAs */}
-          <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
-            <button
+          <motion.div 
+            className="flex flex-col sm:flex-row gap-3 md:gap-4"
+            variants={itemVariants}
+          >
+            <motion.button
               className="Explore-Button w-full sm:w-auto"
-              onClick={() => window.location.href = '/member/register'}
+              onClick={() => window.location.href = '/register'}
+              whileHover={{ scale: 1.05, y: -5 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 400, damping: 10 }}
             >
               <span className="IconContainer">
                 <svg
@@ -135,10 +235,13 @@ export default function Hero() {
                 </svg>
               </span>
               <span className="text">Start Earning Free Cover</span>
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               className="Explore-Button w-full sm:w-auto"
               onClick={() => window.location.href = '/partner/register'}
+              whileHover={{ scale: 1.05, y: -5 }}
+              whileTap={{ scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 400, damping: 10 }}
             >
               <span className="IconContainer">
                 <svg
@@ -157,23 +260,45 @@ export default function Hero() {
                 </svg>
               </span>
               <span className="text">Become A Partner</span>
-            </button>
-          </div>
+            </motion.button>
+          </motion.div>
 
           {/* Trust indicators */}
-          <div className="flex flex-wrap items-center gap-3 md:gap-6 mt-1">
-            {['Free To Join', 'Works Offline', 'FSP Licensed', 'Real Medical Cover'].map((item) => (
-              <div key={item} className="flex items-center gap-2 text-xs md:text-sm text-gray-500">
-                <span className="material-symbols-outlined text-sm md:text-base" style={{ color: BLUE }}>check_circle</span>
+          <motion.div 
+            className="flex flex-wrap items-center gap-3 md:gap-6 mt-1"
+            variants={itemVariants}
+          >
+            {['Free To Join', 'Works Offline', 'FSP Licensed', 'Real Medical Cover'].map((item, i) => (
+              <motion.div 
+                key={item} 
+                className="flex items-center gap-2 text-xs md:text-sm text-gray-500"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.6 + i * 0.1, duration: 0.6 }}
+              >
+                <motion.span 
+                  className="material-symbols-outlined text-sm md:text-base" 
+                  style={{ color: BLUE }}
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ delay: 0.8 + i * 0.1, duration: 0.6, repeat: Infinity, repeatDelay: 2 }}
+                >
+                  check_circle
+                </motion.span>
                 {item}
-              </div>
+              </motion.div>
             ))}
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
 
       {/* Value Bar as part of Hero */}
-      <FeaturesSectionWithHoverEffects />
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, delay: 0.8 }}
+      >
+        <FeaturesSectionWithHoverEffects />
+      </motion.div>
     </section>
   )
 }

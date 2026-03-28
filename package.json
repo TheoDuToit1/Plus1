@@ -1,0 +1,17 @@
+{
+  "name": "plus1-ecosystem",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plus1 Rewards and Plus1 Go unified deployment",
+  "scripts": {
+    "build:rewards": "cd plus1-rewards && npm run build",
+    "build:go": "cd plus1-go && npm run build",
+    "build:all": "npm run build:rewards && npm run build:go && npm run combine",
+    "combine": "node scripts/combine-builds.js",
+    "dev:rewards": "cd plus1-rewards && npm run dev",
+    "dev:go": "cd plus1-go && npm run dev"
+  },
+  "devDependencies": {
+    "fs-extra": "^11.2.0"
+  }
+}

@@ -28,8 +28,8 @@ export default function Roles() {
       headline: 'Get rewarded with medical cover.',
       desc: 'Shop at +1 Rewards partners, earn cashback in rands, and let your everyday shopping help protect your family.',
       features: ['Free to join', 'Shop like normal', 'Cashback in rands', 'Your shopping helps pay for cover'],
-      loginPath: '/member/login',
-      registerPath: '/member/register',
+      loginPath: '/login',
+      registerPath: '/register',
       highlight: true,
       hasButtons: true,
       buttonType: 'login-register',
@@ -49,6 +49,22 @@ export default function Roles() {
       buttonType: 'login-register',
       loginText: 'Partner Login',
       registerText: 'Join as a Partner',
+    },
+    {
+      icon: 'plus1-go',
+      title: 'Plus1 Go Partners',
+      headline: 'Deliver food and earn rewards.',
+      desc: 'Join Plus1 Go as a restaurant partner and offer your customers a seamless food delivery experience while earning rewards.',
+      features: ['Easy integration', 'Reach more customers', 'Earn commissions', 'Grow your business'],
+      loginPath: '/partner/login',
+      registerPath: '/partner/register',
+      highlight: false,
+      hasButtons: true,
+      buttonType: 'login-register',
+      loginText: 'Partner Login',
+      registerText: 'Join as a Partner',
+      isLogo: true,
+      logoColor: '#16a34a',
     },
   ]
 
@@ -74,23 +90,34 @@ export default function Roles() {
         </div>
 
         {/* Cards - Desktop Grid */}
-        <div className="hidden md:grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <div className="hidden md:grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
           {roles.map((role, i) => (
             <div
               key={i}
               className="border rounded-3xl p-8 flex flex-col transition-all duration-300 group hover:-translate-y-2 hover:shadow-xl"
               style={{
-                backgroundColor: role.highlight ? BLUE_LIGHT : '#fff',
-                borderColor: role.highlight ? BLUE_BORDER : '#e5e7eb',
+                backgroundColor: role.highlight ? BLUE_LIGHT : (role.logoColor ? 'rgba(22, 163, 74, 0.08)' : '#fff'),
+                borderColor: role.highlight ? BLUE_BORDER : (role.logoColor ? 'rgba(22, 163, 74, 0.35)' : '#e5e7eb'),
               }}
             >
-              <div
-                className="size-16 rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110 shadow-sm"
-                style={{ backgroundColor: BLUE_ICON_BG, color: BLUE }}
-              >
-                <span className="material-symbols-outlined text-4xl">{role.icon}</span>
-              </div>
-              <h3 className="text-sm font-bold uppercase tracking-widest mb-2" style={{color: BLUE}}>{role.title}</h3>
+              {role.isLogo ? (
+                <div className="mb-6">
+                  <img 
+                    src="/plus1-go logo.png" 
+                    alt={role.title}
+                    className="w-auto object-contain"
+                    style={{ height: '64px' }}
+                  />
+                </div>
+              ) : (
+                <div
+                  className="size-16 rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110 shadow-sm"
+                  style={{ backgroundColor: BLUE_ICON_BG, color: BLUE }}
+                >
+                  <span className="material-symbols-outlined text-4xl">{role.icon}</span>
+                </div>
+              )}
+              <h3 className="text-sm font-bold uppercase tracking-widest mb-2" style={{color: role.logoColor || BLUE}}>{role.title}</h3>
               <h4 className="text-xl font-bold text-gray-900 mb-4">{role.headline}</h4>
               <p className="text-gray-600 text-sm mb-6 flex-grow leading-relaxed">{role.desc}</p>
               
@@ -98,7 +125,7 @@ export default function Roles() {
                 <ul className="space-y-3 mb-8">
                   {role.features.map((f, j) => (
                     <li key={j} className="flex items-start gap-3 text-sm text-gray-700 font-medium">
-                      <span className="material-symbols-outlined text-base mt-0.5" style={{ color: BLUE }}>check_circle</span>
+                      <span className="material-symbols-outlined text-base mt-0.5" style={{ color: role.logoColor || BLUE }}>check_circle</span>
                       <span>{f}</span>
                     </li>
                   ))}
@@ -110,14 +137,14 @@ export default function Roles() {
                   <button
                     onClick={() => handleNavigation(role.loginPath)}
                     className="flex-1 py-3 rounded-xl font-bold text-sm text-white transition-all shadow-md hover:shadow-lg hover:opacity-90"
-                    style={{ backgroundColor: BLUE }}
+                    style={{ backgroundColor: role.logoColor || BLUE }}
                   >
                     {role.loginText}
                   </button>
                   <button
                     onClick={() => handleNavigation(role.registerPath)}
                     className="flex-1 py-3 border-2 rounded-xl font-bold text-sm transition-all hover:bg-blue-50"
-                    style={{ borderColor: BLUE, color: BLUE }}
+                    style={{ borderColor: role.logoColor || BLUE, color: role.logoColor || BLUE }}
                   >
                     {role.registerText}
                   </button>
@@ -165,17 +192,28 @@ export default function Roles() {
                   <div
                     className="border rounded-3xl p-6 flex flex-col"
                     style={{
-                      backgroundColor: role.highlight ? BLUE_LIGHT : '#fff',
-                      borderColor: role.highlight ? BLUE_BORDER : '#e5e7eb',
+                      backgroundColor: role.highlight ? BLUE_LIGHT : (role.logoColor ? 'rgba(22, 163, 74, 0.08)' : '#fff'),
+                      borderColor: role.highlight ? BLUE_BORDER : (role.logoColor ? 'rgba(22, 163, 74, 0.35)' : '#e5e7eb'),
                     }}
                   >
-                    <div
-                      className="size-14 rounded-2xl flex items-center justify-center mb-4 shadow-sm"
-                      style={{ backgroundColor: BLUE_ICON_BG, color: BLUE }}
-                    >
-                      <span className="material-symbols-outlined text-3xl">{role.icon}</span>
-                    </div>
-                    <h3 className="text-xs font-bold uppercase tracking-widest mb-2" style={{color: BLUE}}>{role.title}</h3>
+                    {role.isLogo ? (
+                      <div className="mb-4">
+                        <img 
+                          src="/plus1-go logo.png" 
+                          alt={role.title}
+                          className="w-auto object-contain"
+                          style={{ height: '56px' }}
+                        />
+                      </div>
+                    ) : (
+                      <div
+                        className="size-14 rounded-2xl flex items-center justify-center mb-4 shadow-sm"
+                        style={{ backgroundColor: BLUE_ICON_BG, color: BLUE }}
+                      >
+                        <span className="material-symbols-outlined text-3xl">{role.icon}</span>
+                      </div>
+                    )}
+                    <h3 className="text-xs font-bold uppercase tracking-widest mb-2" style={{color: role.logoColor || BLUE}}>{role.title}</h3>
                     <h4 className="text-lg font-bold text-gray-900 mb-3">{role.headline}</h4>
                     <p className="text-gray-600 text-sm mb-4 leading-relaxed">{role.desc}</p>
                     
@@ -183,7 +221,7 @@ export default function Roles() {
                       <ul className="space-y-2 mb-6">
                         {role.features.map((f, j) => (
                           <li key={j} className="flex items-start gap-2 text-xs text-gray-700 font-medium">
-                            <span className="material-symbols-outlined text-sm mt-0.5" style={{ color: BLUE }}>check_circle</span>
+                            <span className="material-symbols-outlined text-sm mt-0.5" style={{ color: role.logoColor || BLUE }}>check_circle</span>
                             <span>{f}</span>
                           </li>
                         ))}
@@ -195,14 +233,14 @@ export default function Roles() {
                         <button
                           onClick={() => handleNavigation(role.loginPath)}
                           className="flex-1 py-2.5 rounded-xl font-bold text-sm text-white transition-all shadow-md"
-                          style={{ backgroundColor: BLUE }}
+                          style={{ backgroundColor: role.logoColor || BLUE }}
                         >
                           {role.loginText}
                         </button>
                         <button
                           onClick={() => handleNavigation(role.registerPath)}
                           className="flex-1 py-2.5 border-2 rounded-xl font-bold text-sm transition-all"
-                          style={{ borderColor: BLUE, color: BLUE }}
+                          style={{ borderColor: role.logoColor || BLUE, color: role.logoColor || BLUE }}
                         >
                           {role.registerText}
                         </button>
@@ -271,6 +309,71 @@ export default function Roles() {
                 aria-label={`Go to slide ${i + 1}`}
               />
             ))}
+          </div>
+        </div>
+
+        {/* Insurance Provider, Delivery System & Rewards Section */}
+        <div className="mt-20 pt-20 border-t border-gray-100">
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            {/* Insurance Provider */}
+            <div className="flex flex-col items-center text-center p-8 bg-gradient-to-br from-blue-50 to-white rounded-3xl border border-blue-100 hover:shadow-lg transition-all duration-300">
+              <div className="mb-6 p-4 bg-white rounded-2xl shadow-sm">
+                <img 
+                  src="/day1health-logo.jpg" 
+                  alt="Day1Health" 
+                  className="w-auto object-contain mx-auto"
+                  style={{ height: '70px' }}
+                />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 mb-2">Day1Health</h3>
+              <p className="text-xs font-bold uppercase tracking-widest text-blue-600 mb-4">Insurance Partner</p>
+              <p className="text-sm text-gray-600 mb-4 leading-relaxed font-medium">
+                FSP Licensed & Regulated by the FSCA
+              </p>
+              <p className="text-xs text-gray-500 leading-relaxed flex-grow">
+                All medical cover policies are underwritten and managed by Day1Health (Pty) Ltd, an authorised financial services provider regulated by the FSCA.
+              </p>
+            </div>
+
+            {/* Delivery System */}
+            <div className="flex flex-col items-center text-center p-8 bg-gradient-to-br from-green-50 to-white rounded-3xl border border-green-100 hover:shadow-lg transition-all duration-300">
+              <div className="mb-6 p-4 bg-white rounded-2xl shadow-sm">
+                <img 
+                  src="/plus1-go logo.png" 
+                  alt="Plus1 Go" 
+                  className="w-auto object-contain mx-auto"
+                  style={{ height: '70px' }}
+                />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 mb-2">Plus1 Go</h3>
+              <p className="text-xs font-bold uppercase tracking-widest text-green-600 mb-4">Delivery Platform</p>
+              <p className="text-sm text-gray-600 mb-4 leading-relaxed font-medium">
+                Fast & Reliable Community Delivery
+              </p>
+              <p className="text-xs text-gray-500 leading-relaxed flex-grow">
+                Our seamless food delivery platform connects restaurants with customers in your community. Shop, earn rewards, and support local businesses.
+              </p>
+            </div>
+
+            {/* Rewards Programme */}
+            <div className="flex flex-col items-center text-center p-8 bg-gradient-to-br from-purple-50 to-white rounded-3xl border border-purple-100 hover:shadow-lg transition-all duration-300">
+              <div className="mb-6 p-4 bg-white rounded-2xl shadow-sm">
+                <img 
+                  src="/logo.png" 
+                  alt="Plus1 Rewards" 
+                  className="w-auto object-contain mx-auto"
+                  style={{ height: '70px' }}
+                />
+              </div>
+              <h3 className="text-xl font-black text-gray-900 mb-2">Plus1 Rewards</h3>
+              <p className="text-xs font-bold uppercase tracking-widest text-purple-600 mb-4">Cashback Programme</p>
+              <p className="text-sm text-gray-600 mb-4 leading-relaxed font-medium">
+                Shop Local, Earn Medical Cover
+              </p>
+              <p className="text-xs text-gray-500 leading-relaxed flex-grow">
+                A community cashback programme that turns your everyday shopping into medical cover. Shop at partner stores, earn rands, and help protect your family.
+              </p>
+            </div>
           </div>
         </div>
       </div>

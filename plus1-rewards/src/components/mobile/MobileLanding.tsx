@@ -5,7 +5,6 @@ import HowItWorks from './HowItWorks';
 import CoverStatus from './CoverStatus';
 import RolesCarousel from './RolesCarousel';
 import OfflineFeature from './OfflineFeature';
-import TrustBadge from './TrustBadge';
 import FAQ from './FAQ';
 import CTASection from './CTASection';
 import BottomNav from './BottomNav';
@@ -20,7 +19,6 @@ export default function MobileLanding() {
         <CoverStatus />
         <RolesCarousel />
         <OfflineFeature />
-        <TrustBadge />
         <FAQ />
         <CTASection />
       </main>

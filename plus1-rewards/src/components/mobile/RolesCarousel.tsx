@@ -26,8 +26,8 @@ export default function RolesCarousel() {
       icon: 'person',
       title: 'For Members',
       desc: 'Shop as usual and get premium private healthcare without monthly cash premiums.',
-      loginPath: '/member/login',
-      registerPath: '/member/register',
+      loginPath: '/login',
+      registerPath: '/register',
     },
     {
       icon: 'storefront',

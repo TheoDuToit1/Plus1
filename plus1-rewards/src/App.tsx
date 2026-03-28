@@ -1,5 +1,8 @@
 // plus1-rewards/src/App.tsx
+import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { AnimatePresence } from 'framer-motion'
+import LoadingPage from './components/LoadingPage'
 import Landing from './pages/Landing'
 import MemberLogin from './pages/MemberLogin'
 import MemberRegister from './pages/MemberRegister'
@@ -59,13 +62,33 @@ import TermsOfService from './pages/TermsOfService'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 
 export default function App() {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <div className="min-h-screen w-full bg-white text-gray-900 antialiased font-display overflow-x-hidden">
-      <Router>
-        <Routes>
+      <AnimatePresence mode="wait">
+        {isLoading ? (
+          <LoadingPage />
+        ) : (
+          <Router>
+            <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          
+          {/* Unified login/register routes (for both Rewards and Go) */}
+          <Route path="/login" element={<MemberLogin />} />
+          <Route path="/register" element={<MemberRegister />} />
+          
+          {/* Legacy member routes (redirect to unified) */}
           <Route path="/member/login" element={<MemberLogin />} />
           <Route path="/member/register" element={<MemberRegister />} />
           <Route path="/partner/login" element={<PartnerLogin />} />
@@ -124,7 +147,9 @@ export default function App() {
             </ProtectedPolicyProviderRoute>
           } />
         </Routes>
-      </Router>
+          </Router>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

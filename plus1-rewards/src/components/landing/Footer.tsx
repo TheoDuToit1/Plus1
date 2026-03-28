@@ -8,9 +8,20 @@ export default function Footer() {
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           {/* Brand */}
           <div className="col-span-2">
-            <div className="flex items-center gap-2 mb-5">
-              <span className="material-symbols-outlined text-3xl" style={{ color: BLUE }}>add_circle</span>
-              <span className="text-xl font-extrabold tracking-tight text-gray-900">+1Rewards</span>
+            <div className="flex items-center gap-4 mb-5">
+              <img 
+                src="/logo.png" 
+                alt="+1 Rewards" 
+                className="w-auto object-contain"
+                style={{ height: '74px' }}
+              />
+              <div className="w-px h-16 bg-gray-300" />
+              <img 
+                src="/plus1-go logo.png" 
+                alt="Plus1 Go" 
+                className="w-auto object-contain"
+                style={{ height: '93px' }}
+              />
             </div>
             <p className="text-gray-500 max-w-sm mb-6 text-sm leading-relaxed">
               Health Cover for All. Because your shopping should work as hard as you do.
@@ -65,8 +76,8 @@ export default function Footer() {
         </div>
 
         {/* Bottom */}
-        <div className="border-t pt-8 flex flex-col items-center justify-between gap-4 text-xs text-gray-400 text-center" style={{ borderColor: '#e5e7eb' }}>
-          <p>&copy; {new Date().getFullYear()} +1 Rewards (Pty) Ltd. All rights reserved. &middot; Healthcare policies underwritten by Day1Health (Pty) Ltd — Authorised Financial Services Provider, FSP Licensed, Regulated by the FSCA. &middot; +1 Rewards is not a medical aid scheme.</p>
+        <div className="border-t pt-8 flex flex-col md:flex-row items-center justify-between gap-6" style={{ borderColor: '#e5e7eb' }}>
+          <p className="text-xs text-gray-400 text-center md:text-left">&copy; {new Date().getFullYear()} +1 Rewards (Pty) Ltd. All rights reserved. &middot; Healthcare policies underwritten by Day1Health (Pty) Ltd — Authorised Financial Services Provider, FSP Licensed, Regulated by the FSCA. &middot; +1 Rewards is not a medical aid scheme.</p>
         </div>
       </div>
     </footer>

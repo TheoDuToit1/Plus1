@@ -270,8 +270,8 @@ export default function MembersPage() {
     <DashboardLayout>
       <main className="flex-1 overflow-y-auto bg-[#f5f8fc]">
         {/* Topbar */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 md:p-10 pb-6">
-          <div className="flex-1 max-w-2xl">
+        <header className="flex flex-col gap-4 p-4 md:p-6 lg:p-10 pb-4 md:pb-6">
+          <div className="flex-1 max-w-2xl w-full">
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xl">
                 search
@@ -286,34 +286,34 @@ export default function MembersPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             <button
               onClick={handleRefresh}
-              className="flex items-center gap-2 px-5 py-2.5 font-bold rounded-lg border border-[#1a558b] bg-white text-[#1a558b] hover:bg-[#1a558b] hover:text-white transition-all text-sm"
+              className="flex items-center gap-1.5 md:gap-2 px-3 md:px-5 py-2 md:py-2.5 font-bold rounded-lg border border-[#1a558b] bg-white text-[#1a558b] hover:bg-[#1a558b] hover:text-white transition-all text-xs md:text-sm"
             >
-              <span className="material-symbols-outlined text-lg">refresh</span>
-              Refresh
+              <span className="material-symbols-outlined text-base md:text-lg">refresh</span>
+              <span className="hidden sm:inline">Refresh</span>
             </button>
 
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#1a558b] text-white rounded-lg hover:opacity-90 transition-all text-sm"
+              className="flex items-center gap-1.5 md:gap-2 px-3 md:px-5 py-2 md:py-2.5 bg-[#1a558b] text-white rounded-lg hover:opacity-90 transition-all text-xs md:text-sm font-bold"
             >
-              <span className="material-symbols-outlined text-lg">logout</span>
-              Logout
+              <span className="material-symbols-outlined text-base md:text-lg">logout</span>
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </header>
 
-        <div className="px-6 md:px-10 pb-10">
+        <div className="px-4 md:px-6 lg:px-10 pb-6 md:pb-10">
           {/* Page Title */}
-          <div className="mb-8">
-            <h2 className="text-3xl font-black text-gray-900 tracking-tight">Members Management</h2>
-            <p className="text-gray-600 mt-1">Complete member details and profile information</p>
+          <div className="mb-6 md:mb-8">
+            <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Members Management</h2>
+            <p className="text-sm md:text-base text-gray-600 mt-1">Complete member details and profile information</p>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-10">
             {statsData.map((stat, index) => (
               <StatCard
                 key={index}
@@ -328,8 +328,8 @@ export default function MembersPage() {
 
           {/* Members List Table */}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-2xl">
-            <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <div className="px-4 md:px-6 py-4 md:py-5 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50">
+              <h3 className="text-base md:text-lg font-bold text-gray-900 flex items-center gap-2">
                 <span className="material-symbols-outlined text-[#1a558b]">list_alt</span>
                 All Members ({filteredMembers.length})
               </h3>
@@ -346,14 +346,15 @@ export default function MembersPage() {
                   className="text-xs text-gray-600 hover:text-[#1a558b] flex items-center gap-1 font-medium transition-colors"
                 >
                   <span className="material-symbols-outlined text-sm">download</span>
-                  Export CSV
+                  <span className="hidden sm:inline">Export CSV</span>
+                  <span className="sm:hidden">Export</span>
                 </button>
               </div>
             </div>
 
             {/* Advanced Filter Bar */}
             {showFilters && (
-              <div className="px-6 py-4 border-b border-gray-200 bg-white grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-top duration-200">
+              <div className="px-4 md:px-6 py-4 border-b border-gray-200 bg-white grid grid-cols-1 md:grid-cols-3 gap-4 animate-in slide-in-from-top duration-200">
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1.5">Member Status</label>
                   <select 
@@ -410,16 +411,16 @@ export default function MembersPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                     <tr className="bg-gray-50">
-                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Member</th>
-                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Contact</th>
-                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">QR Code</th>
-                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Status</th>
-                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Funded Amount</th>
-                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Joined</th>
-                      <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Actions</th>
+                      <th className="px-3 md:px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Member</th>
+                      <th className="px-3 md:px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Contact</th>
+                      <th className="px-3 md:px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">QR Code</th>
+                      <th className="px-3 md:px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Status</th>
+                      <th className="px-3 md:px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Funded Amount</th>
+                      <th className="px-3 md:px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Joined</th>
+                      <th className="px-3 md:px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
@@ -429,28 +430,28 @@ export default function MembersPage() {
                       
                       return (
                         <tr key={member.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-4 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="size-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
-                                <span className="text-[#1a558b] font-bold text-lg">{member.full_name?.charAt(0) || 'M'}</span>
+                          <td className="px-3 md:px-4 py-4">
+                            <div className="flex items-center gap-2 md:gap-3">
+                              <div className="size-8 md:size-10 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                <span className="text-[#1a558b] font-bold text-sm md:text-lg">{member.full_name?.charAt(0) || 'M'}</span>
                               </div>
-                              <div>
-                                <div className="text-sm font-semibold text-gray-900">{member.full_name || 'No name'}</div>
-                                <div className="text-[10px] font-mono text-gray-600">{member.id.substring(0, 8)}</div>
+                              <div className="min-w-0">
+                                <div className="text-xs md:text-sm font-semibold text-gray-900 truncate">{member.full_name || 'No name'}</div>
+                                <div className="text-[10px] font-mono text-gray-600 truncate">{member.id.substring(0, 8)}</div>
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-4">
-                            <div className="text-xs text-gray-700">{member.phone || 'No phone'}</div>
-                            <div className="text-[10px] text-gray-600">{member.email || 'No email'}</div>
+                          <td className="px-3 md:px-4 py-4">
+                            <div className="text-xs text-gray-700 truncate">{member.phone || 'No phone'}</div>
+                            <div className="text-[10px] text-gray-600 truncate">{member.email || 'No email'}</div>
                           </td>
-                          <td className="px-4 py-4">
+                          <td className="px-3 md:px-4 py-4">
                             {member.qr_code ? (
                               <div>
                                 <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold bg-green-500/20 text-green-600">
                                   ✓ Yes
                                 </span>
-                                <div className="text-[10px] text-gray-600 mt-1 font-mono">{member.qr_code}</div>
+                                <div className="text-[10px] text-gray-600 mt-1 font-mono truncate max-w-[100px]">{member.qr_code}</div>
                               </div>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold bg-red-500/20 text-red-700">
@@ -458,8 +459,8 @@ export default function MembersPage() {
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-4">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
+                          <td className="px-3 md:px-4 py-4">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase whitespace-nowrap ${
                               member.status === 'active' 
                                 ? 'bg-[#1a558b]/20 text-[#1a558b] border border-[#1a558b]/30'
                                 : member.status === 'pending'
@@ -473,16 +474,16 @@ export default function MembersPage() {
                               {member.status}
                             </span>
                           </td>
-                          <td className="px-4 py-4">
-                            <span className="text-sm font-bold text-[#1a558b]">R{fundedAmount.toFixed(2)}</span>
+                          <td className="px-3 md:px-4 py-4">
+                            <span className="text-xs md:text-sm font-bold text-[#1a558b] whitespace-nowrap">R{fundedAmount.toFixed(2)}</span>
                           </td>
-                          <td className="px-4 py-4">
-                            <span className="text-xs text-gray-600">{new Date(member.created_at).toLocaleDateString()}</span>
+                          <td className="px-3 md:px-4 py-4">
+                            <span className="text-xs text-gray-600 whitespace-nowrap">{new Date(member.created_at).toLocaleDateString()}</span>
                           </td>
-                          <td className="px-4 py-4">
+                          <td className="px-3 md:px-4 py-4">
                             <button
                               onClick={() => handleViewDetails(member)}
-                              className="px-3 py-1.5 bg-[#1a558b] text-white rounded-lg text-xs font-bold hover:opacity-80 transition-opacity"
+                              className="px-2 md:px-3 py-1.5 bg-[#1a558b] text-white rounded-lg text-xs font-bold hover:opacity-80 transition-opacity whitespace-nowrap"
                             >
                               View Details
                             </button>
@@ -494,7 +495,7 @@ export default function MembersPage() {
                 </table>
               </div>
             )}
-            <div className="px-6 py-3 bg-gray-50 border-t border-gray-200">
+            <div className="px-4 md:px-6 py-3 bg-gray-50 border-t border-gray-200">
               <p className="text-[10px] text-gray-600 font-medium uppercase tracking-widest text-center">
                 Showing {filteredMembers.length} of {members.length} total members
               </p>
@@ -512,7 +513,7 @@ export default function MembersPage() {
         {/* Member Details Modal */}
         {selectedMember && (
           <div 
-            className="fixed inset-0 flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 flex items-center justify-center z-50 p-3 md:p-4"
             style={{ backgroundColor: 'rgba(0, 0, 0, 0.7)', backdropFilter: 'blur(4px)' }}
             onClick={closeDetailsModal}
           >
@@ -522,19 +523,19 @@ export default function MembersPage() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Modal Header */}
-              <div className="border-b border-gray-200 px-6 py-4 flex items-center justify-between flex-shrink-0" style={{ backgroundColor: '#ffffff' }}>
-                <div className="flex items-center gap-4">
-                  <div className="size-16 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
-                    <span className="text-[#1a558b] font-bold text-2xl">{selectedMember.full_name?.charAt(0) || 'M'}</span>
+              <div className="border-b border-gray-200 px-4 md:px-6 py-3 md:py-4 flex items-center justify-between gap-3 flex-shrink-0" style={{ backgroundColor: '#ffffff' }}>
+                <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
+                  <div className="size-12 md:size-16 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <span className="text-[#1a558b] font-bold text-lg md:text-2xl">{selectedMember.full_name?.charAt(0) || 'M'}</span>
                   </div>
-                  <div>
-                    <h2 className="text-2xl font-black text-gray-900">{selectedMember.full_name || 'Member'}</h2>
-                    <p className="text-sm text-gray-600">Member ID: {selectedMember.id}</p>
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-lg md:text-2xl font-black text-gray-900 truncate">{selectedMember.full_name || 'Member'}</h2>
+                    <p className="text-xs md:text-sm text-gray-600 truncate">Member ID: {selectedMember.id}</p>
                   </div>
                 </div>
                 <button
                   onClick={closeDetailsModal}
-                  className="text-gray-600 hover:text-gray-900 text-2xl"
+                  className="text-gray-600 hover:text-gray-900 text-xl md:text-2xl flex-shrink-0"
                 >
                   ✕
                 </button>
@@ -543,41 +544,41 @@ export default function MembersPage() {
               {/* Modal Content - Scrollable */}
               <div className="overflow-y-auto flex-1">
                 {detailsLoading ? (
-                  <div className="px-6 py-12 text-center bg-gray-50">
+                  <div className="px-4 md:px-6 py-12 text-center bg-gray-50">
                     <p className="text-gray-600">Loading member details...</p>
                   </div>
                 ) : memberDetails ? (
-                  <div className="px-6 py-6 space-y-6 bg-gray-50">
+                  <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6 bg-gray-50">
                     {/* Stats Overview */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                      <div className="bg-white border border-gray-200 rounded-lg p-3 md:p-4">
                         <p className="text-xs text-gray-600 uppercase font-bold mb-1">Total Funded</p>
-                        <p className="text-2xl font-black text-[#1a558b]">R{memberDetails.stats.totalFunded.toFixed(2)}</p>
+                        <p className="text-xl md:text-2xl font-black text-[#1a558b]">R{memberDetails.stats.totalFunded.toFixed(2)}</p>
                       </div>
-                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <div className="bg-white border border-gray-200 rounded-lg p-3 md:p-4">
                         <p className="text-xs text-gray-600 uppercase font-bold mb-1">Total Target</p>
-                        <p className="text-2xl font-black text-gray-900">R{memberDetails.stats.totalTarget.toFixed(2)}</p>
+                        <p className="text-xl md:text-2xl font-black text-gray-900">R{memberDetails.stats.totalTarget.toFixed(2)}</p>
                       </div>
-                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <div className="bg-white border border-gray-200 rounded-lg p-3 md:p-4">
                         <p className="text-xs text-gray-600 uppercase font-bold mb-1">Transactions</p>
-                        <p className="text-2xl font-black text-gray-900">{memberDetails.stats.totalTransactions}</p>
+                        <p className="text-xl md:text-2xl font-black text-gray-900">{memberDetails.stats.totalTransactions}</p>
                       </div>
-                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                      <div className="bg-white border border-gray-200 rounded-lg p-3 md:p-4">
                         <p className="text-xs text-gray-600 uppercase font-bold mb-1">Total Cashback</p>
-                        <p className="text-2xl font-black text-green-600">R{memberDetails.stats.totalCashback.toFixed(2)}</p>
+                        <p className="text-xl md:text-2xl font-black text-green-600">R{memberDetails.stats.totalCashback.toFixed(2)}</p>
                       </div>
                     </div>
 
                     {/* Personal Information */}
-                    <div className="bg-white border border-gray-200 rounded-xl p-6">
-                      <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6">
+                      <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3 md:mb-4 flex items-center gap-2">
                         <span className="material-symbols-outlined text-[#1a558b]">person</span>
                         Personal Information
                       </h3>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                         <div>
                           <p className="text-xs text-gray-600 uppercase tracking-wider">Full Name</p>
-                          <p className="text-sm text-gray-900 font-semibold">{memberDetails.member.full_name || 'No name'}</p>
+                          <p className="text-sm text-gray-900 font-semibold truncate">{memberDetails.member.full_name || 'No name'}</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-600 uppercase tracking-wider">Phone</p>
@@ -589,7 +590,7 @@ export default function MembersPage() {
                         </div>
                         <div>
                           <p className="text-xs text-gray-600 uppercase tracking-wider">QR Code</p>
-                          <p className="text-sm text-gray-900 font-semibold font-mono">{memberDetails.member.qr_code || '-'}</p>
+                          <p className="text-sm text-gray-900 font-semibold font-mono truncate">{memberDetails.member.qr_code || '-'}</p>
                         </div>
                         <div>
                           <p className="text-xs text-gray-600 uppercase tracking-wider">Status</p>
@@ -608,20 +609,20 @@ export default function MembersPage() {
 
                     {/* Cover Plans */}
                     {memberDetails.coverPlans.length > 0 ? (
-                      <div className="bg-white border border-gray-200 rounded-xl p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <div className="bg-white border border-gray-200 rounded-xl p-4 md:p-6">
+                        <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3 md:mb-4 flex items-center gap-2">
                           <span className="material-symbols-outlined text-[#1a558b]">health_and_safety</span>
                           Cover Plans ({memberDetails.coverPlans.length})
                         </h3>
-                        <div className="space-y-4">
+                        <div className="space-y-3 md:space-y-4">
                           {memberDetails.coverPlans.map((plan: any) => (
-                            <div key={plan.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                              <div className="flex justify-between items-start mb-3">
+                            <div key={plan.id} className="border border-gray-200 rounded-lg p-3 md:p-4 bg-gray-50">
+                              <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-2 mb-3">
                                 <div>
-                                  <p className="font-bold text-gray-900">{plan.cover_plans?.plan_name || 'Cover Plan'}</p>
+                                  <p className="font-bold text-gray-900 text-sm md:text-base">{plan.cover_plans?.plan_name || 'Cover Plan'}</p>
                                   <p className="text-xs text-gray-600">Priority: {plan.creation_order}</p>
                                 </div>
-                                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                <span className={`px-2 py-1 rounded text-xs font-bold self-start ${
                                   plan.status === 'active' ? 'bg-green-500/20 text-green-600' :
                                   plan.status === 'in_progress' ? 'bg-blue-500/20 text-blue-600' :
                                   'bg-gray-500/20 text-gray-600'

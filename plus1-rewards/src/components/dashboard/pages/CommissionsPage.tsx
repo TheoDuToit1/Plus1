@@ -219,7 +219,7 @@ export default function CommissionsPage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
                     <tr className="bg-gray-50">
                       <th className="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-gray-600">Agent</th>

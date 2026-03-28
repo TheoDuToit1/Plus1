@@ -169,7 +169,16 @@ export function MemberProfile() {
       setMember(prev => prev ? { ...prev, ...formData } : prev);
       setSaved(true);
       setEditingField(null);
-      setTimeout(() => setSaved(false), 2000);
+      setTimeout(() => {
+        setSaved(false);
+        // If coming from dashboard with incomplete profile, redirect back
+        const fromDashboard = sessionStorage.getItem('profile_redirect_from_dashboard');
+        if (fromDashboard === 'true') {
+          sessionStorage.removeItem('profile_redirect_from_dashboard');
+          sessionStorage.removeItem('last_profile_prompt_progress');
+          navigate('/member/dashboard');
+        }
+      }, 2000);
     } catch (error) {
       console.error('Error saving profile:', error);
       setError('Failed to save profile. Please try again.');

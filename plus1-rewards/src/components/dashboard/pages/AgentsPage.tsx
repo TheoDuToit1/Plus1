@@ -183,8 +183,8 @@ export default function AgentsPage() {
     <DashboardLayout>
       <main className="flex-1 overflow-y-auto bg-[#f5f8fc]">
         {/* Topbar */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 md:p-10 pb-6">
-          <div className="flex-1 max-w-2xl">
+        <header className="flex flex-col gap-4 p-4 md:p-6 lg:p-10 pb-4 md:pb-6">
+          <div className="flex-1 max-w-2xl w-full">
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xl">
                 search
@@ -199,34 +199,34 @@ export default function AgentsPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
             <button
               onClick={handleRefresh}
-              className="flex items-center gap-2 px-5 py-2.5 font-bold rounded-lg border border-[#1a558b] bg-white text-[#1a558b] hover:bg-[#1a558b] hover:text-white transition-all text-sm"
+              className="flex items-center gap-1.5 md:gap-2 px-3 md:px-5 py-2 md:py-2.5 font-bold rounded-lg border border-[#1a558b] bg-white text-[#1a558b] hover:bg-[#1a558b] hover:text-white transition-all text-xs md:text-sm"
             >
-              <span className="material-symbols-outlined text-lg">refresh</span>
-              Refresh
+              <span className="material-symbols-outlined text-base md:text-lg">refresh</span>
+              <span className="hidden sm:inline">Refresh</span>
             </button>
 
             <button
               onClick={handleLogout}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#1a558b] text-white rounded-lg hover:opacity-90 transition-all text-sm"
+              className="flex items-center gap-1.5 md:gap-2 px-3 md:px-5 py-2 md:py-2.5 bg-[#1a558b] text-white rounded-lg hover:opacity-90 transition-all text-xs md:text-sm font-bold"
             >
-              <span className="material-symbols-outlined text-lg">logout</span>
-              Logout
+              <span className="material-symbols-outlined text-base md:text-lg">logout</span>
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </header>
 
-        <div className="px-6 md:px-10 pb-10">
+        <div className="px-4 md:px-6 lg:px-10 pb-6 md:pb-10">
           {/* Page Title */}
-          <div className="mb-8">
-            <h2 className="text-3xl font-black text-gray-900 tracking-tight">Agents Management</h2>
-            <p className="text-gray-600 mt-1">Manage sales agents and their commissions</p>
+          <div className="mb-6 md:mb-8">
+            <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Agents Management</h2>
+            <p className="text-sm md:text-base text-gray-600 mt-1">Manage sales agents and their commissions</p>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6 md:mb-10">
             {statsData.map((stat, index) => (
               <StatCard
                 key={index}
@@ -241,8 +241,8 @@ export default function AgentsPage() {
 
           {/* Agents List Table */}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-2xl">
-            <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between bg-gray-50">
-              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <div className="px-4 md:px-6 py-4 md:py-5 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gray-50">
+              <h3 className="text-base md:text-lg font-bold text-gray-900 flex items-center gap-2">
                 <span className="material-symbols-outlined text-[#1a558b]">list_alt</span>
                 All Agents ({filteredAgents.length})
               </h3>
@@ -292,7 +292,7 @@ export default function AgentsPage() {
             )}
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse min-w-[800px]">
                 <thead>
                   <tr className="bg-gray-50">
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600">Agent ID</th>

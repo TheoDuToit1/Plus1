@@ -16,12 +16,19 @@ export default function Navbar() {
     }}>
       <div className="max-w-[1800px] mx-auto flex items-center justify-between">
         {/* Logo */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
           <img 
             src="/logo.png" 
             alt="+1 Rewards" 
             className="w-auto object-contain"
-            style={{ height: '71px' }}
+            style={{ height: '60px' }}
+          />
+          <div className="hidden md:block w-px h-12 bg-gray-300" />
+          <img 
+            src="/plus1-go logo.png" 
+            alt="Plus1 Go" 
+            className="w-auto object-contain"
+            style={{ height: '75px' }}
           />
         </div>
 
@@ -35,13 +42,13 @@ export default function Navbar() {
 
         {/* CTA */}
         <div className="flex items-center gap-3">
-          <a href="/member/login" className="hidden md:inline text-sm font-semibold text-gray-800 hover:text-blue-800 transition-colors">
+          <a href="/login" className="hidden md:inline text-sm font-semibold text-gray-800 hover:text-blue-800 transition-colors">
             Sign In
           </a>
           <button
             className="hidden md:block px-5 py-2 rounded-lg font-bold text-sm transition-all shadow-sm text-white hover:opacity-90"
             style={{ backgroundColor: BLUE }}
-            onClick={() => window.location.href = '/member/register'}
+            onClick={() => window.location.href = '/register'}
           >
             Start Earning Free Cover &rarr;
           </button>
@@ -99,7 +106,7 @@ export default function Navbar() {
           </a>
           <div className="mt-2 px-4 flex flex-col gap-3">
             <a 
-              href="/member/login" 
+              href="/login" 
               className="text-center py-3 text-base font-semibold rounded-lg transition-all border-2"
               style={{ color: BLUE, borderColor: BLUE }}
               onClick={() => setMenuOpen(false)}
@@ -109,7 +116,7 @@ export default function Navbar() {
             <button
               className="py-3 rounded-lg font-bold text-base transition-all shadow-md text-white"
               style={{ backgroundColor: BLUE }}
-              onClick={() => window.location.href = '/member/register'}
+              onClick={() => window.location.href = '/register'}
             >
               Get Started →
             </button>

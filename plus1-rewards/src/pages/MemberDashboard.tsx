@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { getSession, clearSession } from '../lib/session';
 import MemberLayout from '../components/member/MemberLayout';
 import UpgradePromptModal from '../components/member/UpgradePromptModal';
+import ProfileIncompleteModal from '../components/member/ProfileIncompleteModal';
 
 interface Member {
   id: string;
@@ -46,6 +47,8 @@ export function MemberDashboard() {
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
+  const [showProfileIncomplete, setShowProfileIncomplete] = useState(false);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
 
   const loadDashboardData = async () => {
     try {
@@ -161,6 +164,68 @@ export function MemberDashboard() {
       }
     }
   }, [mainCoverPlan, overflowBalance, targetAmount]);
+
+  // Check profile completeness when plan reaches 90%+
+  useEffect(() => {
+    if (!member || !mainCoverPlan) return;
+
+    const checkProfileCompleteness = async () => {
+      // Check if profile is incomplete
+      const missing: string[] = [];
+      if (!member.email || member.email.includes('@plus1rewards.local')) {
+        missing.push('Valid Email Address');
+      }
+      if (!member.sa_id) {
+        missing.push('SA ID Number');
+      }
+      if (!member.suburb) {
+        missing.push('Suburb');
+      }
+
+      const isProfileIncomplete = missing.length > 0;
+
+      if (isProfileIncomplete && progressPercent >= 90) {
+        setMissingFields(missing);
+        
+        // Check if we've already shown the prompt for this progress level
+        const lastPromptProgress = sessionStorage.getItem('last_profile_prompt_progress');
+        const currentProgressKey = `${mainCoverPlan.id}_${Math.floor(progressPercent)}`;
+        
+        if (lastPromptProgress !== currentProgressKey) {
+          setShowProfileIncomplete(true);
+          sessionStorage.setItem('last_profile_prompt_progress', currentProgressKey);
+
+          // Notify admin if at 90%+ with incomplete profile
+          try {
+            await supabase.from('admin_notifications').insert({
+              type: 'profile_incomplete',
+              member_id: member.id,
+              member_name: member.name,
+              member_phone: member.phone,
+              message: `Member ${member.name} (${member.phone}) has reached ${progressPercent.toFixed(0)}% cover plan completion but has incomplete profile. Missing: ${missing.join(', ')}`,
+              priority: progressPercent >= 100 ? 'high' : 'medium',
+              metadata: {
+                progress_percent: progressPercent,
+                missing_fields: missing,
+                cover_plan_id: mainCoverPlan.id
+              }
+            });
+          } catch (error) {
+            console.error('Error creating admin notification:', error);
+          }
+        }
+      }
+
+      // If at 100% and profile incomplete, prevent activation
+      if (isProfileIncomplete && progressPercent >= 100 && mainCoverPlan.status === 'in_progress') {
+        // Keep showing the modal until profile is complete
+        setShowProfileIncomplete(true);
+        setMissingFields(missing);
+      }
+    };
+
+    checkProfileCompleteness();
+  }, [member, mainCoverPlan, progressPercent]);
 
   const handleUpgrade = async () => {
     if (!mainCoverPlan) return;
@@ -282,9 +347,18 @@ export function MemberDashboard() {
       onSignOut={handleSignOut}
     >
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Member Dashboard</h1>
-        <p className="text-gray-600">Welcome back, {member?.name || 'Member'}</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Member Dashboard</h1>
+          <p className="text-gray-600">Welcome back, {member?.name || 'Member'}</p>
+        </div>
+        <button
+          onClick={() => navigate('/member/profile')}
+          className="flex items-center gap-2 bg-white hover:bg-gray-50 border-2 border-[#1a558b] text-[#1a558b] font-bold px-4 py-2 rounded-xl transition-colors"
+        >
+          <span className="material-symbols-outlined">person</span>
+          <span className="hidden sm:inline">My Profile</span>
+        </button>
       </div>
 
       {/* Status Banner */}
@@ -567,6 +641,14 @@ export function MemberDashboard() {
         </div>
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <button
+            onClick={() => navigate('/member/profile')}
+            className="bg-gradient-to-br from-[#1a558b] to-[#1a558b]/80 hover:from-[#1a558b]/90 hover:to-[#1a558b]/70 text-white font-bold py-4 rounded-xl transition-all transform hover:scale-105 flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined">person</span>
+            Edit Profile
+          </button>
+
+          <button
             onClick={() => navigate('/member/qr')}
             className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
           >
@@ -633,6 +715,21 @@ export function MemberDashboard() {
           overflowAmount={overflowBalance}
           onUpgrade={handleUpgrade}
           onDecline={handleDeclineUpgrade}
+        />
+      )}
+
+      {/* Profile Incomplete Modal */}
+      {showProfileIncomplete && member && (
+        <ProfileIncompleteModal
+          memberName={member.name}
+          percentComplete={progressPercent}
+          missingFields={missingFields}
+          onClose={() => {
+            // Only allow closing if not at 100%
+            if (progressPercent < 100) {
+              setShowProfileIncomplete(false);
+            }
+          }}
         />
       )}
     </MemberLayout>

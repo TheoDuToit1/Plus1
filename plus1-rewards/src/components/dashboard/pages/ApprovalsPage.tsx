@@ -143,6 +143,21 @@ export default function ApprovalsPage() {
         console.log('✅ Providers:', providers?.length || 0);
       }
 
+      // Fetch pending linked people/dependants
+      const { data: linkedPeople, error: linkedPeopleError } = await supabaseAdmin
+        .from('linked_people')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false});
+
+      if (linkedPeopleError) {
+        console.error('❌ Linked people error:', linkedPeopleError);
+        setLinkedPeopleRequests([]);
+      } else {
+        console.log('✅ Linked people:', linkedPeople?.length || 0);
+        setLinkedPeopleRequests(linkedPeople || []);
+      }
+
       setPendingPartners(partners || []);
       if (agentsError) {
         setPendingAgents([]);
@@ -158,7 +173,7 @@ export default function ApprovalsPage() {
         agents: agents?.length || 0,
         providers: providers?.length || 0,
         coverPlans: 0,
-        linkedPeople: 0
+        linkedPeople: linkedPeople?.length || 0
       });
     } catch (error) {
       console.error('❌ Error fetching approvals:', error);
@@ -665,19 +680,103 @@ export default function ApprovalsPage() {
                   </h3>
                 </div>
                 
-                <div className="px-6 py-12 text-center">
-                  <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">group_add</span>
-                  <p className="text-gray-600">No pending linked people requests</p>
-                  <p className="text-sm text-gray-500 mt-2">
-                    <span className="material-symbols-outlined text-sm align-middle">info</span>
-                    Important: Telephonic conversation required before approval
-                  </p>
-                </div>
+                {loading ? (
+                  <div className="px-6 py-12 text-center">
+                    <p className="text-gray-600">Loading...</p>
+                  </div>
+                ) : linkedPeopleRequests.length === 0 ? (
+                  <div className="px-6 py-12 text-center">
+                    <span className="material-symbols-outlined text-6xl text-gray-300 mb-4">group_add</span>
+                    <p className="text-gray-600">No pending linked people requests</p>
+                    <p className="text-sm text-gray-500 mt-2">
+                      <span className="material-symbols-outlined text-sm align-middle">info</span>
+                      Important: Telephonic conversation required before approval
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-200">
+                    {linkedPeopleRequests.map((linkedPerson) => (
+                      <div key={linkedPerson.id} className="p-6 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="text-lg font-bold text-gray-900 mb-2">{linkedPerson.full_name}</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                              <div>
+                                <p className="text-xs text-gray-600 uppercase font-bold">Relationship Type</p>
+                                <p className="text-sm text-gray-900 capitalize">{linkedPerson.linked_type}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-600 uppercase font-bold">ID Number</p>
+                                <p className="text-sm text-gray-900">{linkedPerson.id_number}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-600 uppercase font-bold">Requested Date</p>
+                                <p className="text-sm text-gray-900">{new Date(linkedPerson.created_at).toLocaleDateString()}</p>
+                              </div>
+                            </div>
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-yellow-50 text-yellow-700 rounded-lg text-xs font-bold">
+                              <span className="material-symbols-outlined text-sm">pending</span>
+                              Awaiting Approval
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2 ml-4">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const { error } = await supabaseAdmin
+                                    .from('linked_people')
+                                    .update({ status: 'approved' })
+                                    .eq('id', linkedPerson.id);
+                                  if (error) throw error;
+                                  showSuccess('Approved!', 'Linked person has been approved.');
+                                  fetchData();
+                                } catch (error) {
+                                  console.error('Error approving linked person:', error);
+                                  showError('Error', 'Failed to approve linked person.');
+                                }
+                              }}
+                              className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                            >
+                              <span className="material-symbols-outlined text-lg">check_circle</span>
+                              Approve
+                            </button>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const { error } = await supabaseAdmin
+                                    .from('linked_people')
+                                    .update({ status: 'rejected' })
+                                    .eq('id', linkedPerson.id);
+                                  if (error) throw error;
+                                  showSuccess('Rejected', 'Linked person request has been rejected.');
+                                  fetchData();
+                                } catch (error) {
+                                  console.error('Error rejecting linked person:', error);
+                                  showError('Error', 'Failed to reject linked person.');
+                                }
+                              }}
+                              className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                            >
+                              <span className="material-symbols-outlined text-lg">cancel</span>
+                              Reject
+                            </button>
+                            <button
+                              className="px-6 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                            >
+                              <span className="material-symbols-outlined text-lg">phone</span>
+                              Call Required
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* Footer */}
+          {/* Footer */}          {/* Footer */}
           <div className="mt-12 text-center">
             <p className="text-[10px] text-gray-600 font-bold tracking-[0.2em] uppercase">
               © 2024 +1 Rewards Platform Management • Secured Admin Access

@@ -220,7 +220,7 @@ export default function TransactionsPage() {
             )}
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse min-w-[900px]">
                 <thead>
                   <tr className="bg-gray-50">
                     <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-gray-600">Transaction ID</th>

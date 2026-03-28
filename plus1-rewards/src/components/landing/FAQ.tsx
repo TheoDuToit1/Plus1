@@ -33,7 +33,8 @@ const faqs = [
 ]
 
 export default function FAQ() {
-  const [open, setOpen] = useState<number | null>(0)
+  const [showFAQs, setShowFAQs] = useState(false)
+  const [open, setOpen] = useState<number | null>(null)
 
   return (
     <section className="py-24 px-6 lg:px-20" style={{ backgroundColor: '#f5f8fc' }} id="faq">
@@ -48,36 +49,54 @@ export default function FAQ() {
           <h2 className="text-3xl font-bold text-gray-900">Frequently Asked Questions</h2>
         </div>
 
-        <div className="space-y-4">
-          {faqs.map((faq, i) => (
-            <div
-              key={i}
-              className="border rounded-xl overflow-hidden transition-all"
-              style={{ borderColor: open === i ? BLUE_BORDER : '#e5e7eb', backgroundColor: '#fff' }}
-            >
-              <button
-                className="w-full flex items-center justify-between px-6 py-5 text-left"
-                onClick={() => setOpen(open === i ? null : i)}
-              >
-                <span className="font-bold text-gray-900 text-base">{faq.q}</span>
-                <span
-                  className="material-symbols-outlined text-xl flex-shrink-0 ml-4 transition-transform duration-200"
-                  style={{
-                    color: BLUE,
-                    transform: open === i ? 'rotate(180deg)' : 'rotate(0deg)',
-                  }}
-                >
-                  expand_more
-                </span>
-              </button>
-              {open === i && (
-                <div className="px-6 pb-5 text-gray-500 leading-relaxed border-t" style={{ borderColor: '#f0f0f0' }}>
-                  <p className="pt-3">{faq.a}</p>
-                </div>
-              )}
-            </div>
-          ))}
+        {/* Show/Hide FAQs Button */}
+        <div className="flex justify-center mb-8">
+          <button
+            onClick={() => setShowFAQs(!showFAQs)}
+            className="px-6 py-3 rounded-lg font-bold text-base transition-all"
+            style={{
+              backgroundColor: showFAQs ? BLUE : BLUE_LIGHT,
+              color: showFAQs ? '#fff' : BLUE,
+              border: `2px solid ${BLUE}`
+            }}
+          >
+            {showFAQs ? 'Hide FAQs' : 'Show FAQs'}
+          </button>
         </div>
+
+        {/* FAQs List - Hidden by default */}
+        {showFAQs && (
+          <div className="space-y-4">
+            {faqs.map((faq, i) => (
+              <div
+                key={i}
+                className="border rounded-xl overflow-hidden transition-all"
+                style={{ borderColor: open === i ? BLUE_BORDER : '#e5e7eb', backgroundColor: '#fff' }}
+              >
+                <button
+                  className="w-full flex items-center justify-between px-6 py-5 text-left"
+                  onClick={() => setOpen(open === i ? null : i)}
+                >
+                  <span className="font-bold text-gray-900 text-base">{faq.q}</span>
+                  <span
+                    className="material-symbols-outlined text-xl flex-shrink-0 ml-4 transition-transform duration-200"
+                    style={{
+                      color: BLUE,
+                      transform: open === i ? 'rotate(180deg)' : 'rotate(0deg)',
+                    }}
+                  >
+                    expand_more
+                  </span>
+                </button>
+                {open === i && (
+                  <div className="px-6 pb-5 text-gray-500 leading-relaxed border-t" style={{ borderColor: '#f0f0f0' }}>
+                    <p className="pt-3">{faq.a}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )

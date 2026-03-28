@@ -1,6 +1,6 @@
 // plus1-rewards/src/pages/MemberRegister.tsx
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import AuthLayout from '../components/auth/AuthLayout';
 import { AuthInput, AuthButton, AuthError, AuthLink } from '../components/auth/AuthComponents';
@@ -10,6 +10,9 @@ const BLUE = '#1a558b'
 
 export default function MemberRegister() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const platform = searchParams.get('platform') || 'rewards'; // 'rewards' or 'go'
+  
   const [loading, setLoading] = useState(false);
   const [showPin, setShowPin] = useState(false);
   const [error, setError] = useState('');
@@ -132,11 +135,11 @@ export default function MemberRegister() {
 
       showSuccess(
         'Account Created Successfully!',
-        'You can now log in with your mobile number and PIN. Redirecting...'
+        `You can now log in with your mobile number and PIN. Redirecting to ${platform === 'go' ? 'Go' : 'Rewards'}...`
       );
       
       setTimeout(() => {
-        navigate('/member/login');
+        navigate(`/member/login?platform=${platform}`);
       }, 2000);
     } catch (err: any) {
       if (err.message?.includes('already registered') || err.message?.includes('duplicate')) {
@@ -285,7 +288,7 @@ export default function MemberRegister() {
 
         <p className="text-center text-sm text-gray-500 pt-2">
           Already have an account?{' '}
-          <AuthLink onClick={() => navigate('/member/login')}>Sign In</AuthLink>
+          <AuthLink onClick={() => navigate(`/member/login?platform=${platform}`)}>Sign In</AuthLink>
         </p>
       </div>
     </AuthLayout>
