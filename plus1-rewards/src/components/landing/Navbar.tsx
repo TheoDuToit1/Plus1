@@ -17,19 +17,23 @@ export default function Navbar() {
       <div className="max-w-[1800px] mx-auto flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-4">
-          <img 
-            src="/logo.png" 
-            alt="+1 Rewards" 
-            className="w-auto object-contain"
-            style={{ height: '60px' }}
-          />
+          <a href="/" className="cursor-pointer">
+            <img 
+              src="/logo.png" 
+              alt="+1 Rewards" 
+              className="w-auto object-contain hover:opacity-80 transition-opacity"
+              style={{ height: '60px' }}
+            />
+          </a>
           <div className="hidden md:block w-px h-12 bg-gray-300" />
-          <img 
-            src="/plus1-go logo.png" 
-            alt="Plus1 Go" 
-            className="w-auto object-contain"
-            style={{ height: '75px' }}
-          />
+          <a href="/go" className="cursor-pointer">
+            <img 
+              src="/plus1-go logo.png" 
+              alt="Plus1 Go" 
+              className="w-auto object-contain hover:opacity-80 transition-opacity"
+              style={{ height: '75px' }}
+            />
+          </a>
         </div>
 
         {/* Desktop Nav */}
@@ -72,6 +76,25 @@ export default function Navbar() {
           borderRadius: '0 0 16px 16px',
           boxShadow: '0 8px 16px rgba(0, 0, 0, 0.1)'
         }}>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <a href="/" className="cursor-pointer">
+              <img 
+                src="/logo.png" 
+                alt="+1 Rewards" 
+                className="w-auto object-contain hover:opacity-80 transition-opacity"
+                style={{ height: '50px' }}
+              />
+            </a>
+            <div className="w-px h-10 bg-gray-300" />
+            <a href="/go" className="cursor-pointer">
+              <img 
+                src="/plus1-go logo.png" 
+                alt="Plus1 Go" 
+                className="w-auto object-contain hover:opacity-80 transition-opacity"
+                style={{ height: '60px' }}
+              />
+            </a>
+          </div>
           <a 
             href="#how-it-works" 
             onClick={() => setMenuOpen(false)}

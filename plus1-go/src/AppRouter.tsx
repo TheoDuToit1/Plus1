@@ -21,7 +21,8 @@ export default function AppRouter({ basename = '' }: { basename?: string }) {
   return (
     <BrowserRouter basename={basename}>
       <Routes>
-        {/* Public Routes */}
+        {/* Public Routes - App component is the browse/home page */}
+        <Route index element={<App />} />
         <Route path="/" element={<App />} />
         
         {/* Login/Register - redirect to unified pages (outside /go) */}
@@ -57,7 +58,7 @@ export default function AppRouter({ basename = '' }: { basename?: string }) {
         />
 
         {/* Catch all - redirect to home */}
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

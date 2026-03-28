@@ -220,16 +220,20 @@ export default function App() {
                   onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                 />
                 <div className="flex items-center gap-2">
-                  <img 
-                    src="/plus1-go logo.png" 
-                    alt="Plus1-Go" 
-                    className="h-10 desktop:h-16 w-auto cursor-pointer select-none"
-                  />
-                  <img 
-                    src="/logo.png" 
-                    alt="Logo" 
-                    className="h-8 desktop:h-12 w-auto cursor-pointer select-none"
-                  />
+                  <a href="/go" className="cursor-pointer">
+                    <img 
+                      src="/plus1-go logo.png" 
+                      alt="Plus1-Go" 
+                      className="h-10 desktop:h-16 w-auto select-none hover:opacity-80 transition-opacity"
+                    />
+                  </a>
+                  <a href="/" className="cursor-pointer">
+                    <img 
+                      src="/logo.png" 
+                      alt="Logo" 
+                      className="h-8 desktop:h-12 w-auto select-none hover:opacity-80 transition-opacity"
+                    />
+                  </a>
                 </div>
               </div>
 
@@ -292,16 +296,20 @@ export default function App() {
               >
                 <div className="desktop:hidden p-4 border-b border-zinc-100 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <img 
-                      src="/plus1-go logo.png" 
-                      alt="Plus1-Go" 
-                      className="h-10 w-auto"
-                    />
-                    <img 
-                      src="/logo.png" 
-                      alt="Logo" 
-                      className="h-8 w-auto"
-                    />
+                    <a href="/go" className="cursor-pointer">
+                      <img 
+                        src="/plus1-go logo.png" 
+                        alt="Plus1-Go" 
+                        className="h-10 w-auto hover:opacity-80 transition-opacity"
+                      />
+                    </a>
+                    <a href="/" className="cursor-pointer">
+                      <img 
+                        src="/logo.png" 
+                        alt="Logo" 
+                        className="h-8 w-auto hover:opacity-80 transition-opacity"
+                      />
+                    </a>
                   </div>
                   <AnimatedHamburger 
                     isOpen={isSidebarOpen}
