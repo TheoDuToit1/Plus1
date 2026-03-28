@@ -417,24 +417,57 @@ export function MemberDashboard() {
               <p className="text-sm text-gray-600">Target: R{targetAmount.toFixed(2)}</p>
             </div>
             
-            {/* Progress Section - Only show if not fully funded */}
+            {/* Progress Section - Show for in_progress status */}
             {mainCoverPlan.status === 'in_progress' && (
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-600 mb-2">Cashback Progress</p>
-                <div className="flex justify-between text-sm text-gray-900 font-bold mb-2">
-                  <span>R{fundedAmount.toFixed(2)} funded</span>
-                  <span>R{targetAmount.toFixed(2)} target</span>
+              <>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-sm text-gray-600 mb-2">Cashback Progress</p>
+                  <div className="flex justify-between text-sm text-gray-900 font-bold mb-2">
+                    <span>R{fundedAmount.toFixed(2)} funded</span>
+                    <span>R{targetAmount.toFixed(2)} target</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
+                    <div 
+                      className="h-4 rounded-full transition-all bg-blue-500"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {progressPercent.toFixed(0)}% complete • R{amountStillNeeded.toFixed(2)} still needed
+                  </p>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
-                  <div 
-                    className="h-4 rounded-full transition-all bg-blue-500"
-                    style={{ width: `${progressPercent}%` }}
-                  />
-                </div>
-                <p className="text-sm text-gray-600">
-                  {progressPercent.toFixed(0)}% complete • R{amountStillNeeded.toFixed(2)} still needed
-                </p>
-              </div>
+
+                {/* Cashback Balance Breakdown - Show even during in_progress */}
+                {totalCashbackEarned > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                    <p className="text-blue-900 font-bold text-sm mb-3">Cashback Balance Breakdown</p>
+                    
+                    <div className="flex justify-between text-sm">
+                      <span className="text-blue-700">Total Cashback Earned:</span>
+                      <span className="text-blue-900 font-bold">R{totalCashbackEarned.toFixed(2)}</span>
+                    </div>
+                    
+                    <div className="flex justify-between text-sm">
+                      <span className="text-blue-700">Allocated to Cover Plan:</span>
+                      <span className="text-blue-900 font-bold">- R{fundedAmount.toFixed(2)}</span>
+                    </div>
+                    
+                    <div className="border-t border-blue-300 pt-2 mt-2">
+                      <div className="flex justify-between">
+                        <span className="text-blue-900 font-bold">Overflow Balance:</span>
+                        <span className={`font-bold text-lg ${overflowBalance > 0 ? 'text-purple-600' : 'text-blue-900'}`}>
+                          R{overflowBalance.toFixed(2)}
+                        </span>
+                      </div>
+                      {overflowBalance > 0 && (
+                        <p className="text-xs text-blue-700 mt-1">
+                          Extra cashback available once your plan is active
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Active Status - Show funded amount and overflow */}
