@@ -12,6 +12,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     storage: window.localStorage,
-    storageKey: 'plus1go.auth.token'
+    storageKey: 'supabase.auth.token' // Shared with Plus1-Rewards
   }
 });
