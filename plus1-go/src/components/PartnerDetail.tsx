@@ -192,7 +192,10 @@ export default function PartnerDetail({ partnerId, onBack }: { partnerId: string
         <div className="w-full max-w-2xl bg-white min-h-screen relative">
           {/* Mobile Header - Uber Style */}
           <header className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex items-center justify-between bg-white border-b border-slate-100 max-w-2xl mx-auto">
-            <button className="h-10 w-10 rounded-full flex items-center justify-center text-primary">
+            <button 
+              onClick={onBack}
+              className="h-10 w-10 rounded-full flex items-center justify-center text-primary hover:bg-slate-100 transition-colors"
+            >
               <ArrowLeft size={24} />
             </button>
             <div className="flex flex-col items-center">
@@ -502,7 +505,10 @@ export default function PartnerDetail({ partnerId, onBack }: { partnerId: string
         
         {/* Top Navigation */}
         <div className="absolute top-0 left-0 right-0 p-8 flex justify-between items-center z-20">
-          <button className="h-12 w-12 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-all">
+          <button 
+            onClick={onBack}
+            className="h-12 w-12 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 flex items-center justify-center text-white hover:bg-white/20 transition-all"
+          >
             <ArrowLeft size={24} />
           </button>
           <div className="flex gap-4">
