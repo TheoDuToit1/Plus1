@@ -156,10 +156,10 @@ export default function MemberRegister() {
     <AuthLayout
       portalIcon="add_circle"
       portalName="+1 Rewards"
-      headline={<>Start earning <span style={{ color: '#93c5fd' }}>healthcare</span> rewards today.</>}
-      subheadline="Join thousands of members who fund their health insurance through everyday shopping at local partners."
+      headline={<>Start earning <span style={{ color: '#93c5fd' }}>cashback</span> that pays your Medical Cover.</>}
+      subheadline="Join thousands of members who fund their Family Medical Cover through everyday shopping at local partners."
       stats={[
-        { value: 'R0', label: 'Joining Fee' },
+        { value: 'NO sign up Fee', label: '' },
         { value: '3%', label: 'Rewards Rate' },
         { value: 'R385', label: 'Monthly Target' },
       ]}
@@ -181,7 +181,7 @@ export default function MemberRegister() {
 
         {/* Benefits strip */}
         <div className="grid grid-cols-3 gap-2">
-          {['R0 Fee', 'Works Offline', 'Day1 Health'].map((b) => (
+          {['NO sign up Fee', 'Works Offline', 'Earn cashback'].map((b) => (
             <div key={b} className="flex flex-col items-center gap-1 py-3 rounded-xl text-center" style={{ backgroundColor: 'rgba(26,85,139,0.06)' }}>
               <span className="text-xs font-bold" style={{ color: BLUE }}>{b}</span>
             </div>
@@ -234,7 +234,7 @@ export default function MemberRegister() {
               </button>
             }
           />
-          <p className="text-xs text-gray-500 -mt-2">Your PIN will be used with your mobile number to log in</p>
+          <p className="text-xs text-gray-500 -mt-2">Your PIN is used with your Cell number to login</p>
 
           <label className={`flex items-start gap-2.5 text-sm text-gray-600 cursor-pointer p-3 rounded-lg transition-colors ${
             error.includes('Terms of Service') ? 'bg-red-50 border-2 border-red-300' : ''

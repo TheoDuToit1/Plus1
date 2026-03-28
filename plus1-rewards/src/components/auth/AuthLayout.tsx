@@ -33,12 +33,23 @@ export default function AuthLayout({ portalIcon, portalName, headline, subheadli
 
         {/* Logo */}
         <div className="relative z-10 flex items-center gap-3">
-          <img 
-            src="/logo.png" 
-            alt={portalName} 
-            className="w-auto object-contain"
-            style={{ height: '105px' }}
-          />
+          <a href="/" className="cursor-pointer">
+            <img 
+              src="/logo.png" 
+              alt="+1 Rewards" 
+              className="w-auto object-contain hover:opacity-80 transition-opacity"
+              style={{ height: '70px' }}
+            />
+          </a>
+          <div className="w-px h-14 bg-white/30" />
+          <a href="/go" className="cursor-pointer">
+            <img 
+              src="/plus1-go logo.png" 
+              alt="Plus1 Go" 
+              className="w-auto object-contain hover:opacity-80 transition-opacity"
+              style={{ height: '85px' }}
+            />
+          </a>
         </div>
 
         {/* Headline */}
@@ -47,15 +58,8 @@ export default function AuthLayout({ portalIcon, portalName, headline, subheadli
           <p className="text-blue-200 text-lg leading-relaxed max-w-sm">{subheadline}</p>
         </div>
 
-        {/* Stats */}
-        <div className="relative z-10 flex gap-10">
-          {stats.map((s) => (
-            <div key={s.label} className="flex flex-col gap-1">
-              <span className="text-2xl font-black text-white">{s.value}</span>
-              <span className="text-blue-300 text-sm">{s.label}</span>
-            </div>
-          ))}
-        </div>
+        {/* Empty spacer to maintain layout */}
+        <div className="relative z-10"></div>
       </div>
 
       {/* ── Right Form Panel ── */}
@@ -63,12 +67,23 @@ export default function AuthLayout({ portalIcon, portalName, headline, subheadli
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-3 mb-8">
-            <img 
-              src="/logo.png" 
-              alt={portalName} 
-              className="w-auto object-contain"
-              style={{ height: '95px' }}
-            />
+            <a href="/" className="cursor-pointer">
+              <img 
+                src="/logo.png" 
+                alt="+1 Rewards" 
+                className="w-auto object-contain hover:opacity-80 transition-opacity"
+                style={{ height: '60px' }}
+              />
+            </a>
+            <div className="w-px h-12 bg-gray-300" />
+            <a href="/go" className="cursor-pointer">
+              <img 
+                src="/plus1-go logo.png" 
+                alt="Plus1 Go" 
+                className="w-auto object-contain hover:opacity-80 transition-opacity"
+                style={{ height: '70px' }}
+              />
+            </a>
           </div>
 
           {/* Back link */}
