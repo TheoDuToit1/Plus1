@@ -1,0 +1,136 @@
+// plus1-rewards/src/components/member/ProfileIncompleteModal.tsx
+import { useNavigate } from 'react-router-dom';
+
+interface ProfileIncompleteModalProps {
+  memberName: string;
+  percentComplete: number;
+  missingFields: string[];
+  onClose: () => void;
+}
+
+export default function ProfileIncompleteModal({
+  percentComplete,
+  missingFields,
+  onClose
+}: ProfileIncompleteModalProps) {
+  const navigate = useNavigate();
+
+  const handleGoToProfile = () => {
+    sessionStorage.setItem('profile_redirect_from_dashboard', 'true');
+    navigate('/member/profile');
+    onClose();
+  };
+
+  const isBlocking = percentComplete >= 100;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+        {/* Header */}
+        <div className={`${isBlocking ? 'bg-gradient-to-r from-red-500 to-orange-500' : 'bg-gradient-to-r from-yellow-500 to-orange-500'} text-white p-6`}>
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-4">
+              <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
+                <span className="material-symbols-outlined text-4xl">
+                  {isBlocking ? 'block' : 'warning'}
+                </span>
+              </div>
+              <div>
+                <h2 className="text-2xl font-black mb-1">
+                  {isBlocking ? 'Profile Required!' : 'Action Needed!'}
+                </h2>
+                <p className="text-white/90 text-sm font-medium">
+                  {isBlocking 
+                    ? 'Complete your profile to activate your cover plan'
+                    : 'Your cover plan is almost ready!'
+                  }
+                </p>
+              </div>
+            </div>
+            {!isBlocking && (
+              <button 
+                onClick={onClose} 
+                className="text-white hover:bg-white/20 rounded-lg p-2 transition-all"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-bold text-gray-600">Cover Plan Progress</span>
+              <span className="text-lg font-black text-[#1a558b]">{percentComplete.toFixed(0)}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div 
+                className={`h-3 rounded-full transition-all duration-500 ${
+                  isBlocking ? 'bg-gradient-to-r from-red-500 to-orange-500' : 'bg-gradient-to-r from-yellow-500 to-orange-500'
+                }`}
+                style={{ width: `${Math.min(percentComplete, 100)}%` }}
+              />
+            </div>
+          </div>
+
+          <div className={`${isBlocking ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'} border-2 rounded-xl p-4 mb-6`}>
+            <div className="flex items-start gap-3">
+              <span className={`material-symbols-outlined ${isBlocking ? 'text-red-600' : 'text-yellow-600'} text-2xl`}>
+                info
+              </span>
+              <div>
+                <p className={`${isBlocking ? 'text-red-900' : 'text-yellow-900'} font-bold mb-2`}>
+                  {isBlocking 
+                    ? '🚫 Your cover plan cannot be activated until you complete your profile.'
+                    : '⚠️ Your cover plan is at 90%+ completion. Please complete your profile now!'
+                  }
+                </p>
+                <p className={`${isBlocking ? 'text-red-800' : 'text-yellow-800'} text-sm`}>
+                  {isBlocking
+                    ? 'We need your complete information to activate your medical cover. This is required by our insurance partners.'
+                    : 'To ensure smooth activation when you reach 100%, please fill in your details now.'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-4 mb-6">
+            <p className="text-sm font-bold text-gray-900 mb-3">Missing Information:</p>
+            <ul className="space-y-2">
+              {missingFields.map((field, index) => (
+                <li key={index} className="flex items-center gap-2 text-sm text-gray-700">
+                  <span className="material-symbols-outlined text-red-500 text-lg">close</span>
+                  <span>{field}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <button
+            onClick={handleGoToProfile}
+            className={`w-full ${
+              isBlocking 
+                ? 'bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-700 hover:to-orange-700' 
+                : 'bg-gradient-to-r from-[#1a558b] to-[#2d7ab8] hover:from-[#1a558b]/90 hover:to-[#2d7ab8]/90'
+            } text-white font-black py-4 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2`}
+          >
+            <span className="material-symbols-outlined text-2xl">person</span>
+            <span>Complete My Profile Now</span>
+          </button>
+
+          {!isBlocking && (
+            <button
+              onClick={onClose}
+              className="w-full mt-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 rounded-xl transition-all duration-200"
+            >
+              Remind Me Later
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

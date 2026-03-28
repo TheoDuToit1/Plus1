@@ -1,0 +1,185 @@
+// plus1-rewards/src/components/dashboard/QuickActions.tsx
+import { useNavigate } from 'react-router-dom';
+
+export default function QuickActions() {
+  const navigate = useNavigate();
+
+  const handleAction = (action: string) => {
+    switch (action) {
+      case 'invoices':
+        navigate('/admin/shops');
+        break;
+      case 'suspensions':
+        navigate('/admin/members');
+        break;
+      case 'payouts':
+        navigate('/admin/agents');
+        break;
+      case 'export':
+        handleExport();
+        break;
+      case 'providers':
+        navigate('/admin/providers');
+        break;
+      case 'policies':
+        navigate('/admin/policies');
+        break;
+      case 'transactions':
+        navigate('/admin/transactions');
+        break;
+      case 'members':
+        navigate('/admin/members');
+        break;
+      default:
+        console.log('Action not implemented:', action);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      alert('Export functionality will be implemented. This would generate a CSV/Excel file with system data.');
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Export failed. Please try again.');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-2 mb-4">
+        <span className="material-symbols-outlined text-[#1a558b]">bolt</span>
+        <h2 className="text-xl font-bold tracking-tight text-gray-900">Quick Actions</h2>
+      </div>
+      
+      <div className="grid grid-cols-1 gap-3">
+        <button 
+          onClick={() => handleAction('invoices')}
+          className="flex items-center justify-between w-full p-4 bg-white rounded-xl hover:border-[#1a558b] transition-all group text-left border border-gray-200" 
+        >
+          <div className="flex items-center gap-4">
+            <div className="size-10 flex items-center justify-center rounded-lg bg-[#1a558b]/10 text-[#1a558b] group-hover:bg-[#1a558b] group-hover:text-white transition-all">
+              <span className="material-symbols-outlined">receipt</span>
+            </div>
+            <div>
+              <p className="font-bold text-sm text-gray-900">Generate Invoices</p>
+              <p className="text-[11px] text-gray-600">Bulk process billing</p>
+            </div>
+          </div>
+          <span className="material-symbols-outlined text-gray-400 group-hover:text-[#1a558b] transition-all">chevron_right</span>
+        </button>
+        
+        <button 
+          onClick={() => handleAction('suspensions')}
+          className="flex items-center justify-between w-full p-4 bg-white rounded-xl hover:border-[#1a558b] transition-all group text-left border border-gray-200" 
+        >
+          <div className="flex items-center gap-4">
+            <div className="size-10 flex items-center justify-center rounded-lg bg-[#1a558b]/10 text-[#1a558b] group-hover:bg-[#1a558b] group-hover:text-white transition-all">
+              <span className="material-symbols-outlined">block</span>
+            </div>
+            <div>
+              <p className="font-bold text-sm text-gray-900">Manage Suspensions</p>
+              <p className="text-[11px] text-gray-600">Handle restricted accounts</p>
+            </div>
+          </div>
+          <span className="material-symbols-outlined text-gray-400 group-hover:text-[#1a558b] transition-all">chevron_right</span>
+        </button>
+        
+        <button 
+          onClick={() => handleAction('payouts')}
+          className="flex items-center justify-between w-full p-4 bg-white rounded-xl hover:border-[#1a558b] transition-all group text-left border border-gray-200" 
+        >
+          <div className="flex items-center gap-4">
+            <div className="size-10 flex items-center justify-center rounded-lg bg-[#1a558b]/10 text-[#1a558b] group-hover:bg-[#1a558b] group-hover:text-white transition-all">
+              <span className="material-symbols-outlined">paid</span>
+            </div>
+            <div>
+              <p className="font-bold text-sm text-gray-900">Agent Payouts</p>
+              <p className="text-[11px] text-gray-600">Process commission batch</p>
+            </div>
+          </div>
+          <span className="material-symbols-outlined text-gray-400 group-hover:text-[#1a558b] transition-all">chevron_right</span>
+        </button>
+        
+        <button 
+          onClick={() => handleAction('export')}
+          className="flex items-center justify-between w-full p-4 bg-white rounded-xl hover:border-[#1a558b] transition-all group text-left border border-gray-200" 
+        >
+          <div className="flex items-center gap-4">
+            <div className="size-10 flex items-center justify-center rounded-lg bg-[#1a558b]/10 text-[#1a558b] group-hover:bg-[#1a558b] group-hover:text-white transition-all">
+              <span className="material-symbols-outlined">ios_share</span>
+            </div>
+            <div>
+              <p className="font-bold text-sm text-gray-900">Export System Data</p>
+              <p className="text-[11px] text-gray-600">CSV/Excel system export</p>
+            </div>
+          </div>
+          <span className="material-symbols-outlined text-gray-400 group-hover:text-[#1a558b] transition-all">chevron_right</span>
+        </button>
+        
+        <button 
+          onClick={() => handleAction('providers')}
+          className="flex items-center justify-between w-full p-4 bg-white rounded-xl hover:border-[#1a558b] transition-all group text-left border border-gray-200" 
+        >
+          <div className="flex items-center gap-4">
+            <div className="size-10 flex items-center justify-center rounded-lg bg-[#1a558b]/10 text-[#1a558b] group-hover:bg-[#1a558b] group-hover:text-white transition-all">
+              <span className="material-symbols-outlined">corporate_fare</span>
+            </div>
+            <div>
+              <p className="font-bold text-sm text-gray-900">Policy Providers</p>
+              <p className="text-[11px] text-gray-600">Edit insurance partners</p>
+            </div>
+          </div>
+          <span className="material-symbols-outlined text-gray-400 group-hover:text-[#1a558b] transition-all">chevron_right</span>
+        </button>
+        
+        <button 
+          onClick={() => handleAction('policies')}
+          className="flex items-center justify-between w-full p-4 bg-white rounded-xl hover:border-[#1a558b] transition-all group text-left border border-gray-200" 
+        >
+          <div className="flex items-center gap-4">
+            <div className="size-10 flex items-center justify-center rounded-lg bg-[#1a558b]/10 text-[#1a558b] group-hover:bg-[#1a558b] group-hover:text-white transition-all">
+              <span className="material-symbols-outlined">settings_suggest</span>
+            </div>
+            <div>
+              <p className="font-bold text-sm text-gray-900">Policy Management</p>
+              <p className="text-[11px] text-gray-600">Configuration &amp; pricing</p>
+            </div>
+          </div>
+          <span className="material-symbols-outlined text-gray-400 group-hover:text-[#1a558b] transition-all">chevron_right</span>
+        </button>
+        
+        <button 
+          onClick={() => handleAction('transactions')}
+          className="flex items-center justify-between w-full p-4 bg-white rounded-xl hover:border-[#1a558b] transition-all group text-left border border-gray-200" 
+        >
+          <div className="flex items-center gap-4">
+            <div className="size-10 flex items-center justify-center rounded-lg bg-[#1a558b]/10 text-[#1a558b] group-hover:bg-[#1a558b] group-hover:text-white transition-all">
+              <span className="material-symbols-outlined">monitoring</span>
+            </div>
+            <div>
+              <p className="font-bold text-sm text-gray-900">Transaction Monitor</p>
+              <p className="text-[11px] text-gray-600">Real-time flow audit</p>
+            </div>
+          </div>
+          <span className="material-symbols-outlined text-gray-400 group-hover:text-[#1a558b] transition-all">chevron_right</span>
+        </button>
+        
+        <button 
+          onClick={() => handleAction('members')}
+          className="flex items-center justify-between w-full p-4 bg-white rounded-xl hover:border-[#1a558b] transition-all group text-left border border-gray-200" 
+        >
+          <div className="flex items-center gap-4">
+            <div className="size-10 flex items-center justify-center rounded-lg bg-[#1a558b]/10 text-[#1a558b] group-hover:bg-[#1a558b] group-hover:text-white transition-all">
+              <span className="material-symbols-outlined">person_search</span>
+            </div>
+            <div>
+              <p className="font-bold text-sm text-gray-900">Member Management</p>
+              <p className="text-[11px] text-gray-600">Profiles &amp; rewards history</p>
+            </div>
+          </div>
+          <span className="material-symbols-outlined text-gray-400 group-hover:text-[#1a558b] transition-all">chevron_right</span>
+        </button>
+      </div>
+    </div>
+  );
+}
