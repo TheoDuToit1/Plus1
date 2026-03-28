@@ -245,7 +245,7 @@ export default function PartnerLogin() {
 
         <div className="grid grid-cols-1 gap-3">
           <button
-            onClick={() => navigate('/member/login')}
+            onClick={() => navigate('/login')}
             className="flex items-center justify-center gap-2 py-3 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:border-blue-200 hover:bg-blue-50 transition-all"
           >
             <span className="material-symbols-outlined text-base" style={{ color: BLUE }}>group</span>

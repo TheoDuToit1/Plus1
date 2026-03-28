@@ -139,7 +139,7 @@ export default function MemberRegister() {
       );
       
       setTimeout(() => {
-        navigate(`/member/login?platform=${platform}`);
+        navigate(`/login?platform=${platform}`);
       }, 2000);
     } catch (err: any) {
       if (err.message?.includes('already registered') || err.message?.includes('duplicate')) {

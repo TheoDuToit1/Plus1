@@ -181,7 +181,7 @@ export default function AgentLogin() {
 
         <div className="grid grid-cols-2 gap-3">
           {[
-            { label: 'Member Login', icon: 'group', path: '/member/login' },
+            { label: 'Member Login', icon: 'group', path: '/login' },
             { label: 'Partner Login', icon: 'storefront', path: '/partner/login' },
           ].map((item) => (
             <button
