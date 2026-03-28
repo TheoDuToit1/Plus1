@@ -61,32 +61,28 @@ import TermsOfService from './pages/TermsOfService'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 
 export default function App() {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => {
+    // Check on initial render only
+    return !sessionStorage.getItem('plus1_app_loaded');
+  });
 
   useEffect(() => {
-    // Only show loading screen on very first visit ever
-    const hasLoadedBefore = localStorage.getItem('plus1_app_loaded');
-    
-    if (hasLoadedBefore) {
-      // Skip loading screen if already loaded before
-      setIsLoading(false);
-    } else {
-      // Show loading screen for first load only
+    // Only run if loading is true
+    if (isLoading) {
       const timer = setTimeout(() => {
         setIsLoading(false);
-        localStorage.setItem('plus1_app_loaded', 'true');
+        sessionStorage.setItem('plus1_app_loaded', 'true');
       }, 2500);
 
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [isLoading]);
 
   return (
     <div className="min-h-screen w-full bg-white text-gray-900 antialiased font-display overflow-x-hidden">
-      {isLoading ? (
-        <LoadingPage />
-      ) : (
-        <Router>
+      <Router>
+        {isLoading && <LoadingPage />}
+        {!isLoading && (
           <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/terms-of-service" element={<TermsOfService />} />
@@ -155,8 +151,8 @@ export default function App() {
             </ProtectedPolicyProviderRoute>
           } />
         </Routes>
-        </Router>
-      )}
+        )}
+      </Router>
     </div>
   )
 }
