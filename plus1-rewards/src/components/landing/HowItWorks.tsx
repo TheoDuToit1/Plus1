@@ -89,7 +89,7 @@ export default function HowItWorks() {
             transition={{ duration: 0.8, delay: 0.2 }}
             viewport={{ once: true }}
           >
-            Earn Health Cover in 3 Simple Steps
+            Earn Medical Cover in 3 Simple Steps
           </motion.h2>
           <motion.p 
             className="text-lg text-gray-600 leading-relaxed"
