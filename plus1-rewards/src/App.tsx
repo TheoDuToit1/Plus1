@@ -64,17 +64,17 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Only show loading screen on initial app mount
-    const hasLoadedBefore = sessionStorage.getItem('app_loaded');
+    // Only show loading screen on very first visit ever
+    const hasLoadedBefore = localStorage.getItem('plus1_app_loaded');
     
     if (hasLoadedBefore) {
-      // Skip loading screen if already loaded in this session
+      // Skip loading screen if already loaded before
       setIsLoading(false);
     } else {
-      // Show loading screen for first load
+      // Show loading screen for first load only
       const timer = setTimeout(() => {
         setIsLoading(false);
-        sessionStorage.setItem('app_loaded', 'true');
+        localStorage.setItem('plus1_app_loaded', 'true');
       }, 2500);
 
       return () => clearTimeout(timer);
