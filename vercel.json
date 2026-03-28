@@ -1,28 +1,28 @@
 {
   "version": 2,
-  "name": "plus1-ecosystem",
-  "github": {
-    "silent": true
-  },
   "buildCommand": "npm run build:all",
   "outputDirectory": "dist",
   "installCommand": "npm install --prefix plus1-rewards && npm install --prefix plus1-go",
-  "rewrites": [
+  "routes": [
     {
-      "source": "/go/assets/:path*",
-      "destination": "/go/assets/:path*"
+      "src": "/go/assets/(.*)",
+      "dest": "/go/assets/$1"
     },
     {
-      "source": "/go/:path(.*)",
-      "destination": "/go/index.html"
+      "src": "/go/(.*)",
+      "dest": "/go/index.html"
     },
     {
-      "source": "/assets/:path*",
-      "destination": "/assets/:path*"
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1"
     },
     {
-      "source": "/:path(.*)",
-      "destination": "/index.html"
+      "src": "/(.*\\.(png|jpg|jpeg|gif|svg|ico|pdf|json|js|css))",
+      "dest": "/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 }
