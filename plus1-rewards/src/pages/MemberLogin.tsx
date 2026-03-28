@@ -113,12 +113,12 @@ export default function MemberLogin() {
     <AuthLayout
       portalIcon="add_circle"
       portalName="+1 Rewards"
-      headline={<>Secure your health through <span style={{ color: '#93c5fd' }}>everyday</span> shopping.</>}
-      subheadline="Earn rewards on your groceries and automatically unlock comprehensive healthcare coverage."
+      headline={<>Start earning <span style={{ color: '#93c5fd' }}>cashback</span> that pays your Medical Cover.</>}
+      subheadline="Join thousands of members who fund their Family Medical Cover through everyday shopping at local partners."
       stats={[
-        { value: '150k+', label: 'Active Members' },
+        { value: 'NO sign up Fee', label: '' },
         { value: '3%', label: 'Rewards Rate' },
-        { value: 'R0', label: 'Joining Fee' },
+        { value: 'R385', label: 'Monthly Target' },
       ]}
     >
       <div className="space-y-6">
