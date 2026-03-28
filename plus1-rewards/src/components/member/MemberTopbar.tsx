@@ -34,18 +34,24 @@ export default function MemberTopbar({ member, isOnline, pendingTransactions, on
     >
       <div className="flex items-center gap-3">
         {/* Plus1 Rewards Logo - clickable */}
-        <a href="/member/dashboard" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <span className="material-symbols-outlined text-3xl" style={{ color: BLUE }}>add_circle</span>
-          <h2 className="text-xl font-bold leading-tight tracking-tight" style={{ color: '#111827' }}>+1 Rewards</h2>
+        <a href="/member/dashboard" className="hover:opacity-80 transition-opacity">
+          <img 
+            src="/logo.png" 
+            alt="+1 Rewards" 
+            className="h-10 w-auto object-contain"
+          />
         </a>
         
         {/* Divider */}
         <div className="h-8 w-px bg-gray-300"></div>
         
         {/* Plus1 Go Logo - clickable */}
-        <a href="/go/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <span className="material-symbols-outlined text-3xl" style={{ color: '#10b981' }}>local_shipping</span>
-          <h2 className="text-xl font-bold leading-tight tracking-tight" style={{ color: '#111827' }}>+1 Go</h2>
+        <a href="/go/" className="hover:opacity-80 transition-opacity">
+          <img 
+            src="/plus1-go logo.png" 
+            alt="Plus1 Go" 
+            className="h-10 w-auto object-contain"
+          />
         </a>
       </div>
       <div className="flex flex-1 justify-end items-center gap-6">
