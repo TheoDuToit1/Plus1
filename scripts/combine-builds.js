@@ -32,6 +32,17 @@ async function combineBuild() {
   const goTargetDir = path.join(distDir, 'go');
   await fs.copy(goDistDir, goTargetDir);
   
+  // Copy shared images from Plus1-Rewards to Plus1-Go folder
+  console.log('📦 Copying shared images to /go...');
+  const sharedImages = ['logo.png', 'plus1-go logo.png'];
+  for (const image of sharedImages) {
+    const sourcePath = path.join(distDir, image);
+    const targetPath = path.join(goTargetDir, image);
+    if (fs.existsSync(sourcePath)) {
+      await fs.copy(sourcePath, targetPath);
+    }
+  }
+  
   console.log('✅ Build combination complete!');
   console.log('');
   console.log('📁 Output structure:');
