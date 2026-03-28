@@ -43,8 +43,6 @@ export default function PartnerRegister() {
     mobileNumber: '',
     email: '',
     cashbackPercent: 3,
-    includedProducts: '',
-    excludedProducts: '',
     pin: '',
     confirmPin: '',
     agreementAccepted: false
@@ -264,8 +262,6 @@ export default function PartnerRegister() {
           email: formData.email,
           cashback_percent: cashbackPercent,
           responsible_person: formData.responsiblePerson,
-          included_products: formData.includedProducts || null,
-          excluded_products: formData.excludedProducts || null,
           status: 'pending',
           signature_url: uploadError ? null : signatureFileName
         });
@@ -518,36 +514,6 @@ export default function PartnerRegister() {
                   transform: scale(1.05);
                 }
               `}</style>
-
-              <div>
-                <label className="block text-xs font-bold mb-2" style={{ color: BLUE }}>
-                  Included Products/Services (Optional)
-                </label>
-                <textarea
-                  name="includedProducts"
-                  value={formData.includedProducts}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-xl border-2 text-sm"
-                  style={{ borderColor: BLUE, backgroundColor: '#f5f8fc' }}
-                  rows={2}
-                  placeholder="All products..."
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold mb-2" style={{ color: BLUE }}>
-                  Excluded Products/Services (Optional)
-                </label>
-                <textarea
-                  name="excludedProducts"
-                  value={formData.excludedProducts}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 rounded-xl border-2 text-sm"
-                  style={{ borderColor: BLUE, backgroundColor: '#f5f8fc' }}
-                  rows={2}
-                  placeholder="Alcohol, tobacco..."
-                />
-              </div>
 
               <div className="flex gap-3">
                 <AuthButton type="button" onClick={handleBack} variant="outline">
