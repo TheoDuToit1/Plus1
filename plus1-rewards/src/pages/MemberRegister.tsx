@@ -21,6 +21,7 @@ export default function MemberRegister() {
     name: '',
     phone: '',
     pin: '',
+    confirmPin: '',
     terms: false
   });
 
@@ -43,9 +44,18 @@ export default function MemberRegister() {
     
     if (formData.pin.length !== 6) { setError('PIN must be exactly 6 digits'); return; }
     if (!/^\d{6}$/.test(formData.pin)) { setError('PIN must contain only numbers'); return; }
+    if (formData.pin !== formData.confirmPin) { setError('PINs do not match'); return; }
 
-    const phoneDigits = formData.phone.replace(/\D/g, '');
+    // Clean phone number - accept +27 or 0 prefix
+    let phoneDigits = formData.phone.replace(/\D/g, '');
+    
+    // Handle +27 format
+    if (phoneDigits.startsWith('27') && phoneDigits.length === 11) {
+      phoneDigits = '0' + phoneDigits.substring(2);
+    }
+    
     if (phoneDigits.length !== 10) { setError('Phone number must be exactly 10 digits'); return; }
+    if (!phoneDigits.startsWith('0')) { setError('Phone number must start with 0'); return; }
 
     setLoading(true);
 
@@ -209,7 +219,7 @@ export default function MemberRegister() {
             id="phone"
             name="phone"
             type="tel"
-            placeholder="082 555 1234"
+            placeholder="0823456789 or +27823456789"
             value={formData.phone}
             onChange={handleInputChange}
             autoComplete="tel"
@@ -233,6 +243,20 @@ export default function MemberRegister() {
                 <span className="material-symbols-outlined text-xl">{showPin ? 'visibility_off' : 'visibility'}</span>
               </button>
             }
+          />
+          <AuthInput
+            label="Confirm 6-Digit PIN"
+            icon="pin"
+            id="confirmPin"
+            name="confirmPin"
+            type={showPin ? 'text' : 'password'}
+            placeholder="Re-enter 6-digit PIN"
+            value={formData.confirmPin}
+            onChange={handleInputChange}
+            autoComplete="new-password"
+            required
+            maxLength={6}
+            pattern="\d{6}"
           />
           <p className="text-xs text-gray-500 -mt-2">Your PIN is used with your Cell number to login</p>
 
