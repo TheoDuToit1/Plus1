@@ -631,13 +631,7 @@ export function MemberDashboard() {
           <div className="p-12 text-center">
             <span className="material-symbols-outlined text-gray-400 text-6xl mb-4 block">receipt_long</span>
             <h3 className="text-gray-900 font-bold text-lg mb-2">No transactions yet</h3>
-            <p className="text-gray-600 mb-6">Start shopping at partner stores to earn cashback!</p>
-            <button
-              onClick={() => window.location.href = '/go/'}
-              className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold px-6 py-3 rounded-xl transition-colors"
-            >
-              Find Partner Stores
-            </button>
+            <p className="text-gray-600">Start shopping at partner stores to earn cashback!</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-200">
@@ -682,14 +676,6 @@ export function MemberDashboard() {
           </button>
 
           <button
-            onClick={() => navigate('/member/qr')}
-            className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined">qr_code</span>
-            Show QR Code
-          </button>
-
-          <button
             onClick={() => window.location.href = '/go/'}
             className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
           >
@@ -703,6 +689,14 @@ export function MemberDashboard() {
           >
             <span className="material-symbols-outlined">home</span>
             Rewards Main
+          </button>
+
+          <button
+            onClick={() => navigate('/member/qr')}
+            className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined">qr_code</span>
+            Show QR Code
           </button>
 
           <button
