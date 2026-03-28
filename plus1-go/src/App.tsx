@@ -70,8 +70,39 @@ export default function App() {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [partners, setPartners] = useState<Restaurant[]>([]);
   const [loadingPartners, setLoadingPartners] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const basketCount = 0;
+
+  // Check for Plus1-Rewards session
+  useEffect(() => {
+    const checkSession = () => {
+      // Check localStorage first (remember me)
+      const localSession = localStorage.getItem('memberSession');
+      if (localSession) {
+        try {
+          const session = JSON.parse(localSession);
+          setCurrentUser(session.user);
+          return;
+        } catch (e) {
+          console.error('Error parsing session:', e);
+        }
+      }
+      
+      // Check sessionStorage
+      const sessionSession = sessionStorage.getItem('memberSession');
+      if (sessionSession) {
+        try {
+          const session = JSON.parse(sessionSession);
+          setCurrentUser(session.user);
+        } catch (e) {
+          console.error('Error parsing session:', e);
+        }
+      }
+    };
+
+    checkSession();
+  }, []);
 
   // Log when selectedRestaurant changes
   useEffect(() => {
@@ -267,8 +298,19 @@ export default function App() {
                   )}
                 </button>
                 <div className="flex items-center gap-2">
-                  <a href="/login" className="px-5 py-2.5 font-bold text-sm hover:bg-zinc-100 rounded-full transition-colors">Log in</a>
-                  <a href="/register" className="px-5 py-2.5 bg-black text-white font-bold text-sm rounded-full hover:bg-zinc-800 transition-colors shadow-lg shadow-black/10">Sign up</a>
+                  {currentUser ? (
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-semibold text-zinc-700">Hi, {currentUser.full_name?.split(' ')[0]}</span>
+                      <button className="p-2.5 hover:bg-zinc-100 rounded-full transition-colors">
+                        <User className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <a href="/login" className="px-5 py-2.5 font-bold text-sm hover:bg-zinc-100 rounded-full transition-colors">Log in</a>
+                      <a href="/register" className="px-5 py-2.5 bg-black text-white font-bold text-sm rounded-full hover:bg-zinc-800 transition-colors shadow-lg shadow-black/10">Sign up</a>
+                    </>
+                  )}
                 </div>
               </div>
             </header>
