@@ -1,7 +1,6 @@
 // plus1-rewards/src/App.tsx
 import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
-import { AnimatePresence } from 'framer-motion'
 import LoadingPage from './components/LoadingPage'
 import Landing from './pages/Landing'
 import MemberLogin from './pages/MemberLogin'
@@ -62,24 +61,29 @@ import TermsOfService from './pages/TermsOfService'
 import PrivacyPolicy from './pages/PrivacyPolicy'
 
 export default function App() {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => {
+    // Check on initial render only
+    return !sessionStorage.getItem('plus1_app_loaded');
+  });
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 2500);
+    // Only run if loading is true
+    if (isLoading) {
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+        sessionStorage.setItem('plus1_app_loaded', 'true');
+      }, 2500);
 
-    return () => clearTimeout(timer);
-  }, []);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
 
   return (
     <div className="min-h-screen w-full bg-white text-gray-900 antialiased font-display overflow-x-hidden">
-      <AnimatePresence mode="wait">
-        {isLoading ? (
-          <LoadingPage />
-        ) : (
-          <Router>
-            <Routes>
+      <Router>
+        {isLoading && <LoadingPage />}
+        {!isLoading && (
+          <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
@@ -147,9 +151,8 @@ export default function App() {
             </ProtectedPolicyProviderRoute>
           } />
         </Routes>
-          </Router>
         )}
-      </AnimatePresence>
+      </Router>
     </div>
   )
 }
