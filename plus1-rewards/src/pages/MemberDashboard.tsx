@@ -633,7 +633,7 @@ export function MemberDashboard() {
             <h3 className="text-gray-900 font-bold text-lg mb-2">No transactions yet</h3>
             <p className="text-gray-600 mb-6">Start shopping at partner stores to earn cashback!</p>
             <button
-              onClick={() => navigate('/member/find-partners')}
+              onClick={() => window.location.href = '/go/'}
               className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold px-6 py-3 rounded-xl transition-colors"
             >
               Find Partner Stores
@@ -690,7 +690,7 @@ export function MemberDashboard() {
           </button>
 
           <button
-            onClick={() => navigate('/member/find-partners')}
+            onClick={() => window.location.href = '/go/'}
             className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
           >
             <span className="material-symbols-outlined">store</span>
