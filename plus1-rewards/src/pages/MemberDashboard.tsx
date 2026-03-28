@@ -698,6 +698,14 @@ export function MemberDashboard() {
           </button>
 
           <button
+            onClick={() => navigate('/member/dashboard')}
+            className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+          >
+            <span className="material-symbols-outlined">home</span>
+            Rewards Main
+          </button>
+
+          <button
             onClick={() => navigate('/member/cover-plans')}
             className="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-900 font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
           >
