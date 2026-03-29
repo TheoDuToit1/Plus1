@@ -342,6 +342,19 @@ export default function PartnerMemberRegistration() {
                   <p className="text-red-200 text-xs">{error}</p>
                 </div>
               )}
+
+              {/* Link to Transaction Screen */}
+              <div className="mt-4 pt-4 border-t border-white/20 text-center">
+                <p className="text-white/80 text-sm">
+                  Already registered?{' '}
+                  <button
+                    onClick={() => navigate('/partner/sales-terminal')}
+                    className="text-yellow-300 font-bold hover:text-yellow-200 underline transition-colors"
+                  >
+                    Claim your cashback here!
+                  </button>
+                </p>
+              </div>
             </div>
 
             {/* Right Side - Keypad or Image */}
