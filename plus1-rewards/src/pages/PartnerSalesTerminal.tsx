@@ -21,12 +21,13 @@ interface Member {
 export default function PartnerSalesTerminal() {
   const navigate = useNavigate();
   const [partner, setPartner] = useState<Partner | null>(null);
-  const [step, setStep] = useState<'phone' | 'amount' | 'confirm' | 'success'>('phone');
+  const [step, setStep] = useState<'input' | 'confirm' | 'success'>('input');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [purchaseAmount, setPurchaseAmount] = useState('');
   const [member, setMember] = useState<Member | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [activeField, setActiveField] = useState<'phone' | 'amount'>('phone');
 
   useEffect(() => {
     loadPartner();
@@ -63,11 +64,11 @@ export default function PartnerSalesTerminal() {
   };
 
   const handleNumberClick = (num: string) => {
-    if (step === 'phone') {
+    if (activeField === 'phone') {
       if (phoneNumber.length < 10) {
         setPhoneNumber(phoneNumber + num);
       }
-    } else if (step === 'amount') {
+    } else if (activeField === 'amount') {
       // Handle decimal input for amount
       if (purchaseAmount.includes('.')) {
         const parts = purchaseAmount.split('.');
@@ -81,31 +82,41 @@ export default function PartnerSalesTerminal() {
   };
 
   const handleDecimal = () => {
-    if (step === 'amount' && !purchaseAmount.includes('.')) {
+    if (activeField === 'amount' && !purchaseAmount.includes('.')) {
       setPurchaseAmount(purchaseAmount + '.');
     }
   };
 
   const handleBackspace = () => {
-    if (step === 'phone') {
+    if (activeField === 'phone') {
       setPhoneNumber(phoneNumber.slice(0, -1));
-    } else if (step === 'amount') {
+    } else if (activeField === 'amount') {
       setPurchaseAmount(purchaseAmount.slice(0, -1));
     }
   };
 
   const handleClear = () => {
-    if (step === 'phone') {
+    if (activeField === 'phone') {
       setPhoneNumber('');
-    } else if (step === 'amount') {
+    } else if (activeField === 'amount') {
       setPurchaseAmount('');
     }
     setError('');
   };
 
-  const handlePhoneSubmit = async () => {
+  const handleSubmit = async () => {
+    // Validate phone number
     if (phoneNumber.length !== 10) {
-      setError('Please enter a valid 10-digit phone number');
+      setError('Please enter a valid 10-digit cell phone number');
+      setActiveField('phone');
+      return;
+    }
+
+    // Validate amount
+    const amount = parseFloat(purchaseAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setError('Please enter a valid transaction amount');
+      setActiveField('amount');
       return;
     }
 
@@ -113,42 +124,36 @@ export default function PartnerSalesTerminal() {
     setError('');
 
     try {
-      const { data, error } = await supabase
+      // Look up member
+      const { data, error: memberError } = await supabase
         .from('members')
         .select('id, full_name, phone, status')
         .eq('phone', phoneNumber)
         .single();
 
-      if (error || !data) {
+      if (memberError || !data) {
         setError('Member not found. Please ask them to register first.');
         setLoading(false);
+        setActiveField('phone');
         return;
       }
 
       if (data.status !== 'active') {
         setError('Member account is not active');
         setLoading(false);
+        setActiveField('phone');
         return;
       }
 
       setMember(data);
-      setStep('amount');
+      setStep('confirm');
       setError('');
     } catch (err) {
       setError('Error searching for member');
+      setActiveField('phone');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleAmountSubmit = () => {
-    const amount = parseFloat(purchaseAmount);
-    if (isNaN(amount) || amount <= 0) {
-      setError('Please enter a valid amount');
-      return;
-    }
-    setStep('confirm');
-    setError('');
   };
 
   const handleConfirmTransaction = async () => {
@@ -243,21 +248,19 @@ export default function PartnerSalesTerminal() {
   };
 
   const handleNewTransaction = () => {
-    setStep('phone');
+    setStep('input');
     setPhoneNumber('');
     setPurchaseAmount('');
     setMember(null);
     setError('');
     setLoading(false);
+    setActiveField('phone');
   };
 
   const handleBack = () => {
-    if (step === 'amount') {
-      setStep('phone');
+    if (step === 'confirm') {
+      setStep('input');
       setMember(null);
-      setPurchaseAmount('');
-    } else if (step === 'confirm') {
-      setStep('amount');
     }
     setError('');
   };
@@ -315,49 +318,54 @@ export default function PartnerSalesTerminal() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Left Side - Display */}
             <div className="bg-white/10 backdrop-blur-md rounded-3xl p-12 border border-white/20 flex flex-col justify-center">
-              {step === 'phone' && (
+              {step === 'input' && (
                 <div className="text-center">
-                  <h2 className="text-white text-4xl font-bold mb-4">Can I Have Your Number?</h2>
-                  <p className="text-blue-200 text-lg mb-8">Enter member's phone number</p>
-                  <div className="bg-black/30 rounded-2xl p-8 mb-6">
-                    <div className="text-white text-5xl font-mono tracking-wider min-h-[60px] flex items-center justify-center">
+                  <div className="mb-8">
+                    <h2 className="text-white text-5xl font-bold mb-3">Welcome! 👋</h2>
+                    <p className="text-blue-200 text-xl">Let's earn you some cashback today</p>
+                  </div>
+
+                  {/* Phone Number Field */}
+                  <div 
+                    className={`bg-black/30 rounded-2xl p-6 mb-6 cursor-pointer transition-all ${
+                      activeField === 'phone' ? 'ring-4 ring-blue-400' : 'hover:bg-black/40'
+                    }`}
+                    onClick={() => setActiveField('phone')}
+                  >
+                    <p className="text-blue-300 text-sm font-semibold mb-2">Your Cell Phone Number</p>
+                    <div className="text-white text-4xl font-mono tracking-wider min-h-[50px] flex items-center justify-center">
                       {phoneNumber || '___-___-____'}
                     </div>
                   </div>
-                  {error && (
-                    <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 mb-4">
-                      <p className="text-red-200 text-sm">{error}</p>
-                    </div>
-                  )}
-                </div>
-              )}
 
-              {step === 'amount' && member && (
-                <div className="text-center">
-                  <div className="bg-green-500/20 border border-green-500/50 rounded-2xl p-6 mb-6">
-                    <div className="flex items-center justify-center gap-3 mb-2">
-                      <Check className="w-6 h-6 text-green-400" />
-                      <span className="text-green-200 text-sm font-semibold">Member Found</span>
-                    </div>
-                    <p className="text-white text-2xl font-bold">{member.full_name}</p>
-                    <p className="text-blue-200">{member.phone}</p>
-                  </div>
-                  <h2 className="text-white text-4xl font-bold mb-4">Enter Purchase Amount</h2>
-                  <div className="bg-black/30 rounded-2xl p-8 mb-6">
-                    <div className="text-white text-6xl font-bold min-h-[80px] flex items-center justify-center">
+                  {/* Transaction Amount Field */}
+                  <div 
+                    className={`bg-black/30 rounded-2xl p-6 mb-6 cursor-pointer transition-all ${
+                      activeField === 'amount' ? 'ring-4 ring-green-400' : 'hover:bg-black/40'
+                    }`}
+                    onClick={() => setActiveField('amount')}
+                  >
+                    <p className="text-green-300 text-sm font-semibold mb-2">Enter Transaction Amount</p>
+                    <div className="text-white text-5xl font-bold min-h-[60px] flex items-center justify-center">
                       R{purchaseAmount || '0.00'}
                     </div>
-                    {purchaseAmount && (
-                      <p className="text-green-300 text-lg mt-4">
-                        Member earns: {formatCurrency(calculateCashback())}
+                    {purchaseAmount && partner && (
+                      <p className="text-green-300 text-lg mt-3">
+                        You'll earn: {formatCurrency(calculateCashback())} cashback! 🎉
                       </p>
                     )}
                   </div>
+
                   {error && (
-                    <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 mb-4">
-                      <p className="text-red-200 text-sm">{error}</p>
+                    <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 mb-4 flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-red-300 flex-shrink-0 mt-0.5" />
+                      <p className="text-red-200 text-sm text-left">{error}</p>
                     </div>
                   )}
+
+                  <p className="text-white/60 text-sm mt-4">
+                    Tap a field above to enter information
+                  </p>
                 </div>
               )}
 
@@ -398,11 +406,15 @@ export default function PartnerSalesTerminal() {
             <div className="bg-blue-600 rounded-3xl p-8 flex flex-col">
               <div className="text-center mb-6">
                 <p className="text-white text-lg font-semibold">
-                  {step === 'phone' ? 'ENTER PHONE NUMBER' : step === 'amount' ? 'ENTER AMOUNT' : 'CONFIRM'}
+                  {step === 'input' 
+                    ? activeField === 'phone' 
+                      ? 'ENTER CELL PHONE NUMBER' 
+                      : 'ENTER TRANSACTION AMOUNT'
+                    : 'CONFIRM TRANSACTION'}
                 </p>
               </div>
 
-              {(step === 'phone' || step === 'amount') && (
+              {step === 'input' && (
                 <div className="flex-1 flex flex-col">
                   <div className="grid grid-cols-3 gap-4 mb-4">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
@@ -414,7 +426,7 @@ export default function PartnerSalesTerminal() {
                         {num}
                       </button>
                     ))}
-                    {step === 'amount' && (
+                    {activeField === 'amount' && (
                       <button
                         onClick={handleDecimal}
                         className="bg-white/20 hover:bg-white/30 active:bg-white/40 text-white text-4xl font-bold rounded-2xl h-20 transition-all"
@@ -422,7 +434,7 @@ export default function PartnerSalesTerminal() {
                         .
                       </button>
                     )}
-                    {step === 'phone' && <div></div>}
+                    {activeField === 'phone' && <div></div>}
                     <button
                       onClick={() => handleNumberClick('0')}
                       className="bg-white/20 hover:bg-white/30 active:bg-white/40 text-white text-4xl font-bold rounded-2xl h-20 transition-all"
@@ -445,15 +457,15 @@ export default function PartnerSalesTerminal() {
                       Clear
                     </button>
                     <button
-                      onClick={step === 'phone' ? handlePhoneSubmit : handleAmountSubmit}
-                      disabled={loading || (step === 'phone' ? phoneNumber.length !== 10 : !purchaseAmount)}
+                      onClick={handleSubmit}
+                      disabled={loading || phoneNumber.length !== 10 || !purchaseAmount}
                       className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white text-xl font-bold rounded-2xl h-16 transition-all flex items-center justify-center gap-2"
                     >
                       {loading ? (
                         <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                       ) : (
                         <>
-                          Next
+                          Continue
                           <Check className="w-5 h-5" />
                         </>
                       )}
