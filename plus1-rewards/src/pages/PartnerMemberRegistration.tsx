@@ -6,11 +6,13 @@ import { X, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function PartnerMemberRegistration() {
   const navigate = useNavigate();
-  const [activeField, setActiveField] = useState<'name' | 'phone' | 'pin'>('name');
+  const [activeField, setActiveField] = useState<'name' | 'phone' | 'pin' | 'confirmPin'>('name');
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [pinCode, setPinCode] = useState('');
+  const [confirmPinCode, setConfirmPinCode] = useState('');
   const [showPin, setShowPin] = useState(false);
+  const [showConfirmPin, setShowConfirmPin] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,6 +27,10 @@ export default function PartnerMemberRegistration() {
       if (pinCode.length < 6) {
         setPinCode(pinCode + num);
       }
+    } else if (activeField === 'confirmPin') {
+      if (confirmPinCode.length < 6) {
+        setConfirmPinCode(confirmPinCode + num);
+      }
     }
   };
 
@@ -33,6 +39,8 @@ export default function PartnerMemberRegistration() {
       setPhoneNumber(phoneNumber.slice(0, -1));
     } else if (activeField === 'pin') {
       setPinCode(pinCode.slice(0, -1));
+    } else if (activeField === 'confirmPin') {
+      setConfirmPinCode(confirmPinCode.slice(0, -1));
     }
   };
 
@@ -41,6 +49,8 @@ export default function PartnerMemberRegistration() {
       setPhoneNumber('');
     } else if (activeField === 'pin') {
       setPinCode('');
+    } else if (activeField === 'confirmPin') {
+      setConfirmPinCode('');
     }
     setError('');
   };
@@ -68,6 +78,18 @@ export default function PartnerMemberRegistration() {
     if (!/^\d{6}$/.test(pinCode)) {
       setError('PIN must contain only numbers');
       setActiveField('pin');
+      return;
+    }
+
+    if (confirmPinCode.length !== 6) {
+      setError('Please confirm your PIN code');
+      setActiveField('confirmPin');
+      return;
+    }
+
+    if (pinCode !== confirmPinCode) {
+      setError('PIN codes do not match');
+      setActiveField('confirmPin');
       return;
     }
 
@@ -207,10 +229,24 @@ export default function PartnerMemberRegistration() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Left Side - Display */}
             <div className="bg-white/10 backdrop-blur-md rounded-3xl p-12 border border-white/20 flex flex-col justify-center">
-              <div className="text-center">
+              <div>
                 <div className="mb-8">
-                  <h2 className="text-white text-5xl font-bold mb-3">Join Plus1! 🎉</h2>
-                  <p className="text-blue-200 text-xl">Start earning cashback today</p>
+                  <h2 className="text-white text-5xl font-bold mb-3">Create your account</h2>
+                  <p className="text-blue-200 text-lg">Free to join — no credit card required</p>
+                  <div className="flex items-center justify-start gap-4 mt-4 text-sm flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-green-400" />
+                      <span className="text-white/80">NO sign-up fee</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-green-400" />
+                      <span className="text-white/80">Works Offline</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-4 h-4 text-green-400" />
+                      <span className="text-white/80">Earn cashback</span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Full Name Field */}
@@ -220,13 +256,13 @@ export default function PartnerMemberRegistration() {
                   }`}
                   onClick={() => setActiveField('name')}
                 >
-                  <p className="text-purple-300 text-sm font-semibold mb-2">Your Full Name</p>
+                  <p className="text-purple-300 text-sm font-semibold mb-2 text-left">📝 Full Name</p>
                   <input
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Enter your full name"
-                    className="w-full bg-transparent text-white text-3xl text-center font-semibold outline-none placeholder-white/30"
+                    placeholder="John Bloggs"
+                    className="w-full bg-transparent text-white text-2xl text-left font-semibold outline-none placeholder-white/30"
                     autoFocus={activeField === 'name'}
                   />
                 </div>
@@ -238,9 +274,9 @@ export default function PartnerMemberRegistration() {
                   }`}
                   onClick={() => setActiveField('phone')}
                 >
-                  <p className="text-blue-300 text-sm font-semibold mb-2">Your Cell Phone Number</p>
-                  <div className="text-white text-4xl font-mono tracking-wider min-h-[50px] flex items-center justify-center">
-                    {phoneNumber || '___-___-____'}
+                  <p className="text-blue-300 text-sm font-semibold mb-2 text-left">📱 Cell Phone Number (10 digits)</p>
+                  <div className="text-white text-2xl font-mono tracking-wider min-h-[40px] flex items-center justify-start">
+                    {phoneNumber ? phoneNumber : 'No +1456789 or +27831456789'}
                   </div>
                 </div>
 
@@ -251,8 +287,8 @@ export default function PartnerMemberRegistration() {
                   }`}
                   onClick={() => setActiveField('pin')}
                 >
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <p className="text-green-300 text-sm font-semibold">Create 6-Digit PIN</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-green-300 text-sm font-semibold">🔒 6-Digit PIN</p>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -263,9 +299,34 @@ export default function PartnerMemberRegistration() {
                       {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  <div className="text-white text-4xl font-mono tracking-widest min-h-[50px] flex items-center justify-center">
-                    {showPin ? pinCode || '______' : '●'.repeat(pinCode.length) + '○'.repeat(6 - pinCode.length)}
+                  <div className="text-white text-3xl font-mono tracking-widest min-h-[40px] flex items-center justify-start">
+                    {showPin ? (pinCode || 'Enter 6-digit PIN') : '●'.repeat(pinCode.length) + '○'.repeat(6 - pinCode.length)}
                   </div>
+                </div>
+
+                {/* Confirm PIN Code Field */}
+                <div 
+                  className={`bg-black/30 rounded-2xl p-6 mb-6 cursor-pointer transition-all ${
+                    activeField === 'confirmPin' ? 'ring-4 ring-yellow-400' : 'hover:bg-black/40'
+                  }`}
+                  onClick={() => setActiveField('confirmPin')}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-yellow-300 text-sm font-semibold">🔒 Confirm 6-Digit PIN</p>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowConfirmPin(!showConfirmPin);
+                      }}
+                      className="text-yellow-300 hover:text-yellow-200"
+                    >
+                      {showConfirmPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <div className="text-white text-3xl font-mono tracking-widest min-h-[40px] flex items-center justify-start">
+                    {showConfirmPin ? (confirmPinCode || 'Re-enter 6-digit PIN') : '●'.repeat(confirmPinCode.length) + '○'.repeat(6 - confirmPinCode.length)}
+                  </div>
+                  <p className="text-white/60 text-xs mt-2 text-left">*Your PIN is used with your Cell Number to login</p>
                 </div>
 
                 {/* Terms Checkbox */}
@@ -290,7 +351,7 @@ export default function PartnerMemberRegistration() {
                   </div>
                 )}
 
-                <p className="text-white/60 text-sm mt-4">
+                <p className="text-white/60 text-sm mt-4 text-center">
                   Tap a field above to enter information
                 </p>
               </div>
@@ -304,7 +365,9 @@ export default function PartnerMemberRegistration() {
                     ? 'TYPE YOUR NAME' 
                     : activeField === 'phone'
                     ? 'ENTER PHONE NUMBER'
-                    : 'ENTER PIN CODE'}
+                    : activeField === 'pin'
+                    ? 'ENTER PIN CODE'
+                    : 'CONFIRM PIN CODE'}
                 </p>
               </div>
 
@@ -350,14 +413,14 @@ export default function PartnerMemberRegistration() {
                     </button>
                     <button
                       onClick={handleSubmit}
-                      disabled={loading || !fullName.trim() || phoneNumber.length !== 10 || pinCode.length !== 6 || !termsAccepted}
+                      disabled={loading || !fullName.trim() || phoneNumber.length !== 10 || pinCode.length !== 6 || confirmPinCode.length !== 6 || !termsAccepted}
                       className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white text-xl font-bold rounded-2xl h-16 transition-all flex items-center justify-center gap-2"
                     >
                       {loading ? (
                         <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                       ) : (
                         <>
-                          Register
+                          Create My Account
                           <Check className="w-5 h-5" />
                         </>
                       )}
