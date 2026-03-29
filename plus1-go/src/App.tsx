@@ -82,10 +82,31 @@ export default function App() {
       if (localSession) {
         try {
           const session = JSON.parse(localSession);
+          
+          // Check if session has expired
+          if (session.expiresAt) {
+            const expiryDate = new Date(session.expiresAt);
+            const now = new Date();
+            
+            if (now > expiryDate) {
+              // Session expired, clear it
+              localStorage.removeItem('memberSession');
+              sessionStorage.removeItem('memberSession');
+              setCurrentUser(null);
+              return;
+            }
+          }
+          
+          // Sync to sessionStorage if not there
+          if (!sessionStorage.getItem('memberSession')) {
+            sessionStorage.setItem('memberSession', localSession);
+          }
+          
           setCurrentUser(session.user);
           return;
         } catch (e) {
-          console.error('Error parsing session:', e);
+          console.error('Error parsing localStorage session:', e);
+          localStorage.removeItem('memberSession');
         }
       }
       
@@ -94,14 +115,36 @@ export default function App() {
       if (sessionSession) {
         try {
           const session = JSON.parse(sessionSession);
+          
+          // Check if session has expired
+          if (session.expiresAt) {
+            const expiryDate = new Date(session.expiresAt);
+            const now = new Date();
+            
+            if (now > expiryDate) {
+              sessionStorage.removeItem('memberSession');
+              setCurrentUser(null);
+              return;
+            }
+          }
+          
           setCurrentUser(session.user);
         } catch (e) {
-          console.error('Error parsing session:', e);
+          console.error('Error parsing sessionStorage session:', e);
+          sessionStorage.removeItem('memberSession');
         }
       }
     };
 
     checkSession();
+    
+    // Re-check session when window gains focus (user switches back to tab)
+    const handleFocus = () => {
+      checkSession();
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
   // Log when selectedRestaurant changes

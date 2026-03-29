@@ -77,6 +77,30 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [isLoading]);
+  
+  // Sync session across storage when app loads or regains focus
+  useEffect(() => {
+    const syncSession = () => {
+      const localSession = localStorage.getItem('memberSession');
+      if (localSession && !sessionStorage.getItem('memberSession')) {
+        try {
+          const session = JSON.parse(localSession);
+          // Check if not expired
+          if (!session.expiresAt || new Date(session.expiresAt) > new Date()) {
+            sessionStorage.setItem('memberSession', localSession);
+          }
+        } catch (e) {
+          console.error('Error syncing session:', e);
+        }
+      }
+    };
+    
+    syncSession();
+    
+    // Re-sync when window gains focus
+    window.addEventListener('focus', syncSession);
+    return () => window.removeEventListener('focus', syncSession);
+  }, []);
 
   return (
     <div className="min-h-screen w-full bg-white text-gray-900 antialiased font-display overflow-x-hidden">
