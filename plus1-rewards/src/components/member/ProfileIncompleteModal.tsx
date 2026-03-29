@@ -1,5 +1,4 @@
 // plus1-rewards/src/components/member/ProfileIncompleteModal.tsx
-import { useNavigate } from 'react-router-dom';
 
 interface ProfileIncompleteModalProps {
   memberName: string;
@@ -13,12 +12,22 @@ export default function ProfileIncompleteModal({
   missingFields,
   onClose
 }: ProfileIncompleteModalProps) {
-  const navigate = useNavigate();
-
   const handleGoToProfile = () => {
-    sessionStorage.setItem('profile_redirect_from_dashboard', 'true');
-    navigate('/member/profile');
+    // Close the modal first
     onClose();
+    
+    // Scroll to the edit profile section on the dashboard
+    setTimeout(() => {
+      const element = document.getElementById('edit-profile');
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        // Highlight the section briefly
+        element.classList.add('ring-4', 'ring-orange-500', 'ring-offset-4');
+        setTimeout(() => {
+          element.classList.remove('ring-4', 'ring-orange-500', 'ring-offset-4');
+        }, 2000);
+      }
+    }, 100);
   };
 
   const isBlocking = percentComplete >= 100;
@@ -37,11 +46,11 @@ export default function ProfileIncompleteModal({
               </div>
               <div>
                 <h2 className="text-2xl font-black mb-1">
-                  {isBlocking ? 'Profile Required!' : 'Action Needed!'}
+                  {isBlocking ? 'Dashboard Update Required!' : 'Action Needed!'}
                 </h2>
                 <p className="text-white/90 text-sm font-medium">
                   {isBlocking 
-                    ? 'Complete your profile to activate your cover plan'
+                    ? 'Complete your dashboard to activate your cover plan'
                     : 'Your cover plan is almost ready!'
                   }
                 </p>
@@ -83,8 +92,8 @@ export default function ProfileIncompleteModal({
               <div>
                 <p className={`${isBlocking ? 'text-red-900' : 'text-yellow-900'} font-bold mb-2`}>
                   {isBlocking 
-                    ? '🚫 Your cover plan cannot be activated until you complete your profile.'
-                    : '⚠️ Your cover plan is at 90%+ completion. Please complete your profile now!'
+                    ? '🚫 Your cover plan cannot be activated until you complete your member dashboard.'
+                    : '⚠️ Your cover plan is at 90%+ completion. Please complete your dashboard now!'
                   }
                 </p>
                 <p className={`${isBlocking ? 'text-red-800' : 'text-yellow-800'} text-sm`}>
@@ -117,8 +126,8 @@ export default function ProfileIncompleteModal({
                 : 'bg-gradient-to-r from-[#1a558b] to-[#2d7ab8] hover:from-[#1a558b]/90 hover:to-[#2d7ab8]/90'
             } text-white font-black py-4 rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center gap-2`}
           >
-            <span className="material-symbols-outlined text-2xl">person</span>
-            <span>Complete My Profile Now</span>
+            <span className="material-symbols-outlined text-2xl">dashboard</span>
+            <span>Go to Member Dashboard</span>
           </button>
 
           {!isBlocking && (
