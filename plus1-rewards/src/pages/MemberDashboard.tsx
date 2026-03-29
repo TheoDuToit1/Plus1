@@ -352,13 +352,6 @@ export function MemberDashboard() {
           <h1 className="text-2xl font-bold text-gray-900">Member Dashboard</h1>
           <p className="text-gray-600">Welcome back, {member?.name || 'Member'}</p>
         </div>
-        <button
-          onClick={() => navigate('/member/profile')}
-          className="flex items-center gap-2 bg-white hover:bg-gray-50 border-2 border-[#1a558b] text-[#1a558b] font-bold px-4 py-2 rounded-xl transition-colors"
-        >
-          <span className="material-symbols-outlined">person</span>
-          <span className="hidden sm:inline">My Profile</span>
-        </button>
       </div>
 
       {/* Status Banner */}
@@ -667,14 +660,6 @@ export function MemberDashboard() {
           <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
         </div>
         <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <button
-            onClick={() => navigate('/member/profile')}
-            className="bg-gradient-to-br from-[#1a558b] to-[#1a558b]/80 hover:from-[#1a558b]/90 hover:to-[#1a558b]/70 text-white font-bold py-4 rounded-xl transition-all transform hover:scale-105 flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined">person</span>
-            Edit Profile
-          </button>
-
           <button
             onClick={() => window.location.href = '/go/'}
             className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"

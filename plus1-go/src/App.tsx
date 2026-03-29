@@ -351,7 +351,7 @@ export default function App() {
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-semibold text-zinc-700">Hi, {currentUser.full_name?.split(' ')[0]}</span>
                       <button 
-                        onClick={() => window.location.href = '/member/profile'}
+                        onClick={() => window.location.href = '/member/dashboard'}
                         className="p-2.5 hover:bg-zinc-100 rounded-full transition-colors"
                       >
                         <User className="w-5 h-5" />

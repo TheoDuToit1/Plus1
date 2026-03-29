@@ -53,7 +53,6 @@ import { MemberScanPartner } from './pages/MemberScanPartner'
 import { MemberPolicySelector } from './pages/MemberPolicySelector'
 import MemberPolicies from './pages/MemberPolicies'
 import { MemberHistory } from './pages/MemberHistory'
-import { MemberProfile } from './pages/MemberProfile'
 import { MemberQR } from './pages/MemberQR'
 import { MemberFindPartners } from './pages/MemberFindPartners'
 import ProtectedPolicyProviderRoute from './components/ProtectedPolicyProviderRoute'
@@ -150,7 +149,6 @@ export default function App() {
           <Route path="/member/policy-selector" element={<MemberPolicySelector />} />
           <Route path="/member/policies" element={<MemberPolicies />} />
           <Route path="/member/history" element={<MemberHistory />} />
-          <Route path="/member/profile" element={<MemberProfile />} />
           <Route path="/member/qr" element={<MemberQR />} />
           <Route path="/member/find-partners" element={<MemberFindPartners />} />
           <Route path="/partner/dashboard" element={<PartnerDashboard />} />
