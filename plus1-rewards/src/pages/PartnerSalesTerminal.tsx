@@ -372,7 +372,7 @@ export default function PartnerSalesTerminal() {
                     <p className="text-white/80 text-center text-sm">
                       Not Registered?{' '}
                       <button
-                        onClick={() => navigate('/partner/dashboard')}
+                        onClick={() => navigate('/partner/member-registration')}
                         className="text-yellow-300 font-bold hover:text-yellow-200 underline transition-colors"
                       >
                         Register here!

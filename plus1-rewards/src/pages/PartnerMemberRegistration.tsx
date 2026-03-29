@@ -1,115 +1,100 @@
 // plus1-rewards/src/pages/PartnerMemberRegistration.tsx
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Notification, useNotification } from '../components/Notification';
-
-const BLUE = '#1a558b';
-
-interface Partner {
-  id: string;
-  shop_name: string;
-  cashback_percent: number;
-}
+import { X, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function PartnerMemberRegistration() {
   const navigate = useNavigate();
-  const [partner, setPartner] = useState<Partner | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [activeField, setActiveField] = useState<'name' | 'phone' | 'pin'>('name');
+  const [fullName, setFullName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [pinCode, setPinCode] = useState('');
   const [showPin, setShowPin] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { notification, showSuccess, hideNotification } = useNotification();
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    pin: '',
-    terms: false
-  });
+  const [success, setSuccess] = useState(false);
 
-  useEffect(() => {
-    loadPartner();
-  }, []);
-
-  const loadPartner = async () => {
-    try {
-      const partnerSessionData = localStorage.getItem('partnerSession') || sessionStorage.getItem('partnerSession');
-      
-      if (!partnerSessionData) {
-        navigate('/partner/login');
-        return;
+  const handleNumberClick = (num: string) => {
+    if (activeField === 'phone') {
+      if (phoneNumber.length < 10) {
+        setPhoneNumber(phoneNumber + num);
       }
-
-      const session = JSON.parse(partnerSessionData);
-      const partnerId = session.partner?.id;
-
-      if (!partnerId) {
-        navigate('/partner/login');
-        return;
+    } else if (activeField === 'pin') {
+      if (pinCode.length < 6) {
+        setPinCode(pinCode + num);
       }
-
-      const { data, error } = await supabase
-        .from('partners')
-        .select('id, shop_name, cashback_percent')
-        .eq('id', partnerId)
-        .single();
-
-      if (error) throw error;
-      setPartner(data);
-    } catch (error) {
-      console.error('Error loading partner:', error);
-      navigate('/partner/login');
     }
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  const handleBackspace = () => {
+    if (activeField === 'phone') {
+      setPhoneNumber(phoneNumber.slice(0, -1));
+    } else if (activeField === 'pin') {
+      setPinCode(pinCode.slice(0, -1));
+    }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleClear = () => {
+    if (activeField === 'phone') {
+      setPhoneNumber('');
+    } else if (activeField === 'pin') {
+      setPinCode('');
+    }
     setError('');
+  };
 
-    if (!formData.terms) { 
-      setError('Please agree to the Terms of Service and Privacy Policy'); 
-      return; 
-    }
-    if (formData.pin.length !== 6) { 
-      setError('PIN must be exactly 6 digits'); 
-      return; 
-    }
-    if (!/^\d{6}$/.test(formData.pin)) { 
-      setError('PIN must contain only numbers'); 
-      return; 
+  const handleSubmit = async () => {
+    // Validation
+    if (!fullName.trim()) {
+      setError('Please enter your full name');
+      setActiveField('name');
+      return;
     }
 
-    const phoneDigits = formData.phone.replace(/\D/g, '');
-    if (phoneDigits.length !== 10) { 
-      setError('Phone number must be exactly 10 digits'); 
-      return; 
+    if (phoneNumber.length !== 10) {
+      setError('Please enter a valid 10-digit cell phone number');
+      setActiveField('phone');
+      return;
+    }
+
+    if (pinCode.length !== 6) {
+      setError('Please enter a 6-digit PIN code');
+      setActiveField('pin');
+      return;
+    }
+
+    if (!/^\d{6}$/.test(pinCode)) {
+      setError('PIN must contain only numbers');
+      setActiveField('pin');
+      return;
+    }
+
+    if (!termsAccepted) {
+      setError('Please accept the Terms of Service and Privacy Policy');
+      return;
     }
 
     setLoading(true);
+    setError('');
 
     try {
-      const { data: existingUser } = await supabase
-        .from('users').select('id').eq('mobile_number', phoneDigits).maybeSingle();
-
-      if (existingUser) { 
-        setError('This phone number is already registered'); 
-        setLoading(false); 
-        return; 
-      }
-
+      // Check if phone already exists
       const { data: existingMember } = await supabase
-        .from('members').select('id').eq('phone', phoneDigits).maybeSingle();
+        .from('members')
+        .select('id')
+        .eq('phone', phoneNumber)
+        .maybeSingle();
 
-      if (existingMember) { 
-        setError('This phone number is already registered'); 
-        setLoading(false); 
-        return; 
+      if (existingMember) {
+        setError('This phone number is already registered');
+        setLoading(false);
+        setActiveField('phone');
+        return;
       }
 
+      // Get default cover plan
       const { data: defaultPlan, error: planError } = await supabase
         .from('cover_plans')
         .select('id, plan_name, monthly_target_amount')
@@ -124,36 +109,27 @@ export default function PartnerMemberRegistration() {
         return;
       }
 
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .insert({
-          role: 'member',
-          full_name: formData.name,
-          mobile_number: phoneDigits,
-          pin_code: formData.pin,
-          status: 'active'
-        })
-        .select()
-        .single();
+      // Generate QR code
+      const qrCodeGen = `PLUS1-${phoneNumber}-${Date.now()}`;
 
-      if (userError) throw userError;
-
-      const qrCode = `PLUS1-${phoneDigits}-${Date.now()}`;
-
+      // Create member
       const { data: memberData, error: memberError } = await supabase
         .from('members')
         .insert({
-          user_id: userData.id,
-          full_name: formData.name,
-          phone: phoneDigits,
-          qr_code: qrCode,
-          status: 'active'
+          full_name: fullName.trim(),
+          phone: phoneNumber,
+          mobile_number: phoneNumber,
+          pin_code: pinCode,
+          qr_code: qrCodeGen,
+          status: 'active',
+          role: 'member'
         })
         .select()
         .single();
 
       if (memberError) throw memberError;
 
+      // Create member cover plan
       const { error: coverPlanError } = await supabase
         .from('member_cover_plans')
         .insert({
@@ -167,18 +143,15 @@ export default function PartnerMemberRegistration() {
 
       if (coverPlanError) throw coverPlanError;
 
-      showSuccess(
-        'Member Account Created!',
-        `${formData.name} has been registered successfully. They can now earn cashback at your store.`
-      );
-      
+      setSuccess(true);
       setTimeout(() => {
-        setFormData({ name: '', phone: '', pin: '', terms: false });
-        setError('');
+        navigate('/partner/sales-terminal');
       }, 3000);
     } catch (err: any) {
+      console.error('Registration error:', err);
       if (err.message?.includes('already registered') || err.message?.includes('duplicate')) {
         setError('This phone number is already registered');
+        setActiveField('phone');
       } else {
         setError('Registration failed: ' + err.message);
       }
@@ -187,219 +160,211 @@ export default function PartnerMemberRegistration() {
     }
   };
 
-  if (!partner) {
+  if (success) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600/20 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <div className="w-32 h-32 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-8">
+            <Check className="w-20 h-20 text-white" />
+          </div>
+          <h2 className="text-white text-6xl font-bold mb-4">Success!</h2>
+          <p className="text-green-300 text-2xl mb-2">{fullName}</p>
+          <p className="text-blue-200 text-xl mb-8">You're now registered!</p>
+          <p className="text-white/60 text-lg">Returning to sales terminal...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
-      {notification && (
-        <Notification
-          type={notification.type}
-          title={notification.title}
-          message={notification.message}
-          onClose={hideNotification}
-        />
-      )}
-
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
-            <span className="material-symbols-outlined text-white text-3xl">person_add</span>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Register New Member</h1>
-          <p className="text-gray-600">
-            Registering at: <span className="font-semibold" style={{ color: BLUE }}>{partner.shop_name}</span>
-          </p>
-          <p className="text-sm text-gray-500 mt-1">
-            Cashback Rate: {partner.cashback_percent}%
-          </p>
-        </div>
-
-        {/* Registration Form */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="space-y-6">
-            {/* Benefits */}
-            <div className="grid grid-cols-3 gap-3">
-              {['R0 Fee', 'Instant Cashback', 'Day1 Health'].map((b) => (
-                <div 
-                  key={b} 
-                  className="flex flex-col items-center gap-1 py-3 rounded-xl text-center" 
-                  style={{ backgroundColor: 'rgba(26,85,139,0.06)' }}
-                >
-                  <span className="text-xs font-bold" style={{ color: BLUE }}>{b}</span>
-                </div>
-              ))}
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
-                <span className="material-symbols-outlined text-red-600">error</span>
-                <p className="text-red-800 text-sm">{error}</p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex flex-col">
+      {/* Header */}
+      <div className="bg-black/30 backdrop-blur-sm border-b border-white/10 px-6 py-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl font-bold">+1</span>
               </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Full Name */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Full Name
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    person
-                  </span>
+                <h1 className="text-white text-xl font-bold">Member Registration</h1>
+                <p className="text-blue-300 text-sm">Join Plus1 Rewards</p>
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/partner/sales-terminal')}
+            className="text-white/70 hover:text-white transition-colors"
+          >
+            <X className="w-8 h-8" />
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="w-full max-w-6xl">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Left Side - Display */}
+            <div className="bg-white/10 backdrop-blur-md rounded-3xl p-12 border border-white/20 flex flex-col justify-center">
+              <div className="text-center">
+                <div className="mb-8">
+                  <h2 className="text-white text-5xl font-bold mb-3">Join Plus1! 🎉</h2>
+                  <p className="text-blue-200 text-xl">Start earning cashback today</p>
+                </div>
+
+                {/* Full Name Field */}
+                <div 
+                  className={`bg-black/30 rounded-2xl p-6 mb-6 cursor-pointer transition-all ${
+                    activeField === 'name' ? 'ring-4 ring-purple-400' : 'hover:bg-black/40'
+                  }`}
+                  onClick={() => setActiveField('name')}
+                >
+                  <p className="text-purple-300 text-sm font-semibold mb-2">Your Full Name</p>
                   <input
                     type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    placeholder="Sarah Dlamini"
-                    className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
-                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="w-full bg-transparent text-white text-3xl text-center font-semibold outline-none placeholder-white/30"
+                    autoFocus={activeField === 'name'}
                   />
                 </div>
-              </div>
 
-              {/* Phone Number */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Cell Phone Number (10 digits)
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    phone
-                  </span>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    placeholder="082 555 1234"
-                    className="w-full pl-11 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
-                    required
-                  />
+                {/* Phone Number Field */}
+                <div 
+                  className={`bg-black/30 rounded-2xl p-6 mb-6 cursor-pointer transition-all ${
+                    activeField === 'phone' ? 'ring-4 ring-blue-400' : 'hover:bg-black/40'
+                  }`}
+                  onClick={() => setActiveField('phone')}
+                >
+                  <p className="text-blue-300 text-sm font-semibold mb-2">Your Cell Phone Number</p>
+                  <div className="text-white text-4xl font-mono tracking-wider min-h-[50px] flex items-center justify-center">
+                    {phoneNumber || '___-___-____'}
+                  </div>
                 </div>
-              </div>
 
-              {/* PIN */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  6-Digit PIN
-                </label>
-                <div className="relative">
-                  <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    pin
-                  </span>
-                  <input
-                    type={showPin ? 'text' : 'password'}
-                    name="pin"
-                    value={formData.pin}
-                    onChange={handleInputChange}
-                    placeholder="Enter 6-digit PIN"
-                    maxLength={6}
-                    pattern="\d{6}"
-                    className="w-full pl-11 pr-12 py-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:outline-none"
-                    required
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => setShowPin(!showPin)} 
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <span className="material-symbols-outlined text-xl">
-                      {showPin ? 'visibility_off' : 'visibility'}
+                {/* PIN Code Field */}
+                <div 
+                  className={`bg-black/30 rounded-2xl p-6 mb-6 cursor-pointer transition-all ${
+                    activeField === 'pin' ? 'ring-4 ring-green-400' : 'hover:bg-black/40'
+                  }`}
+                  onClick={() => setActiveField('pin')}
+                >
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <p className="text-green-300 text-sm font-semibold">Create 6-Digit PIN</p>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowPin(!showPin);
+                      }}
+                      className="text-green-300 hover:text-green-200"
+                    >
+                      {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <div className="text-white text-4xl font-mono tracking-widest min-h-[50px] flex items-center justify-center">
+                    {showPin ? pinCode || '______' : '●'.repeat(pinCode.length) + '○'.repeat(6 - pinCode.length)}
+                  </div>
+                </div>
+
+                {/* Terms Checkbox */}
+                <div className="bg-black/30 rounded-2xl p-4 mb-6">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={termsAccepted}
+                      onChange={(e) => setTermsAccepted(e.target.checked)}
+                      className="mt-1 w-5 h-5 rounded border-2 border-white/30"
+                    />
+                    <span className="text-white/80 text-sm text-left">
+                      I agree to the Terms of Service and Privacy Policy
                     </span>
-                  </button>
+                  </label>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  Member will use this PIN with their phone number to log in
+
+                {error && (
+                  <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 mb-4 flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-300 flex-shrink-0 mt-0.5" />
+                    <p className="text-red-200 text-sm text-left">{error}</p>
+                  </div>
+                )}
+
+                <p className="text-white/60 text-sm mt-4">
+                  Tap a field above to enter information
+                </p>
+              </div>
+            </div>
+
+            {/* Right Side - Keypad */}
+            <div className="bg-blue-600 rounded-3xl p-8 flex flex-col">
+              <div className="text-center mb-6">
+                <p className="text-white text-lg font-semibold">
+                  {activeField === 'name' 
+                    ? 'TYPE YOUR NAME' 
+                    : activeField === 'phone'
+                    ? 'ENTER PHONE NUMBER'
+                    : 'ENTER PIN CODE'}
                 </p>
               </div>
 
-              {/* Terms */}
-              <label className="flex items-start gap-3 text-sm text-gray-600 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="terms"
-                  checked={formData.terms}
-                  onChange={handleInputChange}
-                  className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  required
-                />
-                <span>
-                  I confirm the member agrees to the{' '}
-                  <a 
-                    href="/terms-of-service" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="font-semibold hover:underline" 
-                    style={{ color: BLUE }}
-                  >
-                    Terms of Service
-                  </a>
-                  {' '}and{' '}
-                  <a 
-                    href="/privacy-policy" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="font-semibold hover:underline" 
-                    style={{ color: BLUE }}
-                  >
-                    Privacy Policy
-                  </a>
-                </span>
-              </label>
+              {activeField === 'name' ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <p className="text-white/80 text-center text-lg">
+                    Use your keyboard to type your full name above
+                  </p>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col">
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                      <button
+                        key={num}
+                        onClick={() => handleNumberClick(num.toString())}
+                        className="bg-white/20 hover:bg-white/30 active:bg-white/40 text-white text-4xl font-bold rounded-2xl h-20 transition-all"
+                      >
+                        {num}
+                      </button>
+                    ))}
+                    <div></div>
+                    <button
+                      onClick={() => handleNumberClick('0')}
+                      className="bg-white/20 hover:bg-white/30 active:bg-white/40 text-white text-4xl font-bold rounded-2xl h-20 transition-all"
+                    >
+                      0
+                    </button>
+                    <button
+                      onClick={handleBackspace}
+                      className="bg-white/20 hover:bg-white/30 active:bg-white/40 text-white text-2xl font-bold rounded-2xl h-20 transition-all"
+                    >
+                      ⌫
+                    </button>
+                  </div>
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    Creating Account...
-                  </>
-                ) : (
-                  <>
-                    Create Member Account
-                    <span className="material-symbols-outlined">arrow_forward</span>
-                  </>
-                )}
-              </button>
-            </form>
-
-            {/* Back to Dashboard */}
-            <button
-              onClick={() => navigate('/partner/dashboard')}
-              className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl transition-colors"
-            >
-              ← Back to Dashboard
-            </button>
-          </div>
-        </div>
-
-        {/* Info Box */}
-        <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <span className="material-symbols-outlined text-blue-600">info</span>
-            <div className="text-sm text-blue-900">
-              <p className="font-semibold mb-1">Registration Benefits:</p>
-              <ul className="space-y-1 text-blue-800">
-                <li>• Member gets instant {partner.cashback_percent}% cashback on purchases</li>
-                <li>• Automatic health cover plan funding</li>
-                <li>• No registration fees or hidden costs</li>
-              </ul>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      onClick={handleClear}
+                      className="bg-red-500/80 hover:bg-red-500 text-white text-xl font-bold rounded-2xl h-16 transition-all"
+                    >
+                      Clear
+                    </button>
+                    <button
+                      onClick={handleSubmit}
+                      disabled={loading || !fullName.trim() || phoneNumber.length !== 10 || pinCode.length !== 6 || !termsAccepted}
+                      className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white text-xl font-bold rounded-2xl h-16 transition-all flex items-center justify-center gap-2"
+                    >
+                      {loading ? (
+                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      ) : (
+                        <>
+                          Register
+                          <Check className="w-5 h-5" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
