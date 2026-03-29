@@ -33,8 +33,8 @@ export default function MemberTopbar({ member, isOnline, pendingTransactions, on
       }}
     >
       <div className="flex items-center gap-3">
-        {/* Plus1 Rewards Logo - clickable */}
-        <a href="/member/dashboard" className="hover:opacity-80 transition-opacity">
+        {/* Plus1 Rewards Logo - clickable, goes to Rewards landing page */}
+        <a href="/" className="hover:opacity-80 transition-opacity">
           <img 
             src="/logo.png" 
             alt="+1 Rewards" 
@@ -45,7 +45,7 @@ export default function MemberTopbar({ member, isOnline, pendingTransactions, on
         {/* Divider */}
         <div className="h-8 w-px bg-gray-300"></div>
         
-        {/* Plus1 Go Logo - clickable */}
+        {/* Plus1 Go Logo - clickable, goes to Go landing page */}
         <a href="/go/" className="hover:opacity-80 transition-opacity">
           <img 
             src="/plus1-go logo.png" 
