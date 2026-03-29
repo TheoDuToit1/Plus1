@@ -13,6 +13,9 @@ interface Member {
   email?: string;
   qr_code: string;
   status: string;
+  sa_id?: string;
+  suburb?: string;
+  city?: string;
 }
 
 interface MemberCoverPlan {
@@ -49,6 +52,13 @@ export function MemberDashboard() {
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [showProfileIncomplete, setShowProfileIncomplete] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
+  
+  // Profile editing state
+  const [editEmail, setEditEmail] = useState('');
+  const [editSaId, setEditSaId] = useState('');
+  const [editSuburb, setEditSuburb] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const loadDashboardData = async () => {
     try {
@@ -62,7 +72,7 @@ export function MemberDashboard() {
       // Get member data
       const { data: memberData } = await supabase
         .from('members')
-        .select('id, full_name, phone, email, qr_code, status')
+        .select('id, full_name, phone, email, qr_code, status, sa_id, suburb, city')
         .eq('user_id', session.user.id)
         .single();
 
@@ -71,6 +81,12 @@ export function MemberDashboard() {
           ...memberData,
           name: memberData.full_name
         });
+        
+        // Initialize edit fields with current data
+        setEditEmail(memberData.email || '');
+        setEditSaId(memberData.sa_id || '');
+        setEditSuburb(memberData.suburb || '');
+        setEditCity(memberData.city || '');
 
         // Get main cover plan (first by creation order) using member.id
         const { data: coverPlansData, error: coverPlansError } = await supabase
@@ -310,6 +326,42 @@ export function MemberDashboard() {
   const handleSignOut = () => {
     clearSession();
     navigate('/member/login');
+  };
+
+  const handleSaveProfile = async () => {
+    if (!member) return;
+    
+    setSavingProfile(true);
+    try {
+      const { error } = await supabase
+        .from('members')
+        .update({
+          email: editEmail,
+          sa_id: editSaId,
+          suburb: editSuburb,
+          city: editCity
+        })
+        .eq('id', member.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setMember({
+        ...member,
+        email: editEmail
+      });
+
+      alert('Profile updated successfully!');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // Reload dashboard data to refresh any dependent info
+      loadDashboardData();
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('Failed to update profile. Please try again.');
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -770,8 +822,40 @@ export function MemberDashboard() {
               <label className="block text-sm font-bold text-gray-700 mb-2">Email Address</label>
               <input
                 type="email"
-                value={member?.email || ''}
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
                 placeholder="Add your email"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">SA ID Number</label>
+              <input
+                type="text"
+                value={editSaId}
+                onChange={(e) => setEditSaId(e.target.value)}
+                placeholder="Enter your SA ID"
+                maxLength={13}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Suburb</label>
+              <input
+                type="text"
+                value={editSuburb}
+                onChange={(e) => setEditSuburb(e.target.value)}
+                placeholder="Enter your suburb"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">City</label>
+              <input
+                type="text"
+                value={editCity}
+                onChange={(e) => setEditCity(e.target.value)}
+                placeholder="Enter your city"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
               />
             </div>
@@ -787,16 +871,32 @@ export function MemberDashboard() {
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <button
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="px-6 py-2 border-2 border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors"
+              onClick={() => {
+                // Reset to original values
+                setEditEmail(member?.email || '');
+                setEditSaId(member?.sa_id || '');
+                setEditSuburb(member?.suburb || '');
+                setEditCity(member?.city || '');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              disabled={savingProfile}
+              className="px-6 py-2 border-2 border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
-              onClick={() => alert('Profile update functionality coming soon!')}
-              className="px-6 py-2 bg-[#1a558b] text-white font-bold rounded-lg hover:bg-[#1a558b]/90 transition-colors"
+              onClick={handleSaveProfile}
+              disabled={savingProfile}
+              className="px-6 py-2 bg-[#1a558b] text-white font-bold rounded-lg hover:bg-[#1a558b]/90 transition-colors disabled:opacity-50 flex items-center gap-2"
             >
-              Save Changes
+              {savingProfile ? (
+                <>
+                  <span className="animate-spin">⏳</span>
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
             </button>
           </div>
         </div>
