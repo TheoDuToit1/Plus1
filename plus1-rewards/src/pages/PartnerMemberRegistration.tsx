@@ -56,7 +56,6 @@ export default function PartnerMemberRegistration() {
   };
 
   const handleSubmit = async () => {
-    // Validation
     if (!fullName.trim()) {
       setError('Please enter your full name');
       setActiveField('name');
@@ -102,7 +101,6 @@ export default function PartnerMemberRegistration() {
     setError('');
 
     try {
-      // Check if phone already exists
       const { data: existingMember } = await supabase
         .from('members')
         .select('id')
@@ -116,7 +114,6 @@ export default function PartnerMemberRegistration() {
         return;
       }
 
-      // Get default cover plan
       const { data: defaultPlan, error: planError } = await supabase
         .from('cover_plans')
         .select('id, plan_name, monthly_target_amount')
@@ -131,10 +128,8 @@ export default function PartnerMemberRegistration() {
         return;
       }
 
-      // Generate QR code
       const qrCodeGen = `PLUS1-${phoneNumber}-${Date.now()}`;
 
-      // Create member
       const { data: memberData, error: memberError } = await supabase
         .from('members')
         .insert({
@@ -151,7 +146,6 @@ export default function PartnerMemberRegistration() {
 
       if (memberError) throw memberError;
 
-      // Create member cover plan
       const { error: coverPlanError } = await supabase
         .from('member_cover_plans')
         .insert({
@@ -227,137 +221,130 @@ export default function PartnerMemberRegistration() {
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-6xl">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Side - Display */}
-            <div className="bg-white/10 backdrop-blur-md rounded-3xl p-12 border border-white/20 flex flex-col justify-center">
-              <div>
-                <div className="mb-8">
-                  <h2 className="text-white text-5xl font-bold mb-3">Create your account</h2>
-                  <p className="text-blue-200 text-lg">Free to join — no credit card required</p>
-                  <div className="flex items-center justify-start gap-4 mt-4 text-sm flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-400" />
-                      <span className="text-white/80">NO sign-up fee</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-400" />
-                      <span className="text-white/80">Works Offline</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-400" />
-                      <span className="text-white/80">Earn cashback</span>
-                    </div>
+            {/* Left Side - Form */}
+            <div className="bg-white/10 backdrop-blur-md rounded-3xl p-8 border border-white/20 flex flex-col justify-center">
+              <div className="mb-6">
+                <h2 className="text-white text-4xl font-bold mb-2">Create your account</h2>
+                <p className="text-blue-200 text-base mb-3">Free to join — no credit card required</p>
+                <div className="flex items-center gap-3 text-xs flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-green-400" />
+                    <span className="text-white/80">NO sign-up fee</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-green-400" />
+                    <span className="text-white/80">Works Offline</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-green-400" />
+                    <span className="text-white/80">Earn cashback</span>
                   </div>
                 </div>
-
-                {/* Full Name Field */}
-                <div 
-                  className={`bg-black/30 rounded-2xl p-6 mb-6 cursor-pointer transition-all ${
-                    activeField === 'name' ? 'ring-4 ring-purple-400' : 'hover:bg-black/40'
-                  }`}
-                  onClick={() => setActiveField('name')}
-                >
-                  <p className="text-purple-300 text-sm font-semibold mb-2 text-left">📝 Full Name</p>
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="John Bloggs"
-                    className="w-full bg-transparent text-white text-2xl text-left font-semibold outline-none placeholder-white/30"
-                    autoFocus={activeField === 'name'}
-                  />
-                </div>
-
-                {/* Phone Number Field */}
-                <div 
-                  className={`bg-black/30 rounded-2xl p-6 mb-6 cursor-pointer transition-all ${
-                    activeField === 'phone' ? 'ring-4 ring-blue-400' : 'hover:bg-black/40'
-                  }`}
-                  onClick={() => setActiveField('phone')}
-                >
-                  <p className="text-blue-300 text-sm font-semibold mb-2 text-left">📱 Cell Phone Number (10 digits)</p>
-                  <div className="text-white text-2xl font-mono tracking-wider min-h-[40px] flex items-center justify-start">
-                    {phoneNumber ? phoneNumber : 'No +1456789 or +27831456789'}
-                  </div>
-                </div>
-
-                {/* PIN Code Field */}
-                <div 
-                  className={`bg-black/30 rounded-2xl p-6 mb-6 cursor-pointer transition-all ${
-                    activeField === 'pin' ? 'ring-4 ring-green-400' : 'hover:bg-black/40'
-                  }`}
-                  onClick={() => setActiveField('pin')}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-green-300 text-sm font-semibold">🔒 6-Digit PIN</p>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowPin(!showPin);
-                      }}
-                      className="text-green-300 hover:text-green-200"
-                    >
-                      {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <div className="text-white text-3xl font-mono tracking-widest min-h-[40px] flex items-center justify-start">
-                    {showPin ? (pinCode || 'Enter 6-digit PIN') : '●'.repeat(pinCode.length) + '○'.repeat(6 - pinCode.length)}
-                  </div>
-                </div>
-
-                {/* Confirm PIN Code Field */}
-                <div 
-                  className={`bg-black/30 rounded-2xl p-6 mb-6 cursor-pointer transition-all ${
-                    activeField === 'confirmPin' ? 'ring-4 ring-yellow-400' : 'hover:bg-black/40'
-                  }`}
-                  onClick={() => setActiveField('confirmPin')}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-yellow-300 text-sm font-semibold">🔒 Confirm 6-Digit PIN</p>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowConfirmPin(!showConfirmPin);
-                      }}
-                      className="text-yellow-300 hover:text-yellow-200"
-                    >
-                      {showConfirmPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <div className="text-white text-3xl font-mono tracking-widest min-h-[40px] flex items-center justify-start">
-                    {showConfirmPin ? (confirmPinCode || 'Re-enter 6-digit PIN') : '●'.repeat(confirmPinCode.length) + '○'.repeat(6 - confirmPinCode.length)}
-                  </div>
-                  <p className="text-white/60 text-xs mt-2 text-left">*Your PIN is used with your Cell Number to login</p>
-                </div>
-
-                {/* Terms Checkbox */}
-                <div className="bg-black/30 rounded-2xl p-4 mb-6">
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={termsAccepted}
-                      onChange={(e) => setTermsAccepted(e.target.checked)}
-                      className="mt-1 w-5 h-5 rounded border-2 border-white/30"
-                    />
-                    <span className="text-white/80 text-sm text-left">
-                      I agree to the Terms of Service and Privacy Policy
-                    </span>
-                  </label>
-                </div>
-
-                {error && (
-                  <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 mb-4 flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-red-300 flex-shrink-0 mt-0.5" />
-                    <p className="text-red-200 text-sm text-left">{error}</p>
-                  </div>
-                )}
-
-                <p className="text-white/60 text-sm mt-4 text-center">
-                  Tap a field above to enter information
-                </p>
               </div>
+
+              {/* Full Name */}
+              <div 
+                className={`bg-black/30 rounded-xl p-4 mb-3 cursor-pointer transition-all ${
+                  activeField === 'name' ? 'ring-2 ring-purple-400' : 'hover:bg-black/40'
+                }`}
+                onClick={() => setActiveField('name')}
+              >
+                <p className="text-purple-300 text-xs font-semibold mb-1.5">📝 Full Name</p>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="John Bloggs"
+                  className="w-full bg-transparent text-white text-xl font-semibold outline-none placeholder-white/30"
+                />
+              </div>
+
+              {/* Phone */}
+              <div 
+                className={`bg-black/30 rounded-xl p-4 mb-3 cursor-pointer transition-all ${
+                  activeField === 'phone' ? 'ring-2 ring-blue-400' : 'hover:bg-black/40'
+                }`}
+                onClick={() => setActiveField('phone')}
+              >
+                <p className="text-blue-300 text-xs font-semibold mb-1.5">📱 Cell Phone Number (10 digits)</p>
+                <div className="text-white text-xl font-mono">
+                  {phoneNumber || 'No +1456789 or +27831456789'}
+                </div>
+              </div>
+
+              {/* PIN */}
+              <div 
+                className={`bg-black/30 rounded-xl p-4 mb-3 cursor-pointer transition-all ${
+                  activeField === 'pin' ? 'ring-2 ring-green-400' : 'hover:bg-black/40'
+                }`}
+                onClick={() => setActiveField('pin')}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-green-300 text-xs font-semibold">🔒 6-Digit PIN</p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowPin(!showPin);
+                    }}
+                    className="text-green-300 hover:text-green-200"
+                  >
+                    {showPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <div className="text-white text-2xl font-mono tracking-widest">
+                  {showPin ? (pinCode || 'Enter 6-digit PIN') : '●'.repeat(pinCode.length) + '○'.repeat(6 - pinCode.length)}
+                </div>
+              </div>
+
+              {/* Confirm PIN */}
+              <div 
+                className={`bg-black/30 rounded-xl p-4 mb-3 cursor-pointer transition-all ${
+                  activeField === 'confirmPin' ? 'ring-2 ring-yellow-400' : 'hover:bg-black/40'
+                }`}
+                onClick={() => setActiveField('confirmPin')}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-yellow-300 text-xs font-semibold">🔒 Confirm 6-Digit PIN</p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowConfirmPin(!showConfirmPin);
+                    }}
+                    className="text-yellow-300 hover:text-yellow-200"
+                  >
+                    {showConfirmPin ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+                <div className="text-white text-2xl font-mono tracking-widest">
+                  {showConfirmPin ? (confirmPinCode || 'Re-enter 6-digit PIN') : '●'.repeat(confirmPinCode.length) + '○'.repeat(6 - confirmPinCode.length)}
+                </div>
+                <p className="text-white/50 text-xs mt-1.5">*Your PIN is used with your Cell Number to login</p>
+              </div>
+
+              {/* Terms */}
+              <div className="bg-black/30 rounded-xl p-3 mb-3">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded"
+                  />
+                  <span className="text-white/80 text-xs">
+                    I agree to the Terms of Service and Privacy Policy
+                  </span>
+                </label>
+              </div>
+
+              {error && (
+                <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-3 mb-3 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-300 flex-shrink-0 mt-0.5" />
+                  <p className="text-red-200 text-xs">{error}</p>
+                </div>
+              )}
             </div>
 
-            {/* Right Side - Keypad */}
+            {/* Right Side - Keypad or Image */}
             <div className="bg-blue-600 rounded-3xl p-8 flex flex-col">
               <div className="text-center mb-6">
                 <p className="text-white text-lg font-semibold">
@@ -373,9 +360,11 @@ export default function PartnerMemberRegistration() {
 
               {activeField === 'name' ? (
                 <div className="flex-1 flex items-center justify-center">
-                  <p className="text-white/80 text-center text-lg">
-                    Use your keyboard to type your full name above
-                  </p>
+                  <img 
+                    src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=800&fit=crop" 
+                    alt="Join Plus1 Rewards" 
+                    className="w-full h-full object-cover rounded-2xl"
+                  />
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col">
