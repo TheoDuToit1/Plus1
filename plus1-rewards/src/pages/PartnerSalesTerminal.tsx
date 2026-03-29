@@ -366,6 +366,19 @@ export default function PartnerSalesTerminal() {
                   <p className="text-white/60 text-sm mt-4">
                     Tap a field above to enter information
                   </p>
+
+                  {/* Registration Link */}
+                  <div className="mt-6 pt-6 border-t border-white/20">
+                    <p className="text-white/80 text-center text-sm">
+                      Not Registered?{' '}
+                      <button
+                        onClick={() => navigate('/partner/dashboard')}
+                        className="text-yellow-300 font-bold hover:text-yellow-200 underline transition-colors"
+                      >
+                        Register here!
+                      </button>
+                    </p>
+                  </div>
                 </div>
               )}
 
