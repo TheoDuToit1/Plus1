@@ -4,6 +4,7 @@
   "private": true,
   "description": "Plus1 Rewards and Plus1 Go unified deployment",
   "scripts": {
+    "dev": "concurrently \"npm run dev:rewards\" \"npm run dev:go\" --names \"rewards,go\" --prefix-colors \"cyan,magenta\"",
     "build:rewards": "cd plus1-rewards && npm run build",
     "build:go": "cd plus1-go && npm run build",
     "build:all": "npm run build:rewards && npm run build:go && npm run combine",
@@ -12,6 +13,7 @@
     "dev:go": "cd plus1-go && npm run dev"
   },
   "devDependencies": {
+    "concurrently": "^9.1.2",
     "fs-extra": "^11.2.0"
   }
 }
