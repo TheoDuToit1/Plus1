@@ -1,122 +1,162 @@
-# Supabase Database Schema - Plus1 Rewards
+# Supabase Database Schema - Plus1 Rewards & Plus1 Go
 
 **Project:** plus1 (gcbmlxdxwakkubpldype)  
 **Region:** eu-west-1  
 **Status:** ACTIVE_HEALTHY  
-**Database Version:** PostgreSQL 17.6.1.084
+**Database Version:** PostgreSQL 17.6.1.084  
+**Last Updated:** 2026-03-29
 
 ---
 
-## Table of Contents
-1. [Core User Tables](#core-user-tables)
-2. [Partner & Agent Tables](#partner--agent-tables)
-3. [Transaction & Financial Tables](#transaction--financial-tables)
-4. [Cover Plan Tables](#cover-plan-tables)
-5. [Provider & Export Tables](#provider--export-tables)
-6. [Dispute & Audit Tables](#dispute--audit-tables)
-7. [Connection Tables](#connection-tables)
+## 🎯 Core Concept
+
+**NO CENTRAL USERS TABLE** - Each role has its own table with authentication built-in.
 
 ---
 
-## Core User Tables
+## 📋 Role Tables (6 Total)
 
-### 1. **users**
-Central authentication table for all roles: member, partner, agent, provider, admin
-
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Unique user identifier |
-| role | text | NOT NULL, CHECK (role IN ['member','partner','agent','provider','admin']) | - | User role type |
-| full_name | text | NOT NULL, CHECK (length >= 2 AND <= 100) | - | User full name |
-| mobile_number | text | UNIQUE, CHECK (length >= 10 AND <= 15) | NULL | Phone number |
-| pin_code | text | CHECK (length = 6) | NULL | 6-digit PIN for authentication |
-| status | text | CHECK (status IN ['active','suspended','pending']) | 'active' | Account status |
-| email | text | UNIQUE, CHECK (valid email format) | NULL | Email address |
-| created_at | timestamptz | | now() | Account creation timestamp |
-
-**Foreign Keys:** None (root table)
+### 1. **members** - Customers who shop and earn cashback
+### 2. **partners** - Shops offering cashback (Rewards + Go)
+### 3. **agents** - Sales people who recruit partners
+### 4. **insurers** - Medical policy providers (renamed from providers)
+### 5. **drivers** - Delivery drivers for Plus1-Go
+### 6. **admin** - System administrators (stored in members table with role='admin')
 
 ---
 
-### 2. **members**
-Member profiles with QR codes and status tracking
+## Table Structures
 
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
+### 1. members (Customers)
+
+**Purpose:** Customer profiles with authentication, QR codes, and delivery info
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
 | id | uuid | PRIMARY KEY | uuid_generate_v4() | Member ID |
-| phone | text | CHECK (length >= 10 AND <= 15) | NULL | Phone number |
-| qr_code | text | UNIQUE, NOT NULL | - | Unique QR code for member |
-| email | text | UNIQUE | NULL | Email address |
-| user_id | uuid | FOREIGN KEY → users.id | NULL | Link to user account |
+| role | text | CHECK (role IN ('member','admin')) | 'member' | User role |
 | full_name | text | NOT NULL | - | Member full name |
-| status | text | CHECK (status IN ['active','suspended','pending']) | 'active' | Member account status |
-| sa_id | text | | NULL | South African ID number |
-| city | text | | 'Cape Town' | City (defaults to Cape Town) |
-| suburb | text | | NULL | Suburb within city |
-| profile_picture_url | text | | NULL | URL to member profile picture |
-| created_at | timestamptz | | now() | Account creation timestamp |
-| updated_at | timestamptz | | now() | Last update timestamp |
+| mobile_number | text | UNIQUE | - | Phone for authentication |
+| pin_code | text | CHECK (length = 6) | - | 6-digit PIN |
+| pin_hash | text | | NULL | Hashed PIN |
+| email | text | UNIQUE | NULL | Email address |
+| phone | text | CHECK (length >= 10 AND <= 15) | NULL | Contact phone |
+| qr_code | text | UNIQUE, NOT NULL | - | Unique QR code |
+| status | text | CHECK (status IN ('active','suspended','pending')) | 'active' | Account status |
+| sa_id | text | | NULL | South African ID |
+| id_number | text | | NULL | ID number |
+| date_of_birth | date | | NULL | Birth date |
+| city | text | | 'Cape Town' | City |
+| suburb | text | | NULL | Suburb |
+| default_address | text | | NULL | Default delivery address |
+| latitude | numeric | | NULL | GPS latitude |
+| longitude | numeric | | NULL | GPS longitude |
+| saved_addresses | jsonb | | '[]' | Array of saved addresses |
+| profile_picture_url | text | | NULL | Profile picture URL |
+| payment_token | text | | NULL | Payment token |
+| payment_method_type | text | | NULL | Payment method |
+| payment_last_4 | text | | NULL | Last 4 digits |
+| payment_authorized | boolean | | false | Payment authorized |
+| payment_authorized_at | timestamp | | NULL | Authorization time |
+| bank_name | text | | NULL | Bank name |
+| bank_account_number | text | | NULL | Account number |
+| bank_account_holder | text | | NULL | Account holder |
+| bank_branch_code | text | | NULL | Branch code |
+| profile_completed | boolean | | false | Profile complete |
+| total_orders | integer | | 0 | Total orders placed |
+| total_spent | integer | | 0 | Total amount spent |
+| last_order_at | timestamp | | NULL | Last order time |
+| failed_payments | integer | | 0 | Failed payment count |
+| account_suspended | boolean | | false | Account suspended |
+| kyc_status | text | | 'pending' | KYC verification status |
+| device_token | text | | NULL | Push notification token |
+| created_at | timestamptz | | now() | Creation timestamp |
+| updated_at | timestamptz | | now() | Update timestamp |
 
 **Foreign Keys:**
-- disputes.member_id → members.id
 - member_cover_plans.member_id → members.id
-- admin_notifications.member_id → members.id
-- member_partner_connections.member_id → members.id
 - transactions.member_id → members.id
-- cover_plan_wallet_entries.member_id → members.id
+- orders.member_id → members.id
+- admin_notifications.member_id → members.id
 
 ---
 
-## Partner & Agent Tables
+### 2. partners (Shops)
 
-### 3. **partners**
-Business partners offering cashback to members
+**Purpose:** Business partners offering cashback on Rewards and Go platforms
 
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
 | id | uuid | PRIMARY KEY | uuid_generate_v4() | Partner ID |
-| phone | text | UNIQUE, CHECK (length >= 10 AND <= 15) | - | Partner phone |
-| email | text | UNIQUE, CHECK (valid email) | NULL | Partner email |
+| role | text | CHECK (role = 'partner') | 'partner' | User role |
+| full_name | text | | NULL | Contact person name |
 | shop_name | text | NOT NULL | - | Business name |
-| status | text | CHECK (status IN ['active','suspended','pending','rejected']) | 'pending' | Partner status |
-| user_id | uuid | FOREIGN KEY → users.id | NULL | Link to user account |
-| approved_by | uuid | FOREIGN KEY → users.id | NULL | Admin who approved |
+| mobile_number | text | UNIQUE | - | Phone for authentication |
+| pin_code | text | CHECK (length = 6) | - | 6-digit PIN |
+| pin_hash | text | | NULL | Hashed PIN |
+| phone | text | UNIQUE, CHECK (length >= 10 AND <= 15) | - | Contact phone |
+| email | text | UNIQUE | NULL | Email address |
+| status | text | CHECK (status IN ('active','suspended','pending','rejected')) | 'pending' | Partner status |
+| approved_by | uuid | | NULL | Admin who approved |
 | approved_at | timestamptz | | NULL | Approval timestamp |
-| cashback_percent | numeric | CHECK (>= 3 AND <= 40) | - | Cashback rate: 3-40% |
-| responsible_person | text | | NULL | Contact person name |
+| cashback_percent | numeric | CHECK (>= 3 AND <= 40) | - | Cashback rate 3-40% |
+| responsible_person | text | | NULL | Contact person |
 | category | text | | NULL | Business category |
 | address | text | | NULL | Business address |
-| included_products | text | | NULL | Products included in cashback |
-| excluded_products | text | | NULL | Products excluded from cashback |
-| rejection_reason | text | | NULL | Reason if rejected |
-| signature_url | text | | NULL | URL to signed agreement |
+| included_products | text | | NULL | Products in cashback |
+| excluded_products | text | | NULL | Products excluded |
+| rejection_reason | text | | NULL | Rejection reason |
+| signature_url | text | | NULL | Signed agreement URL |
+| store_description | text | | NULL | Store description |
+| store_logo_url | text | | NULL | Logo URL |
+| store_banner_url | text | | NULL | Banner URL |
+| latitude | numeric | | NULL | GPS latitude |
+| longitude | numeric | | NULL | GPS longitude |
+| is_open | boolean | | true | Currently open |
+| opening_hours | jsonb | | NULL | Opening hours JSON |
+| delivery_enabled | boolean | | true | Delivery available |
+| pickup_enabled | boolean | | true | Pickup available |
+| minimum_order_value | integer | | 0 | Minimum order |
+| delivery_radius_km | numeric | | 5 | Delivery radius |
+| rating | numeric | | 0 | Average rating |
+| total_reviews | integer | | 0 | Total reviews |
+| average_prep_time_minutes | integer | | 30 | Avg prep time |
+| kyc_status | text | | 'pending' | KYC status |
+| device_token | text | | NULL | Push token |
 | created_at | timestamptz | | now() | Creation timestamp |
-| updated_at | timestamptz | | now() | Last update timestamp |
+| updated_at | timestamptz | | now() | Update timestamp |
 
 **Comment:** Cashback split: 1% system, 1% agent, rest to member
 
 **Foreign Keys:**
-- partner_agent_links.partner_id → partners.id
 - transactions.partner_id → partners.id
-- member_partner_connections.partner_id → partners.id
-- partner_invoices.partner_id → partners.id
-- disputes.partner_id → partners.id
+- orders.partner_id → partners.id
+- products.partner_id → partners.id
 
 ---
 
-### 4. **agents**
-Sales agents who recruit partners and earn commission
+### 3. agents (Sales Agents)
 
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
+**Purpose:** Sales agents who recruit partners and earn commission
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
 | id | uuid | PRIMARY KEY | uuid_generate_v4() | Agent ID |
-| user_id | uuid | FOREIGN KEY → users.id | NULL | Link to user account |
-| status | text | CHECK (status IN ['pending','active','suspended','rejected']) | 'pending' | Agent status |
-| approved_by | uuid | FOREIGN KEY → users.id | NULL | Admin who approved |
+| role | text | CHECK (role = 'agent') | 'agent' | User role |
+| full_name | text | | NULL | Agent full name |
+| mobile_number | text | UNIQUE | - | Phone for authentication |
+| pin_code | text | CHECK (length = 6) | - | 6-digit PIN |
+| pin_hash | text | | NULL | Hashed PIN |
+| phone | text | | NULL | Contact phone |
+| email | text | | NULL | Email address |
+| status | text | CHECK (status IN ('pending','active','suspended','rejected')) | 'pending' | Agent status |
+| approved_by | uuid | | NULL | Admin who approved |
 | approved_at | timestamptz | | NULL | Approval timestamp |
-| rejection_reason | text | | NULL | Reason if rejected |
-| id_number | text | | NULL | SA ID or passport number |
-| agreement_file | text | | NULL | URL to signed agreement |
+| rejection_reason | text | | NULL | Rejection reason |
+| id_number | text | | NULL | SA ID or passport |
+| agreement_file | text | | NULL | Signed agreement URL |
+| kyc_status | text | | 'pending' | KYC status |
+| device_token | text | | NULL | Push token |
 | created_at | timestamptz | | now() | Creation timestamp |
 
 **Foreign Keys:**
@@ -126,332 +166,249 @@ Sales agents who recruit partners and earn commission
 
 ---
 
-### 5. **partner_agent_links**
-Links partners to their recruiting agents
+### 4. insurers (Medical Policy Providers)
 
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Link ID |
-| partner_id | uuid | NOT NULL, FOREIGN KEY → partners.id | - | Partner reference |
-| agent_id | uuid | NOT NULL, FOREIGN KEY → agents.id | - | Agent reference |
-| status | text | CHECK (status IN ['active','inactive']) | 'active' | Link status |
-| linked_at | timestamptz | | now() | When linked |
+**Purpose:** Insurance/health cover providers (renamed from providers)
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | uuid | PRIMARY KEY | uuid_generate_v4() | Insurer ID |
+| role | text | CHECK (role = 'insurer') | 'insurer' | User role |
+| full_name | text | | NULL | Contact person |
+| mobile_number | text | UNIQUE | - | Phone for authentication |
+| pin_code | text | CHECK (length = 6) | - | 6-digit PIN |
+| pin_hash | text | | NULL | Hashed PIN |
+| phone | text | | NULL | Contact phone |
+| email | text | | NULL | Email address |
+| provider_name | text | UNIQUE, NOT NULL | - | Insurer name |
+| status | text | CHECK (status IN ('pending','active','suspended')) | 'pending' | Insurer status |
+| approved_by | uuid | | NULL | Admin who approved |
+| approved_at | timestamptz | | NULL | Approval timestamp |
+| kyc_status | text | | 'pending' | KYC status |
+| device_token | text | | NULL | Push token |
+| created_at | timestamptz | | now() | Creation timestamp |
+
+**Foreign Keys:**
+- cover_plans.insurer_id → insurers.id
+- insurer_exports.insurer_id → insurers.id
+
+---
+
+### 5. drivers (Delivery Drivers)
+
+**Purpose:** Delivery drivers for Plus1-Go orders
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
+| id | uuid | PRIMARY KEY | uuid_generate_v4() | Driver ID |
+| role | text | CHECK (role = 'driver') | 'driver' | User role |
+| full_name | text | | NULL | Driver full name |
+| mobile_number | text | UNIQUE | - | Phone for authentication |
+| pin_code | text | CHECK (length = 6) | - | 6-digit PIN |
+| pin_hash | text | | NULL | Hashed PIN |
+| phone | text | | NULL | Contact phone |
+| email | text | | NULL | Email address |
+| status | text | CHECK (status IN ('offline','online','busy')) | 'offline' | Driver status |
+| vehicle_type | text | | NULL | Vehicle type |
+| vehicle_make | text | | NULL | Vehicle make |
+| vehicle_color | text | | NULL | Vehicle color |
+| vehicle_registration | text | | NULL | Registration number |
+| license_number | text | | NULL | Driver license |
+| license_photo_url | text | | NULL | License photo URL |
+| current_latitude | numeric | | NULL | Current GPS lat |
+| current_longitude | numeric | | NULL | Current GPS long |
+| last_location_update | timestamp | | NULL | Last location update |
+| is_verified | boolean | | false | Driver verified |
+| total_deliveries | integer | | 0 | Total deliveries |
+| average_rating | numeric | | 0 | Average rating |
+| kyc_status | text | | 'pending' | KYC status |
+| device_token | text | | NULL | Push token |
+| created_at | timestamp | | now() | Creation timestamp |
+
+**Foreign Keys:**
+- orders.driver_id → drivers.id
+- driver_earnings.driver_id → drivers.id
+- delivery_tracking.driver_id → drivers.id
 
 ---
 
 ## Transaction & Financial Tables
 
-### 6. **transactions**
-Partner transactions with cashback split tracking (RLS Enabled)
+### 6. transactions
 
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
+**Purpose:** Partner transactions with cashback split tracking
+
+| Column | Type | Constraints | Default | Description |
+|--------|------|-------------|---------|-------------|
 | id | uuid | PRIMARY KEY | uuid_generate_v4() | Transaction ID |
-| partner_id | uuid | FOREIGN KEY → partners.id | NULL | Partner reference |
-| member_id | uuid | FOREIGN KEY → members.id | NULL | Member reference |
-| agent_id | uuid | FOREIGN KEY → agents.id | NULL | Agent reference |
+| partner_id | uuid | FK → partners.id | NULL | Partner reference |
+| member_id | uuid | FK → members.id | NULL | Member reference |
+| agent_id | uuid | FK → agents.id | NULL | Agent reference |
+| driver_id | uuid | FK → drivers.id | NULL | Driver reference |
+| order_id | uuid | FK → orders.id | NULL | Order reference |
 | purchase_amount | numeric | CHECK (> 0) | - | Purchase amount |
-| status | text | CHECK (status IN ['completed','pending','reversed','disputed']) | 'pending_sync' | Transaction status |
-| cashback_percent | numeric | | NULL | Total cashback % offered |
-| system_percent | numeric | | 1 | Platform fee (always 1%) |
-| agent_percent | numeric | | 1 | Agent commission (always 1%) |
-| member_percent | numeric | | NULL | Member cashback (cashback_percent - 2) |
+| status | text | CHECK (status IN ('completed','pending','reversed','disputed')) | 'pending_sync' | Transaction status |
+| transaction_type | text | | 'in_store' | Type: in_store/delivery |
+| cashback_percent | numeric | | NULL | Total cashback % |
+| system_percent | numeric | | 1 | Platform fee (1%) |
+| agent_percent | numeric | | 1 | Agent commission (1%) |
+| member_percent | numeric | | NULL | Member cashback |
 | system_amount | numeric | | NULL | System fee amount |
-| agent_amount | numeric | | NULL | Agent commission amount |
-| member_amount | numeric | | NULL | Member cashback amount |
-| created_at | timestamptz | | now() | Transaction timestamp |
+| agent_amount | numeric | | NULL | Agent commission |
+| member_amount | numeric | | NULL | Member cashback |
+| delivery_fee | integer | | NULL | Delivery fee |
+| created_at | timestamptz | | now() | Transaction time |
 
-**Foreign Keys:**
-- cover_plan_wallet_entries.transaction_id → transactions.id
-- disputes.transaction_id → transactions.id
-
----
-
-### 7. **agent_commissions**
-Monthly commission breakdown for agents (RLS Enabled)
-
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Commission ID |
-| agent_id | uuid | NOT NULL, FOREIGN KEY → agents.id | - | Agent reference |
-| month | text | NOT NULL | - | Month (YYYY-MM format) |
-| total_amount | numeric | CHECK (>= 0) | - | Total commission amount |
-| payout_status | text | CHECK (status IN ['pending','paid']) | 'pending' | Payout status |
-| paid_at | timestamptz | | NULL | Payment timestamp |
-| created_at | timestamptz | | now() | Creation timestamp |
-
----
-
-### 8. **top_ups**
-Member and partner top-up payments to close shortfalls (RLS Enabled)
-
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Top-up ID |
-| payer_type | text | CHECK (payer_type IN ['member','partner']) | - | Who is paying |
-| payer_id | uuid | NOT NULL | - | Payer reference |
-| member_cover_plan_id | uuid | FOREIGN KEY → member_cover_plans.id | NULL | Cover plan reference |
-| amount | numeric | CHECK (> 0) | - | Top-up amount |
-| payment_method | text | CHECK (method IN ['eft','card','cash','other']) | NULL | Payment method |
-| reference_note | text | | NULL | Payment reference |
-| approved_by | uuid | | NULL | Approver reference |
-| created_at | timestamptz | | now() | Creation timestamp |
-
----
-
-### 9. **partner_invoices**
-Monthly invoices for partners (RLS Enabled)
-
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Invoice ID |
-| partner_id | uuid | NOT NULL, FOREIGN KEY → partners.id | - | Partner reference |
-| invoice_month | text | NOT NULL | - | Invoice month (YYYY-MM) |
-| total_amount | numeric | CHECK (>= 0) | - | Total invoice amount |
-| due_date | date | NOT NULL | - | Payment due date |
-| status | text | CHECK (status IN ['generated','sent','overdue','paid','suspended']) | 'generated' | Invoice status |
-| paid_at | timestamptz | | NULL | Payment timestamp |
-| suspended_at | timestamptz | | NULL | Suspension timestamp |
-| created_at | timestamptz | | now() | Creation timestamp |
-
-**Foreign Keys:**
-- invoice_items.invoice_id → partner_invoices.id
-
----
-
-### 10. **invoice_items**
-Line items for partner invoices (RLS Enabled)
-
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Item ID |
-| invoice_id | uuid | NOT NULL, FOREIGN KEY → partner_invoices.id | - | Invoice reference |
-| transaction_id | uuid | FOREIGN KEY → transactions.id | NULL | Transaction reference |
-| amount | numeric | NOT NULL | - | Line item amount |
-| description | text | | NULL | Item description |
+**RLS Enabled:** Yes
 
 ---
 
 ## Cover Plan Tables
 
-### 11. **cover_plans**
-Insurance/health cover plans offered by providers (RLS Enabled)
+### 7. cover_plans
 
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Plan ID |
-| provider_id | uuid | FOREIGN KEY → providers.id | NULL | Provider reference |
-| plan_name | text | UNIQUE, NOT NULL | - | Plan name |
-| monthly_target_amount | numeric | CHECK (> 0) | - | Monthly funding target |
-| plan_level | integer | | NULL | Plan tier/level |
-| status | text | CHECK (status IN ['active','inactive']) | 'active' | Plan status |
-| created_at | timestamptz | | now() | Creation timestamp |
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Plan ID |
+| insurer_id | uuid | FK → insurers.id |
+| plan_name | text | Plan name (unique) |
+| monthly_target_amount | numeric | Monthly funding target |
+| plan_level | integer | Plan tier |
+| status | text | active/inactive |
+| created_at | timestamptz | Creation time |
 
-**Foreign Keys:**
-- member_cover_plans.cover_plan_id → cover_plans.id
+### 8. member_cover_plans
 
----
+**Purpose:** Tracks each cover plan linked to a member with creation order
 
-### 12. **member_cover_plans**
-Core table tracking each cover plan linked to a member with creation order (RLS Enabled)
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Member plan ID |
+| member_id | uuid | FK → members.id |
+| cover_plan_id | uuid | FK → cover_plans.id |
+| creation_order | integer | Funding priority (1 fills first) |
+| target_amount | numeric | Target funding amount |
+| funded_amount | numeric | Amount funded so far |
+| overflow_balance | numeric | Cashback after plan deduction |
+| status | text | in_progress/active/suspended/cancelled |
+| active_from | timestamptz | When plan became active |
+| active_to | timestamptz | When 30-day period ends |
+| suspended_at | timestamptz | Suspension time |
+| created_at | timestamptz | Creation time |
 
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Member plan ID |
-| member_id | uuid | NOT NULL, FOREIGN KEY → members.id | - | Member reference |
-| cover_plan_id | uuid | NOT NULL, FOREIGN KEY → cover_plans.id | - | Plan reference |
-| creation_order | integer | NOT NULL | - | Funding priority: 1 fills first, then 2, then 3 |
-| target_amount | numeric | CHECK (> 0) | - | Target funding amount |
-| funded_amount | numeric | CHECK (>= 0) | 0 | Amount funded so far |
-| status | text | CHECK (status IN ['in_progress','active','suspended','cancelled']) | 'in_progress' | Plan status |
-| active_from | timestamptz | | NULL | When plan became active (reached target) |
-| active_to | timestamptz | | NULL | When 30-day active period ends |
-| suspended_at | timestamptz | | NULL | Suspension timestamp |
-| overflow_balance | numeric | CHECK (>= 0) | 0 | Cashback remaining after plan deduction |
-| created_at | timestamptz | | now() | Creation timestamp |
-| updated_at | timestamptz | | now() | Last update timestamp |
+### 9. cover_plan_wallet_entries
 
-**Comment:** Overflow balance used for upgrades, dependants, sponsorships
+**Purpose:** Detailed audit trail of every funding movement
 
-**Foreign Keys:**
-- provider_export_items.member_cover_plan_id → member_cover_plans.id
-- linked_people.member_cover_plan_id → member_cover_plans.id
-- cover_plan_wallet_entries.member_cover_plan_id → member_cover_plans.id
-- top_ups.member_cover_plan_id → member_cover_plans.id
-
----
-
-### 13. **cover_plan_wallet_entries**
-Detailed audit trail of every funding movement into cover plans (RLS Enabled)
-
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Entry ID |
-| member_id | uuid | NOT NULL, FOREIGN KEY → members.id | - | Member reference |
-| member_cover_plan_id | uuid | FOREIGN KEY → member_cover_plans.id | NULL | Plan reference |
-| transaction_id | uuid | FOREIGN KEY → transactions.id | NULL | Transaction reference |
-| entry_type | text | CHECK (type IN ['cashback_added','overflow_moved','manual_adjustment','reversal','top_up','carry_over']) | - | Type of entry |
-| amount | numeric | NOT NULL | - | Entry amount |
-| balance_after | numeric | CHECK (>= 0) | - | Balance after entry |
-| created_at | timestamptz | | now() | Entry timestamp |
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Entry ID |
+| member_id | uuid | FK → members.id |
+| member_cover_plan_id | uuid | FK → member_cover_plans.id |
+| transaction_id | uuid | FK → transactions.id |
+| entry_type | text | cashback_added/overflow_moved/manual_adjustment/reversal/top_up/carry_over |
+| amount | numeric | Entry amount |
+| balance_after | numeric | Balance after entry |
+| created_at | timestamptz | Entry time |
 
 ---
 
-### 14. **linked_people**
-Dependants and linked persons for member cover plans
+## Plus1-Go Tables
 
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Linked person ID |
-| member_cover_plan_id | uuid | NOT NULL, FOREIGN KEY → member_cover_plans.id | - | Plan reference |
-| linked_type | text | CHECK (type IN ['dependant','spouse','child','other']) | - | Relationship type |
-| full_name | text | NOT NULL | - | Person's full name |
-| id_number | text | NOT NULL | - | ID number |
-| linked_to_main_member_id | uuid | NOT NULL | - | Main member reference |
-| status | text | CHECK (status IN ['pending','approved','rejected']) | 'pending' | Approval status |
-| created_at | timestamptz | | now() | Creation timestamp |
+### 10. orders
 
----
+**Purpose:** Plus1-Go delivery orders
 
-## Provider & Export Tables
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Order ID |
+| order_number | text | Unique order number |
+| member_id | uuid | FK → members.id |
+| partner_id | uuid | FK → partners.id |
+| driver_id | uuid | FK → drivers.id |
+| status | text | pending/confirmed/preparing/ready/driver_assigned/picked_up/on_the_way/delivered/cancelled |
+| subtotal | integer | Subtotal (cents) |
+| delivery_fee | integer | Delivery fee (cents) |
+| total_amount | integer | Total (cents) |
+| payment_status | text | pending/processing/paid/failed/refunded |
+| payment_reference | text | Payment reference |
+| delivery_type | text | delivery/collection |
+| delivery_address | text | Delivery address |
+| delivery_latitude | numeric | GPS lat |
+| delivery_longitude | numeric | GPS long |
+| special_instructions | text | Special instructions |
+| created_at | timestamp | Order time |
+| confirmed_at | timestamp | Confirmation time |
+| delivered_at | timestamp | Delivery time |
 
-### 15. **providers**
-Insurance/health providers (RLS Enabled)
+### 11. order_items
 
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Provider ID |
-| user_id | uuid | FOREIGN KEY → users.id | NULL | User account reference |
-| provider_name | text | UNIQUE, NOT NULL | - | Provider name |
-| status | text | CHECK (status IN ['pending','active','suspended']) | 'pending' | Provider status |
-| approved_by | uuid | | NULL | Approver reference |
-| approved_at | timestamptz | | NULL | Approval timestamp |
-| created_at | timestamptz | | now() | Creation timestamp |
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Item ID |
+| order_id | uuid | FK → orders.id |
+| product_id | uuid | FK → products.id |
+| product_name | text | Product name |
+| product_price | integer | Price (cents) |
+| quantity | integer | Quantity |
+| modifiers | jsonb | Product modifiers |
+| line_total | integer | Line total (cents) |
 
-**Foreign Keys:**
-- provider_exports.provider_id → providers.id
-- cover_plans.provider_id → providers.id
+### 12. products
 
----
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Product ID |
+| partner_id | uuid | FK → partners.id |
+| name | text | Product name |
+| description | text | Description |
+| price | integer | Price (cents) |
+| category | text | Category |
+| image_url | text | Image URL |
+| is_available | boolean | Available |
 
-### 16. **provider_exports**
-Provider export batch records (RLS Enabled)
+### 13. drivers (see above)
 
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Export ID |
-| provider_id | uuid | NOT NULL, FOREIGN KEY → providers.id | - | Provider reference |
-| export_month | text | NOT NULL | - | Export month (YYYY-MM) |
-| total_cover_plans | integer | | 0 | Number of plans exported |
-| total_value | numeric | | 0 | Total value exported |
-| status | text | CHECK (status IN ['pending','completed','failed']) | 'pending' | Export status |
-| exported_at | timestamptz | | NULL | Export completion timestamp |
-| created_at | timestamptz | | now() | Creation timestamp |
+### 14. driver_earnings
 
-**Foreign Keys:**
-- provider_export_items.provider_export_id → provider_exports.id
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Earning ID |
+| driver_id | uuid | FK → drivers.id |
+| order_id | uuid | FK → orders.id |
+| total_fee | integer | Total delivery fee |
+| driver_amount | integer | Driver amount (93%) |
+| system_amount | integer | System fee (5%) |
+| agent_amount | integer | Agent commission (2%) |
 
----
+### 15. delivery_tracking
 
-### 17. **provider_export_items**
-Individual cover plan records in provider exports (RLS Enabled)
-
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Item ID |
-| provider_export_id | uuid | NOT NULL, FOREIGN KEY → provider_exports.id | - | Export reference |
-| member_cover_plan_id | uuid | NOT NULL, FOREIGN KEY → member_cover_plans.id | - | Plan reference |
-| export_status | text | CHECK (status IN ['pending','exported','failed']) | 'pending' | Item export status |
-| note | text | | NULL | Export notes |
-
----
-
-## Dispute & Audit Tables
-
-### 18. **disputes**
-Transaction disputes and complaints (RLS Enabled)
-
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Dispute ID |
-| transaction_id | uuid | FOREIGN KEY → transactions.id | NULL | Transaction reference |
-| member_id | uuid | FOREIGN KEY → members.id | NULL | Member reference |
-| partner_id | uuid | FOREIGN KEY → partners.id | NULL | Partner reference |
-| dispute_type | text | CHECK (type IN ['missing_cashback','wrong_amount','unauthorized','other']) | - | Dispute type |
-| description | text | NOT NULL | - | Dispute description |
-| status | text | CHECK (status IN ['open','investigating','resolved','rejected']) | 'open' | Dispute status |
-| resolution_note | text | | NULL | Resolution details |
-| resolved_by | uuid | | NULL | Resolver reference |
-| resolved_at | timestamptz | | NULL | Resolution timestamp |
-| created_at | timestamptz | | now() | Creation timestamp |
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid | Tracking ID |
+| order_id | uuid | FK → orders.id |
+| driver_id | uuid | FK → drivers.id |
+| latitude | numeric | GPS lat |
+| longitude | numeric | GPS long |
+| recorded_at | timestamp | Record time |
 
 ---
 
-### 19. **audit_logs**
-System-wide audit trail of important actions (RLS Enabled)
+## Summary
 
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Log ID |
-| user_id | uuid | FOREIGN KEY → users.id | NULL | User who performed action |
-| action_type | text | NOT NULL | - | Type of action |
-| table_name | text | NOT NULL | - | Table affected |
-| record_id | uuid | | NULL | Record ID affected |
-| old_value | jsonb | | NULL | Previous value |
-| new_value | jsonb | | NULL | New value |
-| created_at | timestamptz | | now() | Action timestamp |
-
----
-
-## Connection Tables
-
-### 20. **member_partner_connections**
-Tracks which members are connected to which partners
-
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | uuid_generate_v4() | Connection ID |
-| member_id | uuid | NOT NULL, FOREIGN KEY → members.id | - | Member reference |
-| partner_id | uuid | NOT NULL, FOREIGN KEY → partners.id | - | Partner reference |
-| status | text | CHECK (status IN ['active','inactive']) | 'active' | Connection status |
-| connected_at | timestamptz | | now() | Connection timestamp |
-
-**Comment:** active: can make purchases | inactive: connection disabled
-
----
-
-### 21. **admin_notifications**
-Stores notifications for admin dashboard about member actions requiring attention
-
-| Column | Type | Constraints | Default | Comment |
-|--------|------|-----------|---------|---------|
-| id | uuid | PRIMARY KEY | gen_random_uuid() | Notification ID |
-| type | text | NOT NULL | - | Notification type |
-| member_id | uuid | FOREIGN KEY → members.id | NULL | Member reference |
-| member_name | text | | NULL | Member name (denormalized) |
-| member_phone | text | | NULL | Member phone (denormalized) |
-| message | text | NOT NULL | - | Notification message |
-| priority | text | CHECK (priority IN ['low','medium','high']) | 'medium' | Priority level |
-| read | boolean | | false | Read status |
-| metadata | jsonb | | NULL | Additional metadata |
-| created_at | timestamptz | | now() | Creation timestamp |
-
----
-
-## Summary Statistics
-
-- **Total Tables:** 21
-- **Tables with RLS Enabled:** 11
-- **Total Columns:** 200+
-- **Primary Keys:** All tables have UUID primary keys
-- **Foreign Key Relationships:** 30+
+- **Total Tables:** 30+
+- **Role Tables:** 5 (members, partners, agents, insurers, drivers)
+- **Admin Role:** Stored in members table with role='admin'
+- **NO Central Users Table**
+- **Authentication:** Each role table has mobile_number, pin_code, pin_hash
+- **Primary Keys:** All tables use UUID
+- **RLS Enabled:** Selected tables for security
 
 ## Key Design Patterns
 
-1. **Cashback Split:** System (1%) + Agent (1%) + Member (remainder)
-2. **Delivery Fee Split:** Driver (93%) + System (5%) + Agent (2%)
-3. **Cover Plan Funding:** Sequential funding by creation_order with overflow balance tracking
-4. **Audit Trail:** Comprehensive logging via audit_logs and wallet_entries
-5. **Status Tracking:** Consistent status enums across entities (pending, active, suspended, etc.)
-6. **Timestamps:** All tables include created_at and most include updated_at for audit purposes
-
+1. **No Central Users Table** - Each role is self-contained
+2. **Cashback Split:** System (1%) + Agent (1%) + Member (remainder)
+3. **Delivery Fee Split:** Driver (93%) + System (5%) + Agent (2%)
+4. **Cover Plan Funding:** Sequential by creation_order with overflow tracking
+5. **Authentication:** mobile_number + pin_code per role table
+6. **Timestamps:** All tables include created_at, most include updated_at

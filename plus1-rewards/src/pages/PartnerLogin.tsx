@@ -41,55 +41,28 @@ export default function PartnerLogin() {
         return;
       }
 
-      // Query users table first (centralized auth)
-      let userQuery = supabase
-        .from('users')
-        .select('*')
-        .eq('role', 'partner');
+      // Query partners table directly (no central users table)
+      let partnerQuery = supabase
+        .from('partners')
+        .select('*');
 
       if (isMobile) {
-        userQuery = userQuery.eq('mobile_number', identifier);
+        partnerQuery = partnerQuery.eq('mobile_number', identifier);
       } else {
-        // For email, we need to check partners table since email is there
-        const { data: partnerByEmail } = await supabase
-          .from('partners')
-          .select('user_id')
-          .eq('email', identifier)
-          .single();
-        
-        if (!partnerByEmail) {
-          showNotification('error', 'Account Not Found', 'Partner account not found');
-          setLoading(false);
-          return;
-        }
-        
-        userQuery = userQuery.eq('id', partnerByEmail.user_id);
+        partnerQuery = partnerQuery.eq('email', identifier);
       }
 
-      const { data: userData, error: userError } = await userQuery.single();
+      const { data: partnerData, error: partnerError } = await partnerQuery.single();
 
-      if (userError || !userData) {
+      if (partnerError || !partnerData) {
         showNotification('error', 'Account Not Found', 'Partner account not found');
         setLoading(false);
         return;
       }
 
       // Verify PIN
-      if (userData.pin_code !== pin) {
+      if (partnerData.pin_code !== pin) {
         showNotification('error', 'Incorrect PIN', 'The PIN you entered is incorrect');
-        setLoading(false);
-        return;
-      }
-
-      // Get partner data
-      const { data: partnerData, error: partnerError } = await supabase
-        .from('partners')
-        .select('*')
-        .eq('user_id', userData.id)
-        .single();
-
-      if (partnerError || !partnerData) {
-        showNotification('error', 'Partner Data Not Found', 'Partner profile not found');
         setLoading(false);
         return;
       }
@@ -124,11 +97,11 @@ export default function PartnerLogin() {
       // Create session
       const sessionData = {
         user: {
-          id: userData.id,
-          role: userData.role,
-          full_name: userData.full_name,
-          mobile_number: userData.mobile_number,
-          status: userData.status
+          id: partnerData.id,
+          role: partnerData.role || 'partner',
+          full_name: partnerData.full_name,
+          mobile_number: partnerData.mobile_number,
+          status: partnerData.status
         },
         partner: partnerData,
         loggedInAt: new Date().toISOString(),
