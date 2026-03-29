@@ -104,7 +104,7 @@ export default function PartnerMemberRegistration() {
       const { data: existingMember } = await supabase
         .from('members')
         .select('id')
-        .eq('phone', phoneNumber)
+        .eq('cell_phone', phoneNumber)
         .maybeSingle();
 
       if (existingMember) {
@@ -135,7 +135,7 @@ export default function PartnerMemberRegistration() {
         .insert({
           full_name: fullName.trim(),
           phone: phoneNumber,
-          mobile_number: phoneNumber,
+          cell_phone: phoneNumber,
           pin_code: pinCode,
           qr_code: qrCodeGen,
           status: 'active',

@@ -128,7 +128,7 @@ export default function PartnerSalesTerminal() {
       const { data, error: memberError } = await supabase
         .from('members')
         .select('id, full_name, phone, status')
-        .eq('phone', phoneNumber)
+        .eq('cell_phone', phoneNumber)
         .single();
 
       if (memberError || !data) {

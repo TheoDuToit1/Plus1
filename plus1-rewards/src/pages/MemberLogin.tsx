@@ -40,49 +40,34 @@ export default function MemberLogin() {
         return;
       }
 
-      // Find user by mobile number and PIN
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('id, role, full_name, mobile_number, status')
-        .eq('mobile_number', cleanPhone)
+      // Find member by cell phone and PIN directly from members table
+      const { data: memberData, error: memberError } = await supabase
+        .from('members')
+        .select('*')
+        .eq('cell_phone', cleanPhone)
         .eq('pin_code', pin)
-        .eq('role', 'member')
         .single();
 
-      if (userError || !userData) {
+      if (memberError || !memberData) {
         setError('Invalid mobile number or PIN');
         setLoading(false);
         return;
       }
 
-      // Check if user is active
-      if (userData.status !== 'active') {
-        setError('Your account is ' + userData.status + '. Please contact support.');
+      // Check if member is active
+      if (memberData.status !== 'active') {
+        setError('Your account is ' + memberData.status + '. Please contact support.');
         setLoading(false);
         return;
       }
 
-      // Get member details
-      const { data: memberData, error: memberError } = await supabase
-        .from('members')
-        .select('*')
-        .eq('user_id', userData.id)
-        .single();
-
-      if (memberError || !memberData) {
-        setError('Member account not found');
-        setLoading(false);
-        return;
-      }
-
-      // Store user session in localStorage (since we're not using Supabase Auth)
+      // Store member session
       const now = new Date();
       const expiresAt = rememberMe 
         ? new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days from now
         : null; // Session storage doesn't need expiry (cleared on tab close)
       
       const sessionData = {
-        user: userData,
         member: memberData,
         loggedInAt: now.toISOString(),
         expiresAt: expiresAt,
