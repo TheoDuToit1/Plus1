@@ -353,7 +353,12 @@ export function MemberDashboard() {
           <p className="text-gray-600">Welcome back, {member?.name || 'Member'}</p>
         </div>
         <button
-          onClick={() => navigate('/member/dashboard#edit-profile')}
+          onClick={() => {
+            const element = document.getElementById('edit-profile');
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }}
           className="flex items-center gap-2 bg-white hover:bg-gray-50 border-2 border-[#1a558b] text-[#1a558b] font-bold px-4 py-2 rounded-xl transition-colors"
         >
           <span className="material-symbols-outlined">edit</span>
