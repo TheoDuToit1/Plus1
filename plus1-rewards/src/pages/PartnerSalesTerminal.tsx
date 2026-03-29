@@ -190,18 +190,19 @@ export default function PartnerSalesTerminal() {
 
       if (txError) throw txError;
 
-      // Fund cover plans
-      const { data: memberCoverPlans } = await supabase
+      // Fund cover plans - first get in_progress plans
+      const { data: inProgressPlans } = await supabase
         .from('member_cover_plans')
-        .select('id, funded_amount, target_amount, status')
+        .select('id, funded_amount, target_amount, status, overflow_balance')
         .eq('member_id', member.id)
         .eq('status', 'in_progress')
         .order('creation_order', { ascending: true });
 
-      if (memberCoverPlans && memberCoverPlans.length > 0) {
-        let remainingAmount = memberAmount;
+      let remainingAmount = memberAmount;
 
-        for (const plan of memberCoverPlans) {
+      // First, fund any in_progress plans
+      if (inProgressPlans && inProgressPlans.length > 0) {
+        for (const plan of inProgressPlans) {
           if (remainingAmount <= 0) break;
 
           const needed = plan.target_amount - plan.funded_amount;
@@ -233,6 +234,40 @@ export default function PartnerSalesTerminal() {
             });
 
           remainingAmount -= toAdd;
+        }
+      }
+
+      // If there's still remaining cashback, add it to overflow of the first active plan
+      if (remainingAmount > 0) {
+        const { data: activePlans } = await supabase
+          .from('member_cover_plans')
+          .select('id, overflow_balance')
+          .eq('member_id', member.id)
+          .eq('status', 'active')
+          .order('creation_order', { ascending: true })
+          .limit(1);
+
+        if (activePlans && activePlans.length > 0) {
+          const activePlan = activePlans[0];
+          const newOverflow = (activePlan.overflow_balance || 0) + remainingAmount;
+
+          await supabase
+            .from('member_cover_plans')
+            .update({
+              overflow_balance: newOverflow
+            })
+            .eq('id', activePlan.id);
+
+          await supabase
+            .from('cover_plan_wallet_entries')
+            .insert({
+              member_id: member.id,
+              member_cover_plan_id: activePlan.id,
+              transaction_id: transaction.id,
+              entry_type: 'overflow_added',
+              amount: remainingAmount,
+              balance_after: newOverflow
+            });
         }
       }
 
