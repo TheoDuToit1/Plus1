@@ -352,6 +352,13 @@ export function MemberDashboard() {
           <h1 className="text-2xl font-bold text-gray-900">Member Dashboard</h1>
           <p className="text-gray-600">Welcome back, {member?.name || 'Member'}</p>
         </div>
+        <button
+          onClick={() => navigate('/member/dashboard#edit-profile')}
+          className="flex items-center gap-2 bg-white hover:bg-gray-50 border-2 border-[#1a558b] text-[#1a558b] font-bold px-4 py-2 rounded-xl transition-colors"
+        >
+          <span className="material-symbols-outlined">edit</span>
+          <span className="hidden sm:inline">Edit Profile</span>
+        </button>
       </div>
 
       {/* Status Banner */}
@@ -723,6 +730,70 @@ export function MemberDashboard() {
             <span className="material-symbols-outlined">support_agent</span>
             Support
           </button>
+        </div>
+      </div>
+
+      {/* Profile Editing Section */}
+      <div id="edit-profile" className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900">Edit Profile</h2>
+          <p className="text-sm text-gray-600 mt-1">Update your personal information</p>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Full Name</label>
+              <input
+                type="text"
+                value={member?.name || ''}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">Contact support to change your name</p>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Phone Number</label>
+              <input
+                type="text"
+                value={member?.phone || ''}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">Contact support to change your phone</p>
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Email Address</label>
+              <input
+                type="email"
+                value={member?.email || ''}
+                placeholder="Add your email"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Status</label>
+              <input
+                type="text"
+                value={member?.status?.toUpperCase() || ''}
+                disabled
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="px-6 py-2 border-2 border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => alert('Profile update functionality coming soon!')}
+              className="px-6 py-2 bg-[#1a558b] text-white font-bold rounded-lg hover:bg-[#1a558b]/90 transition-colors"
+            >
+              Save Changes
+            </button>
+          </div>
         </div>
       </div>
 

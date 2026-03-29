@@ -22,7 +22,7 @@ export default function QuickActionsGrid({ onScanQR, onMyPolicies, onHistory, on
     { icon: 'qr_code_scanner', label: 'Scan Partner QR', onClick: onScanQR },
     { icon: 'shield_with_heart', label: 'My Policies', onClick: onMyPolicies },
     { icon: 'history', label: 'History', onClick: onHistory },
-    { icon: 'person_outline', label: 'My Profile', onClick: onMyProfile, badge: showProfileBadge },
+    { icon: 'person_outline', label: 'Edit Profile', onClick: onMyProfile, badge: showProfileBadge },
   ];
 
   return (
