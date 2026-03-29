@@ -934,6 +934,10 @@ export function MemberDashboard() {
               setShowProfileIncomplete(false);
             }
           }}
+          onForceClose={() => {
+            // Force close even at 100% when user clicks the button
+            setShowProfileIncomplete(false);
+          }}
         />
       )}
     </MemberLayout>

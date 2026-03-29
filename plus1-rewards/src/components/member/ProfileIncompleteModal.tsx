@@ -5,16 +5,22 @@ interface ProfileIncompleteModalProps {
   percentComplete: number;
   missingFields: string[];
   onClose: () => void;
+  onForceClose?: () => void; // Force close even when blocking
 }
 
 export default function ProfileIncompleteModal({
   percentComplete,
   missingFields,
-  onClose
+  onClose,
+  onForceClose
 }: ProfileIncompleteModalProps) {
   const handleGoToProfile = () => {
-    // Close the modal first
-    onClose();
+    // Force close the modal (even when blocking)
+    if (onForceClose) {
+      onForceClose();
+    } else {
+      onClose();
+    }
     
     // Scroll to the edit profile section on the dashboard
     setTimeout(() => {
