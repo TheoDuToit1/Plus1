@@ -607,11 +607,24 @@ export function MemberDashboard() {
 
             {/* In Progress Status */}
             {mainCoverPlan.status === 'in_progress' && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-blue-800 text-sm font-bold">
-                  ⏳ Keep shopping to build up your cashback! R{amountStillNeeded.toFixed(2)} more needed.
-                </p>
-              </div>
+              <>
+                {amountStillNeeded > 0 ? (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-blue-800 text-sm font-bold">
+                      ⏳ Keep shopping to build up your cashback! R{amountStillNeeded.toFixed(2)} more needed.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p className="text-green-800 text-sm font-bold mb-2">
+                      🎉 Congratulations! Your medical cover plan target has been reached!
+                    </p>
+                    <p className="text-green-700 text-xs">
+                      Complete your profile information to activate your cover.
+                    </p>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Suspended Status */}
