@@ -69,11 +69,24 @@ export function MemberDashboard() {
         return;
       }
 
-      // Get member data directly from session (no user_id needed)
-      const memberData = session.member;
+      // Get member ID from session
+      const sessionMemberData = session.member;
       
-      if (!memberData) {
+      if (!sessionMemberData || !sessionMemberData.id) {
         console.error('No member data in session');
+        navigate('/member/login');
+        return;
+      }
+
+      // Fetch fresh member data from database to get latest updates
+      const { data: memberData, error: memberError } = await supabase
+        .from('members')
+        .select('id, full_name, cell_phone, email, qr_code, status, sa_id, suburb, city')
+        .eq('id', sessionMemberData.id)
+        .single();
+
+      if (memberError || !memberData) {
+        console.error('Error fetching member data:', memberError);
         navigate('/member/login');
         return;
       }
@@ -353,10 +366,13 @@ export function MemberDashboard() {
 
       if (error) throw error;
 
-      // Update local state
+      // Update local state with all fields
       setMember({
         ...member,
-        email: editEmail
+        email: editEmail,
+        sa_id: editSaId,
+        suburb: editSuburb,
+        city: editCity
       });
 
       alert('Profile updated successfully!');
