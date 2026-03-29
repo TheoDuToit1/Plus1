@@ -69,75 +69,83 @@ export function MemberDashboard() {
         return;
       }
 
-      // Get member data
-      const { data: memberData } = await supabase
-        .from('members')
-        .select('id, full_name, phone, email, qr_code, status, sa_id, suburb, city')
-        .eq('user_id', session.user.id)
-        .single();
+      // Get member data directly from session (no user_id needed)
+      const memberData = session.member;
+      
+      if (!memberData) {
+        console.error('No member data in session');
+        navigate('/member/login');
+        return;
+      }
 
-      if (memberData) {
-        setMember({
-          ...memberData,
-          name: memberData.full_name
-        });
-        
-        // Initialize edit fields with current data
-        setEditEmail(memberData.email || '');
-        setEditSaId(memberData.sa_id || '');
-        setEditSuburb(memberData.suburb || '');
-        setEditCity(memberData.city || '');
+      // Set member state
+      setMember({
+        id: memberData.id,
+        name: memberData.full_name,
+        phone: memberData.cell_phone,
+        email: memberData.email,
+        qr_code: memberData.qr_code,
+        status: memberData.status,
+        sa_id: memberData.sa_id,
+        suburb: memberData.suburb,
+        city: memberData.city
+      });
+      
+      // Initialize edit fields with current data
+      setEditEmail(memberData.email || '');
+      setEditSaId(memberData.sa_id || '');
+      setEditSuburb(memberData.suburb || '');
+      setEditCity(memberData.city || '');
 
-        // Get main cover plan (first by creation order) using member.id
-        const { data: coverPlansData, error: coverPlansError } = await supabase
-          .from('member_cover_plans')
-          .select(`
-            *,
-            cover_plans (plan_name)
-          `)
-          .eq('member_id', memberData.id)
-          .order('creation_order', { ascending: true });
+      // Get main cover plan (first by creation order) using member.id
+      const { data: coverPlansData, error: coverPlansError } = await supabase
+        .from('member_cover_plans')
+        .select(`
+          *,
+          cover_plans (plan_name)
+        `)
+        .eq('member_id', memberData.id)
+        .order('creation_order', { ascending: true });
 
-        console.log('Cover Plans Query Result:', { coverPlansData, coverPlansError, memberId: memberData.id });
+      console.log('Cover Plans Query Result:', { coverPlansData, coverPlansError, memberId: memberData.id });
 
-        if (coverPlansData && coverPlansData.length > 0) {
-          console.log('Setting main cover plan:', coverPlansData[0]);
-          // Convert string amounts to numbers
-          const planWithNumbers = {
-            ...coverPlansData[0],
-            target_amount: typeof coverPlansData[0].target_amount === 'string' 
-              ? parseFloat(coverPlansData[0].target_amount) 
-              : coverPlansData[0].target_amount,
-            funded_amount: typeof coverPlansData[0].funded_amount === 'string' 
-              ? parseFloat(coverPlansData[0].funded_amount) 
-              : coverPlansData[0].funded_amount,
-            overflow_balance: typeof coverPlansData[0].overflow_balance === 'string' 
-              ? parseFloat(coverPlansData[0].overflow_balance) 
-              : (coverPlansData[0].overflow_balance || 0)
-          };
-          setMainCoverPlan(planWithNumbers);
-          setTotalCoverPlans(coverPlansData.length);
-        } else {
-          console.log('No cover plans found for member');
-        }
+      if (coverPlansData && coverPlansData.length > 0) {
+        console.log('Setting main cover plan:', coverPlansData[0]);
+        // Convert string amounts to numbers
+        const planWithNumbers = {
+          ...coverPlansData[0],
+          target_amount: typeof coverPlansData[0].target_amount === 'string' 
+            ? parseFloat(coverPlansData[0].target_amount) 
+            : coverPlansData[0].target_amount,
+          funded_amount: typeof coverPlansData[0].funded_amount === 'string' 
+            ? parseFloat(coverPlansData[0].funded_amount) 
+            : coverPlansData[0].funded_amount,
+          overflow_balance: typeof coverPlansData[0].overflow_balance === 'string' 
+            ? parseFloat(coverPlansData[0].overflow_balance) 
+            : (coverPlansData[0].overflow_balance || 0)
+        };
+        setMainCoverPlan(planWithNumbers);
+        setTotalCoverPlans(coverPlansData.length);
+      } else {
+        console.log('No cover plans found for member');
+      }
 
-        // Get recent transactions using member.id
-        const { data: txData } = await supabase
-          .from('transactions')
-          .select(`
-            id,
-            purchase_amount,
-            member_amount,
-            created_at,
-            partners (shop_name)
-          `)
-          .eq('member_id', memberData.id)
-          .order('created_at', { ascending: false })
-          .limit(5);
+      // Get recent transactions using member.id
+      const { data: txData } = await supabase
+        .from('transactions')
+        .select(`
+          id,
+          purchase_amount,
+          member_amount,
+          created_at,
+          partners (shop_name)
+        `)
+        .eq('member_id', memberData.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
 
-        if (txData) {
-          setRecentTransactions(txData as any);
-        }
+      if (txData) {
+        setRecentTransactions(txData as any);
       }
 
     } catch (error) {

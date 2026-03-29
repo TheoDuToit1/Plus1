@@ -1,7 +1,7 @@
 // Session management utilities for custom authentication
 
 interface SessionData {
-  user: {
+  user?: {
     id: string;
     role: string;
     full_name: string;
@@ -13,6 +13,7 @@ interface SessionData {
   loggedInAt: string;
   expiresAt: string | null;
   rememberMe: boolean;
+  platform?: string;
 }
 
 export function getSession(role: 'member' | 'partner' = 'member'): SessionData | null {
