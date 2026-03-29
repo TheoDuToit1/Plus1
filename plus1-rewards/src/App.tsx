@@ -42,6 +42,7 @@ import PartnerProcessTransaction from './components/partner/PartnerProcessTransa
 import QuickTransaction from './components/partner/pages/QuickTransaction'
 import PartnerMemberRegistration from './pages/PartnerMemberRegistration'
 import PartnerSales from './pages/PartnerSales'
+import PartnerSalesTerminal from './pages/PartnerSalesTerminal'
 import { AgentDashboard } from './pages/AgentDashboard'
 import { AgentAddShop } from './pages/AgentAddPartner'
 import { AgentCommission } from './pages/AgentCommission'
@@ -156,6 +157,7 @@ export default function App() {
           <Route path="/partner/quick-transaction" element={<QuickTransaction />} />
           <Route path="/partner/member-registration" element={<PartnerMemberRegistration />} />
           <Route path="/partner/sales" element={<PartnerSales />} />
+          <Route path="/partner/sales-terminal" element={<PartnerSalesTerminal />} />
           <Route path="/partner/transaction-history" element={<TransactionHistory />} />
           <Route path="/partner/transaction/:transactionId" element={<PartnerTransactionDetail />} />
           <Route path="/partner/monthly-invoice" element={<MonthlyInvoice />} />

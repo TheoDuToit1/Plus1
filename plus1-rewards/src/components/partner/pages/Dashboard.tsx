@@ -1226,6 +1226,15 @@ export default function Dashboard() {
             <h2 className="text-lg font-bold text-gray-900">Quick Actions</h2>
           </div>
           <div className="p-4 grid grid-cols-2 gap-3">
+            {/* Fullscreen Sales Terminal Button - Prominent */}
+            <button
+              onClick={() => navigate('/partner/sales-terminal')}
+              className="col-span-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-4 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 text-base"
+            >
+              <DollarSign className="w-6 h-6" />
+              Open Sales Terminal
+            </button>
+
             <button
               onClick={() => navigate('/partner/transaction-history')}
               className="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-900 font-semibold py-3 rounded-lg transition-colors flex flex-col items-center justify-center gap-1 text-xs"
