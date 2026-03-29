@@ -51,7 +51,7 @@ vercel --prod
 
 2. **Test Plus1-Go:**
    - https://www.plus1rewards.com/go → Should show Plus1-Go homepage
-   - https://www.plus1rewards.com/go/dashboard → Should redirect to login
+   - Login from Go redirects to unified member dashboard at /member/dashboard
 
 3. **Test Images:**
    - Open browser DevTools → Network tab

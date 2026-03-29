@@ -72,15 +72,16 @@ vercel --prod
 
 ### Plus1-Go (Sub Path)
 - ✅ Homepage: https://www.plus1rewards.com/go
-- ✅ Dashboard: https://www.plus1rewards.com/go/dashboard
 - ✅ Login redirect: https://www.plus1rewards.com/go/login → redirects to /login?platform=go
 - ✅ Images load correctly from /go/ path
 
-### Unified Authentication
-- ✅ Login at `/login` without platform param → redirects to `/member/dashboard`
-- ✅ Login at `/login?platform=go` → redirects to `/go/dashboard`
+### Unified Authentication & Member System
+- ✅ Login at `/login` → redirects to `/member/dashboard` (unified for both platforms)
+- ✅ Login at `/login?platform=go` → redirects to `/member/dashboard` (unified)
 - ✅ Register at `/register` → redirects to `/login`
 - ✅ Register at `/register?platform=go` → redirects to `/login?platform=go`
+- ✅ ONE member profile at `/member/profile` (shared across both platforms)
+- ✅ ONE member dashboard at `/member/dashboard` (accessible from both platforms)
 
 ## Verification Checklist
 
