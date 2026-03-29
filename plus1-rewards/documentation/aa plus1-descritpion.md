@@ -4,7 +4,16 @@ Easy guide for members, managers, developers, and partners
 Health care for all!
 
 IMPORTANT DATABASE STRUCTURE NOTE (Updated 2026-03-29):
-This project has NO central users table. Each role (members, partners, agents, insurers, drivers) is self-contained with its own authentication using mobile_number and pin_code. Admin users are stored in the members table with role='admin'. All references to "Provider" have been updated to "Insurer" to reflect the correct terminology.
+This project has NO central users table. Each role (members, partners, agents, insurers, drivers) is self-contained with its own authentication using cell_phone (for members) or mobile_number (for other roles) and pin_code. Admin users are stored in the members table with role='admin'. All references to "Provider" have been updated to "Insurer" to reflect the correct terminology.
+
+AUTHENTICATION IMPLEMENTATION (Updated 2026-03-29):
+- Members authenticate using: members.cell_phone + members.pin_code
+- Partners authenticate using: partners.mobile_number + partners.pin_code
+- Agents authenticate using: agents.mobile_number + agents.pin_code
+- Insurers authenticate using: insurers.mobile_number + insurers.pin_code
+- Drivers authenticate using: drivers.mobile_number + drivers.pin_code
+- Sessions store role-specific data directly (no user_id references)
+- Dashboards fetch fresh data from database on each load (not from stale session data)
 
 1. What Plus1 Rewards is
    Plus1 Rewards is a system that helps people get access to medical cover by shopping at partner stores.

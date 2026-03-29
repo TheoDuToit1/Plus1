@@ -37,14 +37,18 @@
 ## 2. LOGIN & AUTHENTICATION
 
 ### 2.1 Login Process
-- Enter mobile number
+- Enter cell phone number (10 digits)
 - Enter 6-digit PIN
 - No OTP required
+- Authentication uses `members` table directly (cell_phone + pin_code)
+- No central users table - each role authenticates independently
 - Access member dashboard
 
 ### 2.2 Session Management
-- Stay logged in
-- Log out
+- Session stores member data directly
+- Dashboard fetches fresh data from database on each load
+- Stay logged in (remember me for 30 days)
+- Log out (clears session)
 - Forgot PIN (contact admin)
 
 ---
@@ -54,32 +58,49 @@
 ### 3.1 Dashboard Overview
 **View:**
 - Member name
-- Mobile number
+- Cell phone number
 - QR code (for in-store scanning)
 - Current cover plan name
-- Cover plan status (Active/Suspended/In Progress)
+- Cover plan status (🟢 Active / 🟡 In Progress / 🔴 Suspended)
 - Cashback progress bar
 - Funded amount vs target amount
 - Days remaining in active cycle (if active)
-- Overflow cashback balance
+- Overflow cashback balance (available for upgrades/dependants/sponsoring)
 - Total transactions count
 - Last transaction date
+- Recent transactions (last 5)
+
+**Dashboard Data:**
+- Fetches fresh member data from database on each load
+- Shows latest profile information (email, SA ID, suburb, city)
+- Real-time cover plan status
+- Accurate overflow balance
 
 ### 3.2 Cover Plan Section
 **View:**
 - Current cover plan details
-- Plan name
-- Monthly target amount
-- Funded amount
-- Status (Active/Suspended/In Progress)
+- Plan name (e.g., "Day to Day Single")
+- Monthly target amount (e.g., R385)
+- Funded amount (amount allocated to plan)
+- Status badge:
+  - 🟢 ACTIVE (plan is active with coverage)
+  - 🟡 IN PROGRESS (building up cashback)
+  - 🔴 SUSPENDED (insufficient funds)
 - Active from date
 - Active to date (30-day cycle end)
 - Progress percentage
+- Amount still needed (if in progress)
 - Next renewal date
+
+**Status Messages:**
+- In Progress (< 100%): "⏳ Keep shopping to build up your cashback! R[amount] more needed."
+- In Progress (100% reached): "🎉 Congratulations! Your medical cover plan target has been reached! Complete your dashboard information to activate your cover."
+- Active: "✓ Policy Active - Coverage until [date]"
+- Suspended: "⚠ Not enough cashback yet. Shop more or top up to reactivate your cover."
 
 **Actions:**
 - View cover plan history
-- Request plan upgrade
+- Request plan upgrade (if overflow available)
 - Request plan change (requires telephonic approval)
 
 ### 3.3 Multiple Cover Plans
@@ -99,13 +120,26 @@
 
 ### 3.4 Overflow Cashback
 **View:**
-- Total overflow balance
+- Total overflow balance (extra cashback after plan is funded)
 - Overflow history
 - How overflow is allocated
+
+**Cashback Balance Breakdown (shown on dashboard):**
+- Total Cashback Earned: R[amount] (member cashback only, no system/agent shown)
+- Allocated to Cover Plan: -R[amount]
+- Available Balance (Overflow): R[amount]
+
+**Important Notes:**
+- Only member cashback is shown (14% for 16% partner)
+- System (1%) and agent (1%) commissions are NOT displayed to members
+- Overflow updates automatically when active plan receives new cashback
+- Overflow can be used for upgrades, dependants, or sponsoring
 
 **Actions:**
 - View overflow transactions
 - See overflow applied to next cycle
+- Use overflow for plan upgrades
+- Use overflow for dependants
 
 ### 3.5 Dependants & Linked People
 **View:**
@@ -159,14 +193,13 @@
 - Download transaction history
 
 ### 4.3 Cashback Breakdown
-**View per transaction:**
+**View per transaction (member view only):**
 - Total purchase amount
-- Total cashback percentage
-- System amount (1%)
-- Agent amount (1%)
-- Member amount (remainder)
+- Member cashback amount (e.g., 14% for 16% partner)
 - Which cover plan was funded
-- Overflow amount (if any)
+- Overflow amount (if plan already active)
+
+**Note:** System (1%) and agent (1%) commissions are NOT shown to members. Members only see their own cashback portion.
 
 ---
 
@@ -537,35 +570,46 @@
 
 ## 15. PROFILE MANAGEMENT
 
-### 15.1 View Profile
+### 15.1 View Profile (Edit Profile Section on Dashboard)
 **See:**
-- Full name
-- Mobile number
-- Email
-- Profile picture
+- Full name (cannot edit - contact support)
+- Cell phone number (cannot edit - contact support)
+- Email address (editable)
+- SA ID number (editable)
+- Suburb (editable)
+- City (editable)
+- Account status (display only)
+
+**Profile Completion Requirements:**
+- Valid email address (not @plus1rewards.local placeholder)
 - SA ID number
-- Date of birth
-- City and suburb
-- Default address
-- Account status
-- Member since date
-- Total orders placed
-- Total amount spent
-- Last order date
+- Suburb
+- City
+
+**Profile Incomplete Modal:**
+- Shows when plan reaches 90%+ or 100%
+- Title: "Dashboard Update Required!"
+- Message: "Your cover plan cannot be activated until you complete your member dashboard."
+- Lists missing fields
+- Button: "Go to Member Dashboard" (scrolls to edit section)
 
 ### 15.2 Edit Profile
 **Update:**
-- Full name
 - Email address
-- Profile picture (upload)
 - SA ID number
-- Date of birth
-- City and suburb
-- Contact phone number
+- Suburb
+- City
 
 **Cannot change:**
-- Mobile number (used for login)
+- Full name (contact support to change)
+- Cell phone number (used for login - contact support)
 - PIN (requires separate process)
+
+**Save Changes:**
+- Click "Save Changes" button
+- Dashboard reloads with fresh data from database
+- Profile completion check runs automatically
+- If complete and plan at 100%, plan activates automatically
 
 ### 15.3 Change PIN
 **Process:**
