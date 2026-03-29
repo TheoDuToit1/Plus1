@@ -96,12 +96,8 @@ export default function MemberLogin() {
         sessionStorage.setItem('memberSession', JSON.stringify(sessionData));
       }
 
-      // Navigate based on platform
-      if (platform === 'go') {
-        window.location.href = '/go/dashboard';
-      } else {
-        navigate('/member/dashboard');
-      }
+      // Navigate to unified member dashboard (works for both platforms)
+      navigate('/member/dashboard');
     } catch (err: any) {
       setError(err.message || 'Failed to sign in');
     } finally {
