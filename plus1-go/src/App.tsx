@@ -334,7 +334,13 @@ export default function App() {
               </div>
 
               <div className="hidden desktop:flex items-center gap-1 desktop:gap-6 ml-auto flex-shrink-0">
-                <button className="relative p-2 desktop:p-2.5 hover:bg-zinc-100 rounded-full transition-colors">
+                <button 
+                  onClick={() => {
+                    // TODO: Implement basket functionality
+                    alert('Basket feature coming soon!');
+                  }}
+                  className="relative p-2 desktop:p-2.5 hover:bg-zinc-100 rounded-full transition-colors"
+                >
                   <ShoppingCart className="w-5 h-5 desktop:w-6 desktop:h-6" />
                   {basketCount > 0 && (
                     <span className="absolute top-0 right-0 desktop:top-1 desktop:right-1 bg-emerald-500 text-white text-[8px] desktop:text-[10px] font-bold w-4 h-4 desktop:w-5 desktop:h-5 rounded-full flex items-center justify-center border-2 border-white">{basketCount}</span>
@@ -344,7 +350,10 @@ export default function App() {
                   {currentUser ? (
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-semibold text-zinc-700">Hi, {currentUser.full_name?.split(' ')[0]}</span>
-                      <button className="p-2.5 hover:bg-zinc-100 rounded-full transition-colors">
+                      <button 
+                        onClick={() => window.location.href = '/member/profile'}
+                        className="p-2.5 hover:bg-zinc-100 rounded-full transition-colors"
+                      >
                         <User className="w-5 h-5" />
                       </button>
                     </div>
