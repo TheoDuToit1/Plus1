@@ -52,6 +52,7 @@ export function MemberDashboard() {
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [showProfileIncomplete, setShowProfileIncomplete] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [showTransactions, setShowTransactions] = useState(false);
   
   // Profile editing state
   const [editEmail, setEditEmail] = useState('');
@@ -717,41 +718,51 @@ export function MemberDashboard() {
 
       {/* Recent Transactions */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6 shadow-sm">
-        <div className="p-6 border-b border-gray-200">
+        <button
+          onClick={() => setShowTransactions(!showTransactions)}
+          className="w-full p-6 border-b border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
           <h2 className="text-xl font-bold text-gray-900">Recent Transactions</h2>
-        </div>
+          <span className="material-symbols-outlined text-gray-600">
+            {showTransactions ? 'expand_less' : 'expand_more'}
+          </span>
+        </button>
 
-        {recentTransactions.length === 0 ? (
-          <div className="p-12 text-center">
-            <span className="material-symbols-outlined text-gray-400 text-6xl mb-4 block">receipt_long</span>
-            <h3 className="text-gray-900 font-bold text-lg mb-2">No transactions yet</h3>
-            <p className="text-gray-600">Start shopping at partner stores to earn cashback!</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-gray-200">
-            {recentTransactions.map((tx) => (
-              <div key={tx.id} className="p-6 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-[#1a558b]/10 rounded-xl flex items-center justify-center">
-                      <span className="material-symbols-outlined text-[#1a558b] text-xl">store</span>
-                    </div>
-                    <div>
-                      <h3 className="text-gray-900 font-bold">
-                        {tx.partners?.shop_name || 'Partner Store'}
-                      </h3>
-                      <p className="text-gray-600 text-sm">{formatDate(tx.created_at)}</p>
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <p className="text-gray-900 font-bold text-lg">R{tx.purchase_amount.toFixed(2)}</p>
-                    <p className="text-green-600 text-sm">+R{tx.member_amount.toFixed(2)} cashback</p>
-                  </div>
-                </div>
+        {showTransactions && (
+          <>
+            {recentTransactions.length === 0 ? (
+              <div className="p-12 text-center">
+                <span className="material-symbols-outlined text-gray-400 text-6xl mb-4 block">receipt_long</span>
+                <h3 className="text-gray-900 font-bold text-lg mb-2">No transactions yet</h3>
+                <p className="text-gray-600">Start shopping at partner stores to earn cashback!</p>
               </div>
-            ))}
-          </div>
+            ) : (
+              <div className="divide-y divide-gray-200">
+                {recentTransactions.map((tx) => (
+                  <div key={tx.id} className="p-6 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-[#1a558b]/10 rounded-xl flex items-center justify-center">
+                          <span className="material-symbols-outlined text-[#1a558b] text-xl">store</span>
+                        </div>
+                        <div>
+                          <h3 className="text-gray-900 font-bold">
+                            {tx.partners?.shop_name || 'Partner Store'}
+                          </h3>
+                          <p className="text-gray-600 text-sm">{formatDate(tx.created_at)}</p>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-gray-900 font-bold text-lg">R{tx.purchase_amount.toFixed(2)}</p>
+                        <p className="text-green-600 text-sm">+R{tx.member_amount.toFixed(2)} cashback</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
