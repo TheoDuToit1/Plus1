@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getSession, clearSession } from '../lib/session';
+import { encodeMemberQR } from '../lib/config';
+import QRCode from 'qrcode';
 import MemberLayout from '../components/member/MemberLayout';
 import UpgradePromptModal from '../components/member/UpgradePromptModal';
 import ProfileIncompleteModal from '../components/member/ProfileIncompleteModal';
@@ -76,6 +78,36 @@ export function MemberDashboard() {
   // Delivery addresses state
   const [deliveryAddresses, setDeliveryAddresses] = useState<DeliveryAddress[]>([]);
   const [savingAddresses, setSavingAddresses] = useState(false);
+  
+  // QR code state
+  const [qrDataUrl, setQrDataUrl] = useState<string>('');
+
+  const generateQRCode = async (qrCode: string, phone: string) => {
+    const qrValue = encodeMemberQR(qrCode, phone);
+    try {
+      const url = await QRCode.toDataURL(qrValue, {
+        width: 400,
+        margin: 2,
+        color: { dark: '#1a558b', light: '#ffffff' },
+        errorCorrectionLevel: 'H',
+      });
+      setQrDataUrl(url);
+    } catch (error) {
+      console.error('Error generating QR code:', error);
+      // Fallback to phone number if QR generation fails
+      try {
+        const url = await QRCode.toDataURL(phone, {
+          width: 400,
+          margin: 2,
+          color: { dark: '#1a558b', light: '#ffffff' },
+          errorCorrectionLevel: 'H',
+        });
+        setQrDataUrl(url);
+      } catch (fallbackError) {
+        console.error('Error generating fallback QR:', fallbackError);
+      }
+    }
+  };
 
   const loadDashboardData = async () => {
     try {
@@ -121,6 +153,11 @@ export function MemberDashboard() {
         city: memberData.city
       });
       
+      // Generate QR code image from qr_code string
+      if (memberData.qr_code) {
+        generateQRCode(memberData.qr_code, memberData.cell_phone);
+      }
+      
       // Initialize edit fields with current data
       setEditEmail(memberData.email || '');
       setEditSaId(memberData.sa_id || '');
@@ -129,15 +166,17 @@ export function MemberDashboard() {
       setEditPostalCode(memberData.postal_code || '');
       
       // Initialize delivery addresses from saved_addresses JSONB
-      if (memberData.saved_addresses && Array.isArray(memberData.saved_addresses)) {
+      if (memberData.saved_addresses && Array.isArray(memberData.saved_addresses) && memberData.saved_addresses.length > 0) {
         setDeliveryAddresses(memberData.saved_addresses);
       } else {
         // Initialize with empty addresses if none exist
-        setDeliveryAddresses([
+        const defaultAddresses: DeliveryAddress[] = [
           { id: '1', label: 'Home', address: '', suburb: '', city: '', postal_code: '', is_default: true },
           { id: '2', label: 'Work', address: '', suburb: '', city: '', postal_code: '', is_default: false },
           { id: '3', label: 'Other', address: '', suburb: '', city: '', postal_code: '', is_default: false }
-        ]);
+        ];
+        setDeliveryAddresses(defaultAddresses);
+        console.log('Initialized default addresses:', defaultAddresses);
       }
 
       // Get main cover plan (first by creation order) using member.id
@@ -516,6 +555,27 @@ export function MemberDashboard() {
           <span className="hidden sm:inline">Edit Profile</span>
         </button>
       </div>
+
+      {/* QR Code Card */}
+      {qrDataUrl && (
+        <div className="bg-gradient-to-br from-[#1a558b] to-[#2a6a9b] border border-[#1a558b] rounded-xl p-6 mb-6 shadow-lg">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="text-white">
+              <h2 className="text-xl font-bold mb-2">Your Member QR Code</h2>
+              <p className="text-blue-100 text-sm mb-1">Show this at partner stores to earn cashback</p>
+              <p className="text-blue-100 text-sm">Member: {member?.name}</p>
+              <p className="text-blue-100 text-sm">Phone: {member?.phone}</p>
+            </div>
+            <div className="bg-white p-4 rounded-xl shadow-lg">
+              <img 
+                src={qrDataUrl} 
+                alt="Member QR Code" 
+                className="w-48 h-48 md:w-56 md:h-56"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status Banner */}
       <div className={`border rounded-xl p-6 mb-6 shadow-sm ${
@@ -1051,75 +1111,81 @@ export function MemberDashboard() {
           <p className="text-sm text-gray-600 mt-1">Manage up to 3 delivery addresses for Plus1-Go orders</p>
         </div>
         <div className="p-6 space-y-6">
-          {deliveryAddresses.map((address, index) => (
-            <div key={address.id} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-[#1a558b] text-2xl">
-                    {address.label === 'Home' ? 'home' : address.label === 'Work' ? 'work' : 'location_on'}
-                  </span>
+          {deliveryAddresses.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-600">Loading addresses...</p>
+            </div>
+          ) : (
+            deliveryAddresses.map((address, index) => (
+              <div key={address.id} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-[#1a558b] text-2xl">
+                      {address.label === 'Home' ? 'home' : address.label === 'Work' ? 'work' : 'location_on'}
+                    </span>
+                    <div>
+                      <h3 className="font-bold text-gray-900">{address.label} Address</h3>
+                      {address.is_default && (
+                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Default</span>
+                      )}
+                    </div>
+                  </div>
+                  {!address.is_default && (
+                    <button
+                      onClick={() => handleSetDefaultAddress(address.id)}
+                      className="text-sm text-[#1a558b] hover:underline font-bold"
+                    >
+                      Set as Default
+                    </button>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Street Address</label>
+                    <input
+                      type="text"
+                      value={address.address}
+                      onChange={(e) => handleUpdateAddress(address.id, 'address', e.target.value)}
+                      placeholder="Enter street address"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+                    />
+                  </div>
                   <div>
-                    <h3 className="font-bold text-gray-900">{address.label} Address</h3>
-                    {address.is_default && (
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Default</span>
-                    )}
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Suburb</label>
+                    <input
+                      type="text"
+                      value={address.suburb}
+                      onChange={(e) => handleUpdateAddress(address.id, 'suburb', e.target.value)}
+                      placeholder="Enter suburb"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">City</label>
+                    <input
+                      type="text"
+                      value={address.city}
+                      onChange={(e) => handleUpdateAddress(address.id, 'city', e.target.value)}
+                      placeholder="Enter city"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Postal Code</label>
+                    <input
+                      type="text"
+                      value={address.postal_code}
+                      onChange={(e) => handleUpdateAddress(address.id, 'postal_code', e.target.value)}
+                      placeholder="4-digit code"
+                      maxLength={4}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+                    />
                   </div>
                 </div>
-                {!address.is_default && (
-                  <button
-                    onClick={() => handleSetDefaultAddress(address.id)}
-                    className="text-sm text-[#1a558b] hover:underline font-bold"
-                  >
-                    Set as Default
-                  </button>
-                )}
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Street Address</label>
-                  <input
-                    type="text"
-                    value={address.address}
-                    onChange={(e) => handleUpdateAddress(address.id, 'address', e.target.value)}
-                    placeholder="Enter street address"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Suburb</label>
-                  <input
-                    type="text"
-                    value={address.suburb}
-                    onChange={(e) => handleUpdateAddress(address.id, 'suburb', e.target.value)}
-                    placeholder="Enter suburb"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">City</label>
-                  <input
-                    type="text"
-                    value={address.city}
-                    onChange={(e) => handleUpdateAddress(address.id, 'city', e.target.value)}
-                    placeholder="Enter city"
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Postal Code</label>
-                  <input
-                    type="text"
-                    value={address.postal_code}
-                    onChange={(e) => handleUpdateAddress(address.id, 'postal_code', e.target.value)}
-                    placeholder="4-digit code"
-                    maxLength={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
           
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
             <button
