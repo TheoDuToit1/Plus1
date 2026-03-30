@@ -60,6 +60,7 @@ export function MemberDashboard() {
   const [editSaId, setEditSaId] = useState('');
   const [editSuburb, setEditSuburb] = useState('');
   const [editCity, setEditCity] = useState('');
+  const [editPostalCode, setEditPostalCode] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
   const loadDashboardData = async () => {
@@ -83,7 +84,7 @@ export function MemberDashboard() {
       // Fetch fresh member data from database to get latest updates
       const { data: memberData, error: memberError } = await supabase
         .from('members')
-        .select('id, full_name, cell_phone, email, qr_code, status, sa_id, suburb, city')
+        .select('id, full_name, cell_phone, email, qr_code, status, sa_id, suburb, city, postal_code')
         .eq('id', sessionMemberData.id)
         .single();
 
@@ -111,6 +112,7 @@ export function MemberDashboard() {
       setEditSaId(memberData.sa_id || '');
       setEditSuburb(memberData.suburb || '');
       setEditCity(memberData.city || '');
+      setEditPostalCode(memberData.postal_code || '');
 
       // Get main cover plan (first by creation order) using member.id
       const { data: coverPlansData, error: coverPlansError } = await supabase
@@ -362,7 +364,8 @@ export function MemberDashboard() {
           email: editEmail,
           sa_id: editSaId,
           suburb: editSuburb,
-          city: editCity
+          city: editCity,
+          postal_code: editPostalCode
         })
         .eq('id', member.id);
 
@@ -914,6 +917,17 @@ export function MemberDashboard() {
                 value={editCity}
                 onChange={(e) => setEditCity(e.target.value)}
                 placeholder="Enter your city"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">Postal Code</label>
+              <input
+                type="text"
+                value={editPostalCode}
+                onChange={(e) => setEditPostalCode(e.target.value)}
+                placeholder="Enter your postal code"
+                maxLength={4}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
               />
             </div>
