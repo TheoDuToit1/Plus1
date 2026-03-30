@@ -53,6 +53,7 @@ export function MemberDashboard() {
   const [showProfileIncomplete, setShowProfileIncomplete] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [showTransactions, setShowTransactions] = useState(false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
   
   // Profile editing state
   const [editEmail, setEditEmail] = useState('');
@@ -768,10 +769,18 @@ export function MemberDashboard() {
 
       {/* Quick Actions */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="p-6 border-b border-gray-200">
+        <button
+          onClick={() => setShowQuickActions(!showQuickActions)}
+          className="w-full p-6 border-b border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
           <h2 className="text-xl font-bold text-gray-900">Quick Actions</h2>
-        </div>
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <span className="material-symbols-outlined text-gray-600">
+            {showQuickActions ? 'expand_less' : 'expand_more'}
+          </span>
+        </button>
+        
+        {showQuickActions && (
+          <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <button
             onClick={() => window.location.href = '/go/'}
             className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
@@ -836,6 +845,7 @@ export function MemberDashboard() {
             Support
           </button>
         </div>
+        )}
       </div>
 
       {/* Profile Editing Section */}
