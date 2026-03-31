@@ -51,36 +51,52 @@ export default function MemberCoverPlans() {
         return;
       }
 
-      // Load member data - query by user_id first
-      const { data: memberData } = await supabase
+      // Get member ID from session
+      const sessionMemberData = session.member;
+      
+      if (!sessionMemberData || !sessionMemberData.id) {
+        console.error('No member data in session');
+        navigate('/member/login');
+        return;
+      }
+
+      // Fetch fresh member data from database
+      const { data: memberData, error: memberError } = await supabase
         .from('members')
-        .select('id, full_name, phone, email, qr_code')
-        .eq('user_id', session.user.id)
+        .select('id, full_name, cell_phone, email, qr_code')
+        .eq('id', sessionMemberData.id)
         .single();
 
-      if (memberData) {
-        setMember({
-          ...memberData,
-          name: memberData.full_name
-        });
+      if (memberError || !memberData) {
+        console.error('Error fetching member data:', memberError);
+        navigate('/member/login');
+        return;
+      }
 
-        // Load cover plans using member.id
-        const { data: coverPlansData } = await supabase
-          .from('member_cover_plans')
-          .select(`
-            *,
-            cover_plans (
-              id,
-              plan_name,
-              monthly_target_amount
-            )
-          `)
-          .eq('member_id', memberData.id)
-          .order('creation_order', { ascending: true });
+      setMember({
+        id: memberData.id,
+        name: memberData.full_name,
+        phone: memberData.cell_phone,
+        email: memberData.email,
+        qr_code: memberData.qr_code
+      });
 
-        if (coverPlansData) {
-          setCoverPlans(coverPlansData as any);
-        }
+      // Load cover plans using member.id
+      const { data: coverPlansData } = await supabase
+        .from('member_cover_plans')
+        .select(`
+          *,
+          cover_plans (
+            id,
+            plan_name,
+            monthly_target_amount
+          )
+        `)
+        .eq('member_id', memberData.id)
+        .order('creation_order', { ascending: true });
+
+      if (coverPlansData) {
+        setCoverPlans(coverPlansData as any);
       }
     } catch (error) {
       console.error('Error loading cover plans:', error);

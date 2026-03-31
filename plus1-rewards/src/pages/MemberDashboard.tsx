@@ -60,12 +60,15 @@ export function MemberDashboard() {
   const [mainCoverPlan, setMainCoverPlan] = useState<MemberCoverPlan | null>(null);
   const [totalCoverPlans, setTotalCoverPlans] = useState(0);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [totalTransactionCount, setTotalTransactionCount] = useState(0);
+  const [lastTransactionDate, setLastTransactionDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [showProfileIncomplete, setShowProfileIncomplete] = useState(false);
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [showTransactions, setShowTransactions] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
   
   // Profile editing state
   const [editEmail, setEditEmail] = useState('');
@@ -78,6 +81,7 @@ export function MemberDashboard() {
   // Delivery addresses state
   const [deliveryAddresses, setDeliveryAddresses] = useState<DeliveryAddress[]>([]);
   const [savingAddresses, setSavingAddresses] = useState(false);
+  const [showDeliveryAddresses, setShowDeliveryAddresses] = useState(false);
   
   // QR code state
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
@@ -213,7 +217,7 @@ export function MemberDashboard() {
       }
 
       // Get recent transactions using member.id
-      const { data: txData } = await supabase
+      const { data: txData, count: txCount } = await supabase
         .from('transactions')
         .select(`
           id,
@@ -221,13 +225,21 @@ export function MemberDashboard() {
           member_amount,
           created_at,
           partners (shop_name)
-        `)
+        `, { count: 'exact' })
         .eq('member_id', memberData.id)
         .order('created_at', { ascending: false })
         .limit(5);
 
       if (txData) {
         setRecentTransactions(txData as any);
+        if (txData.length > 0) {
+          setLastTransactionDate(txData[0].created_at);
+        }
+      }
+
+      // Set total transaction count from the same query
+      if (txCount !== null) {
+        setTotalTransactionCount(txCount);
       }
 
     } catch (error) {
@@ -558,19 +570,19 @@ export function MemberDashboard() {
 
       {/* QR Code Card */}
       {qrDataUrl && (
-        <div className="bg-gradient-to-br from-[#1a558b] to-[#2a6a9b] border border-[#1a558b] rounded-xl p-6 mb-6 shadow-lg">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+        <div className="bg-gradient-to-br from-[#1a558b] to-[#2a6a9b] border border-[#1a558b] rounded-xl p-4 mb-6 shadow-lg">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="text-white">
-              <h2 className="text-xl font-bold mb-2">Your Member QR Code</h2>
-              <p className="text-blue-100 text-sm mb-1">Show this at partner stores to earn cashback</p>
-              <p className="text-blue-100 text-sm">Member: {member?.name}</p>
-              <p className="text-blue-100 text-sm">Phone: {member?.phone}</p>
+              <h2 className="text-lg font-bold mb-1">Your Member QR Code</h2>
+              <p className="text-blue-100 text-xs mb-1">Show this at partner stores to earn cashback</p>
+              <p className="text-blue-100 text-xs">Member: {member?.name}</p>
+              <p className="text-blue-100 text-xs">Phone: {member?.phone}</p>
             </div>
-            <div className="bg-white p-4 rounded-xl shadow-lg">
+            <div className="bg-white p-2 rounded-lg shadow-lg">
               <img 
                 src={qrDataUrl} 
                 alt="Member QR Code" 
-                className="w-48 h-48 md:w-56 md:h-56"
+                className="w-24 h-24 md:w-28 md:h-28"
               />
             </div>
           </div>
@@ -778,7 +790,7 @@ export function MemberDashboard() {
       {mainCoverPlan && mainCoverPlan.status === 'active' && (
         <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6 shadow-sm">
           <h2 className="text-lg font-bold text-gray-900 mb-4">Manage Your Cashback</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Upgrade Plan Button */}
             <button
               onClick={handleUpgrade}
@@ -811,6 +823,16 @@ export function MemberDashboard() {
               <span>Sponsor Someone</span>
               <span className="text-xs opacity-90">Help someone get covered</span>
             </button>
+
+            {/* View All Plans Button */}
+            <button
+              onClick={() => navigate('/member/cover-plans')}
+              className="bg-gradient-to-br from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-6 rounded-xl transition-all transform hover:scale-105 flex flex-col items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined text-4xl">view_list</span>
+              <span>View All Plans</span>
+              <span className="text-xs opacity-90">See all cover plans</span>
+            </button>
           </div>
         </div>
       )}
@@ -829,22 +851,22 @@ export function MemberDashboard() {
 
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[#1a558b] text-2xl">account_balance_wallet</span>
+            <span className="material-symbols-outlined text-[#1a558b] text-2xl">receipt</span>
             <div>
-              <p className="text-gray-900 font-bold text-xl">
-                R{overflowBalance.toFixed(2)}
-              </p>
-              <p className="text-gray-600 text-sm">Available Balance</p>
+              <p className="text-gray-900 font-bold text-xl">{totalTransactionCount}</p>
+              <p className="text-gray-600 text-sm">Total Transactions</p>
             </div>
           </div>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[#1a558b] text-2xl">receipt</span>
+            <span className="material-symbols-outlined text-[#1a558b] text-2xl">schedule</span>
             <div>
-              <p className="text-gray-900 font-bold text-xl">{recentTransactions.length}</p>
-              <p className="text-gray-600 text-sm">Recent Transactions</p>
+              <p className="text-gray-900 font-bold text-lg">
+                {lastTransactionDate ? formatDate(lastTransactionDate) : 'No transactions'}
+              </p>
+              <p className="text-gray-600 text-sm">Last Transaction</p>
             </div>
           </div>
         </div>
@@ -983,234 +1005,256 @@ export function MemberDashboard() {
 
       {/* Profile Editing Section */}
       <div id="edit-profile" className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm mb-6">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Edit Profile</h2>
-          <p className="text-sm text-gray-600 mt-1">Update your personal information</p>
-        </div>
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Full Name</label>
-              <input
-                type="text"
-                value={member?.name || ''}
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-              />
-              <p className="text-xs text-gray-500 mt-1">Contact support to change your name</p>
+        <button
+          onClick={() => setShowEditProfile(!showEditProfile)}
+          className="w-full p-6 border-b border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Edit Profile</h2>
+            <p className="text-sm text-gray-600 mt-1">Update your personal information</p>
+          </div>
+          <span className="material-symbols-outlined text-gray-600">
+            {showEditProfile ? 'expand_less' : 'expand_more'}
+          </span>
+        </button>
+        
+        {showEditProfile && (
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Full Name</label>
+                <input
+                  type="text"
+                  value={member?.name || ''}
+                  disabled
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Contact support to change your name</p>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Phone Number</label>
+                <input
+                  type="text"
+                  value={member?.phone || ''}
+                  disabled
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Contact support to change your phone</p>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Email Address</label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder="Add your email"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">SA ID Number</label>
+                <input
+                  type="text"
+                  value={editSaId}
+                  onChange={(e) => setEditSaId(e.target.value)}
+                  placeholder="Enter your SA ID"
+                  maxLength={13}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Suburb</label>
+                <input
+                  type="text"
+                  value={editSuburb}
+                  onChange={(e) => setEditSuburb(e.target.value)}
+                  placeholder="Enter your suburb"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">City</label>
+                <input
+                  type="text"
+                  value={editCity}
+                  onChange={(e) => setEditCity(e.target.value)}
+                  placeholder="Enter your city"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Postal Code</label>
+                <input
+                  type="text"
+                  value={editPostalCode}
+                  onChange={(e) => setEditPostalCode(e.target.value)}
+                  placeholder="Enter your postal code"
+                  maxLength={4}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Status</label>
+                <input
+                  type="text"
+                  value={member?.status?.toUpperCase() || ''}
+                  disabled
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Phone Number</label>
-              <input
-                type="text"
-                value={member?.phone || ''}
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-              />
-              <p className="text-xs text-gray-500 mt-1">Contact support to change your phone</p>
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Email Address</label>
-              <input
-                type="email"
-                value={editEmail}
-                onChange={(e) => setEditEmail(e.target.value)}
-                placeholder="Add your email"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">SA ID Number</label>
-              <input
-                type="text"
-                value={editSaId}
-                onChange={(e) => setEditSaId(e.target.value)}
-                placeholder="Enter your SA ID"
-                maxLength={13}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Suburb</label>
-              <input
-                type="text"
-                value={editSuburb}
-                onChange={(e) => setEditSuburb(e.target.value)}
-                placeholder="Enter your suburb"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">City</label>
-              <input
-                type="text"
-                value={editCity}
-                onChange={(e) => setEditCity(e.target.value)}
-                placeholder="Enter your city"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Postal Code</label>
-              <input
-                type="text"
-                value={editPostalCode}
-                onChange={(e) => setEditPostalCode(e.target.value)}
-                placeholder="Enter your postal code"
-                maxLength={4}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Status</label>
-              <input
-                type="text"
-                value={member?.status?.toUpperCase() || ''}
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-              />
+            <div className="flex justify-end gap-3 pt-4">
+              <button
+                onClick={() => {
+                  // Reset to original values
+                  setEditEmail(member?.email || '');
+                  setEditSaId(member?.sa_id || '');
+                  setEditSuburb(member?.suburb || '');
+                  setEditCity(member?.city || '');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                disabled={savingProfile}
+                className="px-6 py-2 border-2 border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveProfile}
+                disabled={savingProfile}
+                className="px-6 py-2 bg-[#1a558b] text-white font-bold rounded-lg hover:bg-[#1a558b]/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {savingProfile ? (
+                  <>
+                    <span className="animate-spin">⏳</span>
+                    Saving...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </button>
             </div>
           </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              onClick={() => {
-                // Reset to original values
-                setEditEmail(member?.email || '');
-                setEditSaId(member?.sa_id || '');
-                setEditSuburb(member?.suburb || '');
-                setEditCity(member?.city || '');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              disabled={savingProfile}
-              className="px-6 py-2 border-2 border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveProfile}
-              disabled={savingProfile}
-              className="px-6 py-2 bg-[#1a558b] text-white font-bold rounded-lg hover:bg-[#1a558b]/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              {savingProfile ? (
-                <>
-                  <span className="animate-spin">⏳</span>
-                  Saving...
-                </>
-              ) : (
-                'Save Changes'
-              )}
-            </button>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Delivery Addresses Section */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Delivery Addresses</h2>
-          <p className="text-sm text-gray-600 mt-1">Manage up to 3 delivery addresses for Plus1-Go orders</p>
-        </div>
-        <div className="p-6 space-y-6">
-          {deliveryAddresses.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-600">Loading addresses...</p>
-            </div>
-          ) : (
-            deliveryAddresses.map((address, index) => (
-              <div key={address.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-[#1a558b] text-2xl">
-                      {address.label === 'Home' ? 'home' : address.label === 'Work' ? 'work' : 'location_on'}
-                    </span>
+        <button
+          onClick={() => setShowDeliveryAddresses(!showDeliveryAddresses)}
+          className="w-full p-6 border-b border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Delivery Addresses</h2>
+            <p className="text-sm text-gray-600 mt-1">Manage up to 3 delivery addresses for Plus1-Go orders</p>
+          </div>
+          <span className="material-symbols-outlined text-gray-600">
+            {showDeliveryAddresses ? 'expand_less' : 'expand_more'}
+          </span>
+        </button>
+        
+        {showDeliveryAddresses && (
+          <div className="p-6 space-y-6">
+            {deliveryAddresses.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">Loading addresses...</p>
+              </div>
+            ) : (
+              deliveryAddresses.map((address, index) => (
+                <div key={address.id} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-[#1a558b] text-2xl">
+                        {address.label === 'Home' ? 'home' : address.label === 'Work' ? 'work' : 'location_on'}
+                      </span>
+                      <div>
+                        <h3 className="font-bold text-gray-900">{address.label} Address</h3>
+                        {address.is_default && (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Default</span>
+                        )}
+                      </div>
+                    </div>
+                    {!address.is_default && (
+                      <button
+                        onClick={() => handleSetDefaultAddress(address.id)}
+                        className="text-sm text-[#1a558b] hover:underline font-bold"
+                      >
+                        Set as Default
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Street Address</label>
+                      <input
+                        type="text"
+                        value={address.address}
+                        onChange={(e) => handleUpdateAddress(address.id, 'address', e.target.value)}
+                        placeholder="Enter street address"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+                      />
+                    </div>
                     <div>
-                      <h3 className="font-bold text-gray-900">{address.label} Address</h3>
-                      {address.is_default && (
-                        <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Default</span>
-                      )}
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Suburb</label>
+                      <input
+                        type="text"
+                        value={address.suburb}
+                        onChange={(e) => handleUpdateAddress(address.id, 'suburb', e.target.value)}
+                        placeholder="Enter suburb"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">City</label>
+                      <input
+                        type="text"
+                        value={address.city}
+                        onChange={(e) => handleUpdateAddress(address.id, 'city', e.target.value)}
+                        placeholder="Enter city"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">Postal Code</label>
+                      <input
+                        type="text"
+                        value={address.postal_code}
+                        onChange={(e) => handleUpdateAddress(address.id, 'postal_code', e.target.value)}
+                        placeholder="4-digit code"
+                        maxLength={4}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
+                      />
                     </div>
                   </div>
-                  {!address.is_default && (
-                    <button
-                      onClick={() => handleSetDefaultAddress(address.id)}
-                      className="text-sm text-[#1a558b] hover:underline font-bold"
-                    >
-                      Set as Default
-                    </button>
-                  )}
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Street Address</label>
-                    <input
-                      type="text"
-                      value={address.address}
-                      onChange={(e) => handleUpdateAddress(address.id, 'address', e.target.value)}
-                      placeholder="Enter street address"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Suburb</label>
-                    <input
-                      type="text"
-                      value={address.suburb}
-                      onChange={(e) => handleUpdateAddress(address.id, 'suburb', e.target.value)}
-                      placeholder="Enter suburb"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">City</label>
-                    <input
-                      type="text"
-                      value={address.city}
-                      onChange={(e) => handleUpdateAddress(address.id, 'city', e.target.value)}
-                      placeholder="Enter city"
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">Postal Code</label>
-                    <input
-                      type="text"
-                      value={address.postal_code}
-                      onChange={(e) => handleUpdateAddress(address.id, 'postal_code', e.target.value)}
-                      placeholder="4-digit code"
-                      maxLength={4}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-          
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-            <button
-              onClick={() => loadDashboardData()}
-              disabled={savingAddresses}
-              className="px-6 py-2 border-2 border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-            >
-              Reset
-            </button>
-            <button
-              onClick={handleSaveAddresses}
-              disabled={savingAddresses}
-              className="px-6 py-2 bg-[#1a558b] text-white font-bold rounded-lg hover:bg-[#1a558b]/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              {savingAddresses ? (
-                <>
-                  <span className="animate-spin">⏳</span>
-                  Saving...
-                </>
-              ) : (
-                'Save Addresses'
-              )}
-            </button>
+              ))
+            )}
+            
+            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => loadDashboardData()}
+                disabled={savingAddresses}
+                className="px-6 py-2 border-2 border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Reset
+              </button>
+              <button
+                onClick={handleSaveAddresses}
+                disabled={savingAddresses}
+                className="px-6 py-2 bg-[#1a558b] text-white font-bold rounded-lg hover:bg-[#1a558b]/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {savingAddresses ? (
+                  <>
+                    <span className="animate-spin">⏳</span>
+                    Saving...
+                  </>
+                ) : (
+                  'Save Addresses'
+                )}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Upgrade Prompt Modal */}
