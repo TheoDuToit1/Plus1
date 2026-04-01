@@ -6,6 +6,7 @@ import { encodeMemberQR } from '../lib/config';
 import QRCode from 'qrcode';
 import UpgradePromptModal from '../components/member/UpgradePromptModal';
 import ProfileIncompleteModal from '../components/member/ProfileIncompleteModal';
+import { Notification, useNotification } from '../components/Notification';
 
 interface Member {
   id: string;
@@ -17,6 +18,7 @@ interface Member {
   sa_id?: string;
   suburb?: string;
   city?: string;
+  postal_code?: string;
 }
 
 interface MemberCoverPlan {
@@ -45,6 +47,7 @@ interface Transaction {
 
 const DashboardNew: React.FC = () => {
   const navigate = useNavigate();
+  const { notification, showSuccess, showError, showWarning, hideNotification } = useNotification();
   
   // Member and data state
   const [member, setMember] = useState<Member | null>(null);
@@ -121,7 +124,8 @@ const DashboardNew: React.FC = () => {
         status: memberData.status,
         sa_id: memberData.sa_id,
         suburb: memberData.suburb,
-        city: memberData.city
+        city: memberData.city,
+        postal_code: memberData.postal_code
       });
       
       setFullName(memberData.full_name);
@@ -292,12 +296,16 @@ const DashboardNew: React.FC = () => {
       nextTarget = 750;
       upgradeCost = 250;
     } else {
-      alert('You are already on the highest plan!');
+      showWarning('Maximum Plan Reached', 'You are already on the highest plan!', 3000);
       return;
     }
 
     if (currentOverflow < upgradeCost) {
-      alert(`You need R${upgradeCost.toFixed(2)} to upgrade. You have R${currentOverflow.toFixed(2)}.`);
+      showError(
+        'Insufficient Overflow', 
+        `You need R${upgradeCost.toFixed(2)} to upgrade. You have R${currentOverflow.toFixed(2)}.`,
+        3000
+      );
       return;
     }
 
@@ -332,15 +340,27 @@ const DashboardNew: React.FC = () => {
       sessionStorage.removeItem('last_upgrade_prompt_overflow');
       loadDashboardData();
       
-      alert(`Successfully upgraded to R${nextTarget} plan! Remaining overflow: R${newOverflow.toFixed(2)}`);
+      showSuccess(
+        'Plan Upgraded Successfully!',
+        `Upgraded to R${nextTarget} plan! Remaining overflow: R${newOverflow.toFixed(2)}`,
+        3000
+      );
     } catch (error) {
       console.error('Error upgrading plan:', error);
-      alert('Failed to upgrade plan. Please try again.');
+      showError('Upgrade Failed', 'Failed to upgrade plan. Please try again.', 3000);
     }
   };
 
   const handleDeclineUpgrade = () => {
     setShowUpgradePrompt(false);
+  };
+
+  const handleAddDependant = () => {
+    navigate('/member/add-dependant');
+  };
+
+  const handleSponsorSomeone = () => {
+    navigate('/member/sponsor');
   };
 
   const handleSaveProfile = async () => {
@@ -355,17 +375,18 @@ const DashboardNew: React.FC = () => {
           email: email,
           sa_id: member.sa_id,
           suburb: member.suburb,
-          city: member.city
+          city: member.city,
+          postal_code: member.postal_code
         })
         .eq('id', member.id);
 
       if (error) throw error;
 
-      alert('Profile updated successfully!');
+      showSuccess('Profile Updated', 'Profile updated successfully!', 3000);
       loadDashboardData();
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Failed to update profile. Please try again.');
+      showError('Update Failed', 'Failed to update profile. Please try again.', 3000);
     }
   };
 
@@ -506,25 +527,38 @@ const DashboardNew: React.FC = () => {
 
             {/* Manage Cashback Actions */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <button className="!bg-blue-600 !text-white p-4 rounded-lg text-left hover:scale-[0.98] transition-all flex flex-col justify-between min-h-[120px]">
+              <button 
+                onClick={handleUpgrade}
+                disabled={Number(mainCoverPlan?.target_amount) >= 750}
+                className="!bg-blue-600 !text-white p-4 rounded-lg text-left hover:scale-[0.98] transition-all flex flex-col justify-between min-h-[120px] disabled:!bg-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100"
+              >
                 <span className="material-symbols-outlined text-2xl !text-white">upgrade</span>
                 <span className="font-bold text-sm leading-tight !text-white">
                   Upgrade<br />Plan
                 </span>
               </button>
-              <button className="!bg-teal-800 !text-white p-4 rounded-lg text-left hover:scale-[0.98] transition-all flex flex-col justify-between min-h-[120px]">
+              <button 
+                onClick={handleAddDependant}
+                className="!bg-teal-800 !text-white p-4 rounded-lg text-left hover:scale-[0.98] transition-all flex flex-col justify-between min-h-[120px]"
+              >
                 <span className="material-symbols-outlined text-2xl !text-white">person_add</span>
                 <span className="font-bold text-sm leading-tight !text-white">
                   Add<br />Dependant
                 </span>
               </button>
-              <button className="!bg-green-700 !text-white p-4 rounded-lg text-left hover:scale-[0.98] transition-all flex flex-col justify-between min-h-[120px]">
+              <button 
+                onClick={handleSponsorSomeone}
+                className="!bg-green-700 !text-white p-4 rounded-lg text-left hover:scale-[0.98] transition-all flex flex-col justify-between min-h-[120px]"
+              >
                 <span className="material-symbols-outlined text-2xl !text-white">volunteer_activism</span>
                 <span className="font-bold text-sm leading-tight !text-white">
                   Sponsor<br />Someone
                 </span>
               </button>
-              <button className="!bg-slate-600 !text-white p-4 rounded-lg text-left hover:scale-[0.98] transition-all flex flex-col justify-between min-h-[120px]">
+              <button 
+                onClick={() => navigate('/member/cover-plans')}
+                className="!bg-slate-600 !text-white p-4 rounded-lg text-left hover:scale-[0.98] transition-all flex flex-col justify-between min-h-[120px]"
+              >
                 <span className="material-symbols-outlined text-2xl !text-white">list_alt</span>
                 <span className="font-bold text-sm leading-tight !text-white">
                   View All<br />Plans
@@ -753,6 +787,18 @@ const DashboardNew: React.FC = () => {
                     onChange={(e) => setMember(prev => prev ? {...prev, city: e.target.value} : null)}
                   />
                 </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-600 uppercase tracking-[0.05em] block">
+                    Postal Code
+                  </label>
+                  <input
+                    className="w-full bg-white border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-medium focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none"
+                    type="text"
+                    placeholder="Enter your postal code"
+                    value={member?.postal_code || ''}
+                    onChange={(e) => setMember(prev => prev ? {...prev, postal_code: e.target.value} : null)}
+                  />
+                </div>
               </div>
               <div className="mt-10 flex justify-end gap-3">
                 <button 
@@ -837,6 +883,17 @@ const DashboardNew: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Notification */}
+      {notification && (
+        <Notification
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+          onClose={hideNotification}
+          duration={notification.duration}
+        />
       )}
 
       {/* Upgrade Prompt Modal */}
