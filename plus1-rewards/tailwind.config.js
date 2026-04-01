@@ -7,6 +7,9 @@ export default {
   ],
   theme: {
     extend: {
+      screens: {
+        'desktop': '992px',
+      },
       colors: {
         primary: {
           50: '#f0f7ff',
@@ -27,6 +30,9 @@ export default {
       },
       fontFamily: {
         display: ['Inter', 'sans-serif'],
+      },
+      boxShadow: {
+        'premium': '0 8px 30px rgba(0, 0, 0, 0.08)',
       },
     },
   },

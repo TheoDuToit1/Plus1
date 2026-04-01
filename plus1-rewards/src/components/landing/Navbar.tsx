@@ -25,15 +25,6 @@ export default function Navbar() {
               style={{ height: '60px' }}
             />
           </a>
-          <div className="hidden md:block w-px h-12 bg-gray-300" />
-          <a href="/go" className="cursor-pointer">
-            <img 
-              src="/plus1-go logo.png" 
-              alt="Plus1 Go" 
-              className="w-auto object-contain hover:opacity-80 transition-opacity"
-              style={{ height: '75px' }}
-            />
-          </a>
         </div>
 
         {/* Desktop Nav */}
@@ -83,15 +74,6 @@ export default function Navbar() {
                 alt="+1 Rewards" 
                 className="w-auto object-contain hover:opacity-80 transition-opacity"
                 style={{ height: '50px' }}
-              />
-            </a>
-            <div className="w-px h-10 bg-gray-300" />
-            <a href="/go" className="cursor-pointer">
-              <img 
-                src="/plus1-go logo.png" 
-                alt="Plus1 Go" 
-                className="w-auto object-contain hover:opacity-80 transition-opacity"
-                style={{ height: '60px' }}
               />
             </a>
           </div>

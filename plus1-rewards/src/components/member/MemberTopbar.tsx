@@ -45,14 +45,8 @@ export default function MemberTopbar({ member, isOnline, pendingTransactions, on
         {/* Divider */}
         <div className="h-8 w-px bg-gray-300"></div>
         
-        {/* Plus1 Go Logo - clickable, goes to Go landing page */}
-        <a href="/go/" className="hover:opacity-80 transition-opacity">
-          <img 
-            src="/plus1-go logo.png" 
-            alt="Plus1 Go" 
-            className="h-10 w-auto object-contain"
-          />
-        </a>
+        {/* Spacer */}
+        <div className="w-4"></div>
       </div>
       <div className="flex flex-1 justify-end items-center gap-6">
         <div className="hidden md:flex items-center gap-2">

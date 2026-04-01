@@ -26,7 +26,7 @@ import ProvidersPage from './components/dashboard/pages/ProvidersPage'
 import ExportsPage from './components/dashboard/pages/ExportsPage'
 import AuditLogsPage from './components/dashboard/pages/AuditLogsPage'
 import SettingsPage from './components/dashboard/pages/SettingsPage'
-import { MemberDashboard } from './pages/MemberDashboard'
+import { default as MemberDashboard } from './pages/DashboardNew'
 import MemberCoverPlans from './pages/MemberCoverPlans'
 import MemberTransactions from './pages/MemberTransactions'
 import MemberTopUp from './pages/MemberTopUp'
@@ -56,6 +56,7 @@ import MemberPolicies from './pages/MemberPolicies'
 import { MemberHistory } from './pages/MemberHistory'
 import { MemberQR } from './pages/MemberQR'
 import { MemberFindPartners } from './pages/MemberFindPartners'
+import FindPartner from './pages/FindPartner'
 import ProtectedPolicyProviderRoute from './components/ProtectedPolicyProviderRoute'
 import TermsOfService from './pages/TermsOfService'
 import PrivacyPolicy from './pages/PrivacyPolicy'
@@ -152,6 +153,7 @@ export default function App() {
           <Route path="/member/history" element={<MemberHistory />} />
           <Route path="/member/qr" element={<MemberQR />} />
           <Route path="/member/find-partners" element={<MemberFindPartners />} />
+          <Route path="/find-partner" element={<FindPartner />} />
           <Route path="/partner/dashboard" element={<PartnerDashboard />} />
           <Route path="/partner/process-transaction" element={<PartnerProcessTransaction />} />
           <Route path="/partner/quick-transaction" element={<QuickTransaction />} />

@@ -125,22 +125,6 @@ export default function HowItWorks() {
               className="relative"
               variants={cardVariants}
             >
-              {step.highlight && (
-                <motion.div 
-                  className="absolute left-1/2 -translate-x-1/2 -top-56 flex justify-center"
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.6 }}
-                  viewport={{ once: true }}
-                >
-                  <img 
-                    src="/plus1-go logo.png" 
-                    alt="Plus1 Go" 
-                    className="w-auto object-contain"
-                    style={{ height: '155px' }}
-                  />
-                </motion.div>
-              )}
               <motion.div 
                 className={`relative z-10 flex flex-col items-center text-center p-8 rounded-3xl transition-all duration-300 hover:-translate-y-2 ${step.highlight ? 'bg-[#1a558b] shadow-xl shadow-blue-900/20' : 'bg-gray-50 border border-gray-100'}`}
                 whileHover={{ y: -8 }}

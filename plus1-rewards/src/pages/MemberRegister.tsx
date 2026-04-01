@@ -60,19 +60,9 @@ export default function MemberRegister() {
     setLoading(true);
 
     try {
-      // Check if phone already exists in users table
-      const { data: existingUser } = await supabase
-        .from('users').select('id').eq('mobile_number', phoneDigits).maybeSingle();
-
-      if (existingUser) { 
-        setError('This phone number is already registered'); 
-        setLoading(false); 
-        return; 
-      }
-
       // Check if phone already exists in members table
       const { data: existingMember } = await supabase
-        .from('members').select('id').eq('phone', phoneDigits).maybeSingle();
+        .from('members').select('id').eq('cell_phone', phoneDigits).maybeSingle();
 
       if (existingMember) { 
         setError('This phone number is already registered'); 
@@ -95,21 +85,6 @@ export default function MemberRegister() {
         return;
       }
 
-      // Create user in users table (centralized auth)
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .insert({
-          role: 'member',
-          full_name: formData.name,
-          mobile_number: phoneDigits,
-          pin_code: formData.pin,
-          status: 'active'
-        })
-        .select()
-        .single();
-
-      if (userError) throw userError;
-
       // Generate unique QR code
       const qrCode = `PLUS1-${phoneDigits}-${Date.now()}`;
 
@@ -117,12 +92,13 @@ export default function MemberRegister() {
       const { data: memberData, error: memberError } = await supabase
         .from('members')
         .insert({
-          id: userData.id,
-          user_id: userData.id,
           full_name: formData.name,
-          phone: phoneDigits,
+          cell_phone: phoneDigits,
+          email: `${phoneDigits}@plus1rewards.local`,
           qr_code: qrCode,
-          status: 'active'
+          pin_code: formData.pin,
+          status: 'active',
+          role: 'member'
         })
         .select()
         .single();

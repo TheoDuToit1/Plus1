@@ -17,15 +17,6 @@ export default function Footer() {
                   style={{ height: '74px' }}
                 />
               </a>
-              <div className="w-px h-16 bg-gray-300" />
-              <a href="/go" className="cursor-pointer">
-                <img 
-                  src="/plus1-go logo.png" 
-                  alt="Plus1 Go" 
-                  className="w-auto object-contain hover:opacity-80 transition-opacity"
-                  style={{ height: '93px' }}
-                />
-              </a>
             </div>
             <p className="text-gray-500 max-w-sm mb-6 text-sm leading-relaxed">
               Health Cover for All. Because your shopping should work as hard as you do.

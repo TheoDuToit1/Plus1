@@ -84,21 +84,6 @@ export default function LoadingPage() {
           <div className="w-2 h-2 rounded-full bg-blue-600" />
           <div className="w-2 h-2 rounded-full bg-blue-600" />
         </motion.div>
-
-        {/* Bottom Logo - Plus1 Go */}
-        <motion.div
-          variants={logoVariants}
-          transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-        >
-          <motion.div variants={pulseVariants} animate="animate">
-            <img 
-              src="/plus1-go logo.png" 
-              alt="Plus1 Go" 
-              className="w-auto object-contain drop-shadow-lg"
-              style={{ height: '130px' }}
-            />
-          </motion.div>
-        </motion.div>
       </motion.div>
 
       {/* Desktop Layout */}
@@ -156,20 +141,6 @@ export default function LoadingPage() {
           </motion.p>
         </motion.div>
 
-        {/* Right Logo - Plus1 Go */}
-        <motion.div
-          variants={logoVariants}
-          transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
-        >
-          <motion.div variants={pulseVariants} animate="animate">
-            <img 
-              src="/plus1-go logo.png" 
-              alt="Plus1 Go" 
-              className="w-auto object-contain drop-shadow-2xl"
-              style={{ height: '200px' }}
-            />
-          </motion.div>
-        </motion.div>
       </motion.div>
     </motion.div>
   );

@@ -47,12 +47,28 @@ export default function MemberTransactions() {
         return;
       }
 
+      console.log('Session:', session);
+      
+      // Get member ID from session - it's in session.member.id, not session.user.id
+      const memberId = session.member?.id || session.user?.id;
+      console.log('Member ID:', memberId);
+
+      if (!memberId) {
+        console.error('No member ID found in session');
+        navigate('/member/login');
+        return;
+      }
+
       // Load member data
-      const { data: memberData } = await supabase
+      const { data: memberData, error: memberError } = await supabase
         .from('members')
         .select('id, full_name, phone, email, qr_code')
-        .eq('id', session.user.id)
+        .eq('id', memberId)
         .single();
+
+      if (memberError) {
+        console.error('Error loading member:', memberError);
+      }
 
       if (memberData) {
         setMember({
@@ -73,20 +89,46 @@ export default function MemberTransactions() {
         startDate = new Date('2020-01-01'); // All time
       }
 
-      // Load transactions
-      const { data: txData } = await supabase
+      console.log('Fetching transactions for member:', memberId);
+      console.log('Start date:', startDate.toISOString());
+
+      // Load transactions without join first
+      const { data: txData, error: txError } = await supabase
         .from('transactions')
-        .select(`
-          *,
-          partners (
-            shop_name
-          )
-        `)
-        .eq('member_id', session.user.id)
+        .select('*')
+        .eq('member_id', memberId)
         .gte('created_at', startDate.toISOString())
         .order('created_at', { ascending: false });
 
-      if (txData) setTransactions(txData as Transaction[]);
+      if (txError) {
+        console.error('Error loading transactions:', txError);
+      }
+
+      console.log('Transactions loaded:', txData?.length || 0);
+      console.log('Transaction data:', txData);
+
+      // If we have transactions, fetch partner names separately
+      if (txData && txData.length > 0) {
+        const partnerIds = [...new Set(txData.map(tx => tx.partner_id))];
+        const { data: partnersData } = await supabase
+          .from('partners')
+          .select('id, shop_name')
+          .in('id', partnerIds);
+
+        // Map partner names to transactions
+        const partnersMap = new Map(partnersData?.map(p => [p.id, p.shop_name]) || []);
+        
+        const enrichedTransactions = txData.map(tx => ({
+          ...tx,
+          partners: {
+            shop_name: partnersMap.get(tx.partner_id) || 'Unknown Partner'
+          }
+        }));
+
+        setTransactions(enrichedTransactions as Transaction[]);
+      } else {
+        setTransactions([]);
+      }
     } catch (error) {
       console.error('Error loading transactions:', error);
     } finally {

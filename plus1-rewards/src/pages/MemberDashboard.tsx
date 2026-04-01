@@ -20,16 +20,6 @@ interface Member {
   city?: string;
 }
 
-interface DeliveryAddress {
-  id: string;
-  label: string;
-  address: string;
-  suburb: string;
-  city: string;
-  postal_code: string;
-  is_default: boolean;
-}
-
 interface MemberCoverPlan {
   id: string;
   creation_order: number;
@@ -77,11 +67,6 @@ export function MemberDashboard() {
   const [editCity, setEditCity] = useState('');
   const [editPostalCode, setEditPostalCode] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
-  
-  // Delivery addresses state
-  const [deliveryAddresses, setDeliveryAddresses] = useState<DeliveryAddress[]>([]);
-  const [savingAddresses, setSavingAddresses] = useState(false);
-  const [showDeliveryAddresses, setShowDeliveryAddresses] = useState(false);
   
   // QR code state
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
@@ -134,7 +119,7 @@ export function MemberDashboard() {
       // Fetch fresh member data from database to get latest updates
       const { data: memberData, error: memberError } = await supabase
         .from('members')
-        .select('id, full_name, cell_phone, email, qr_code, status, sa_id, suburb, city, postal_code, saved_addresses, default_address')
+        .select('id, full_name, cell_phone, email, qr_code, status, sa_id, suburb, city, postal_code')
         .eq('id', sessionMemberData.id)
         .single();
 
@@ -168,20 +153,6 @@ export function MemberDashboard() {
       setEditSuburb(memberData.suburb || '');
       setEditCity(memberData.city || '');
       setEditPostalCode(memberData.postal_code || '');
-      
-      // Initialize delivery addresses from saved_addresses JSONB
-      if (memberData.saved_addresses && Array.isArray(memberData.saved_addresses) && memberData.saved_addresses.length > 0) {
-        setDeliveryAddresses(memberData.saved_addresses);
-      } else {
-        // Initialize with empty addresses if none exist
-        const defaultAddresses: DeliveryAddress[] = [
-          { id: '1', label: 'Home', address: '', suburb: '', city: '', postal_code: '', is_default: true },
-          { id: '2', label: 'Work', address: '', suburb: '', city: '', postal_code: '', is_default: false },
-          { id: '3', label: 'Other', address: '', suburb: '', city: '', postal_code: '', is_default: false }
-        ];
-        setDeliveryAddresses(defaultAddresses);
-        console.log('Initialized default addresses:', defaultAddresses);
-      }
 
       // Get main cover plan (first by creation order) using member.id
       const { data: coverPlansData, error: coverPlansError } = await supabase
@@ -467,50 +438,6 @@ export function MemberDashboard() {
       alert('Failed to update profile. Please try again.');
     } finally {
       setSavingProfile(false);
-    }
-  };
-
-  const handleUpdateAddress = (id: string, field: keyof DeliveryAddress, value: string | boolean) => {
-    setDeliveryAddresses(prev => prev.map(addr => 
-      addr.id === id ? { ...addr, [field]: value } : addr
-    ));
-  };
-
-  const handleSetDefaultAddress = (id: string) => {
-    setDeliveryAddresses(prev => prev.map(addr => ({
-      ...addr,
-      is_default: addr.id === id
-    })));
-  };
-
-  const handleSaveAddresses = async () => {
-    if (!member) return;
-    
-    setSavingAddresses(true);
-    try {
-      // Find the default address
-      const defaultAddr = deliveryAddresses.find(addr => addr.is_default);
-      const defaultAddressText = defaultAddr 
-        ? `${defaultAddr.address}, ${defaultAddr.suburb}, ${defaultAddr.city}, ${defaultAddr.postal_code}`.trim()
-        : '';
-
-      const { error } = await supabase
-        .from('members')
-        .update({
-          saved_addresses: deliveryAddresses,
-          default_address: defaultAddressText
-        })
-        .eq('id', member.id);
-
-      if (error) throw error;
-
-      alert('Delivery addresses saved successfully!');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } catch (error) {
-      console.error('Error saving addresses:', error);
-      alert('Failed to save addresses. Please try again.');
-    } finally {
-      setSavingAddresses(false);
     }
   };
 
@@ -945,22 +872,6 @@ export function MemberDashboard() {
           </button>
 
           <button
-            onClick={() => navigate('/member/dashboard')}
-            className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined">home</span>
-            Rewards Main
-          </button>
-
-          <button
-            onClick={() => navigate('/member/qr')}
-            className="bg-[#1a558b] hover:bg-[#1a558b]/90 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-          >
-            <span className="material-symbols-outlined">qr_code</span>
-            Show QR Code
-          </button>
-
-          <button
             onClick={() => navigate('/member/cover-plans')}
             className="bg-white hover:bg-gray-50 border-2 border-gray-200 text-gray-900 font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
           >
@@ -1130,126 +1041,6 @@ export function MemberDashboard() {
                   </>
                 ) : (
                   'Save Changes'
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Delivery Addresses Section */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-        <button
-          onClick={() => setShowDeliveryAddresses(!showDeliveryAddresses)}
-          className="w-full p-6 border-b border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors"
-        >
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">Delivery Addresses</h2>
-            <p className="text-sm text-gray-600 mt-1">Manage up to 3 delivery addresses for Plus1-Go orders</p>
-          </div>
-          <span className="material-symbols-outlined text-gray-600">
-            {showDeliveryAddresses ? 'expand_less' : 'expand_more'}
-          </span>
-        </button>
-        
-        {showDeliveryAddresses && (
-          <div className="p-6 space-y-6">
-            {deliveryAddresses.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-600">Loading addresses...</p>
-              </div>
-            ) : (
-              deliveryAddresses.map((address, index) => (
-                <div key={address.id} className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <span className="material-symbols-outlined text-[#1a558b] text-2xl">
-                        {address.label === 'Home' ? 'home' : address.label === 'Work' ? 'work' : 'location_on'}
-                      </span>
-                      <div>
-                        <h3 className="font-bold text-gray-900">{address.label} Address</h3>
-                        {address.is_default && (
-                          <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">Default</span>
-                        )}
-                      </div>
-                    </div>
-                    {!address.is_default && (
-                      <button
-                        onClick={() => handleSetDefaultAddress(address.id)}
-                        className="text-sm text-[#1a558b] hover:underline font-bold"
-                      >
-                        Set as Default
-                      </button>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-bold text-gray-700 mb-2">Street Address</label>
-                      <input
-                        type="text"
-                        value={address.address}
-                        onChange={(e) => handleUpdateAddress(address.id, 'address', e.target.value)}
-                        placeholder="Enter street address"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">Suburb</label>
-                      <input
-                        type="text"
-                        value={address.suburb}
-                        onChange={(e) => handleUpdateAddress(address.id, 'suburb', e.target.value)}
-                        placeholder="Enter suburb"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">City</label>
-                      <input
-                        type="text"
-                        value={address.city}
-                        onChange={(e) => handleUpdateAddress(address.id, 'city', e.target.value)}
-                        placeholder="Enter city"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-bold text-gray-700 mb-2">Postal Code</label>
-                      <input
-                        type="text"
-                        value={address.postal_code}
-                        onChange={(e) => handleUpdateAddress(address.id, 'postal_code', e.target.value)}
-                        placeholder="4-digit code"
-                        maxLength={4}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#1a558b] focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-            
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-              <button
-                onClick={() => loadDashboardData()}
-                disabled={savingAddresses}
-                className="px-6 py-2 border-2 border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
-              >
-                Reset
-              </button>
-              <button
-                onClick={handleSaveAddresses}
-                disabled={savingAddresses}
-                className="px-6 py-2 bg-[#1a558b] text-white font-bold rounded-lg hover:bg-[#1a558b]/90 transition-colors disabled:opacity-50 flex items-center gap-2"
-              >
-                {savingAddresses ? (
-                  <>
-                    <span className="animate-spin">⏳</span>
-                    Saving...
-                  </>
-                ) : (
-                  'Save Addresses'
                 )}
               </button>
             </div>
