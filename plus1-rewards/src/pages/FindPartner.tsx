@@ -1,14 +1,17 @@
 import { useState, useMemo, useEffect } from "react";
 import { 
   Search, 
-  BadgeCheck, 
   Phone, 
+  Mail, 
   MapPin, 
   Locate, 
   Layers, 
   Navigation,
-  Clock,
-  ChevronRight
+  ChevronRight,
+  X,
+  Info,
+  Calendar,
+  ArrowRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MapContainer, TileLayer, Marker, useMap, ZoomControl, Popup } from "react-leaflet";
@@ -16,20 +19,27 @@ import L from "leaflet";
 import { supabase } from "../lib/supabase";
 import "leaflet/dist/leaflet.css";
 
-// Partner interface
+// Partner interface matching database schema
 interface Partner {
   id: string;
-  name: string;
-  category: string;
-  address: string;
-  city: string;
-  phone: string;
-  cashback: number;
-  status: "Active" | "Inactive";
-  lat: number;
-  lng: number;
-  partnerSince: string;
-  iconType: "service" | "appliance" | "electronics" | "decor" | "furniture";
+  shop_name: string;
+  category?: string;
+  address?: string;
+  city?: string;
+  phone?: string;
+  email?: string;
+  cashback_percent: number;
+  status: string;
+  latitude?: number;
+  longitude?: number;
+  created_at?: string;
+  business_registration?: string;
+  bank_name?: string;
+  account_number?: string;
+  agent_id?: string;
+  commission_rate?: number;
+  total_revenue?: number;
+  member_count?: number;
 }
 
 // Haversine formula to calculate distance in km
@@ -46,30 +56,25 @@ function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
   return d;
 }
 
-// Helper to center map only when explicitly changed (not on every render)
-function MapController({ center, zoom, shouldUpdate }: { center: [number, number], zoom: number, shouldUpdate: boolean }) {
+// Helper to center map with smooth animation
+function MapController({ center, zoom }: { center: [number, number], zoom: number }) {
   const map = useMap();
+  
   useEffect(() => {
-    if (shouldUpdate) {
-      map.setView(center, zoom);
+    const currentCenter = map.getCenter();
+    const dist = getDistance(currentCenter.lat, currentCenter.lng, center[0], center[1]);
+    const currentZoom = map.getZoom();
+    
+    // Only flyTo if the change is significant (programmatic move)
+    // This prevents jitter during manual panning while allowing smooth animation for selection/locate
+    if (dist > 0.001 || currentZoom !== zoom) {
+      map.flyTo(center, zoom, {
+        duration: 1.5,
+        easeLinearity: 0.25
+      });
     }
-  }, [center, zoom, map, shouldUpdate]);
-  return null;
-}
+  }, [center, zoom, map]);
 
-// Helper to handle map events
-function MapEvents({ onMoveEnd }: { onMoveEnd: (center: [number, number]) => void }) {
-  const map = useMap();
-  useEffect(() => {
-    const handleMoveEnd = () => {
-      const center = map.getCenter();
-      onMoveEnd([center.lat, center.lng]);
-    };
-    map.on('moveend', handleMoveEnd);
-    return () => {
-      map.off('moveend', handleMoveEnd);
-    };
-  }, [map, onMoveEnd]);
   return null;
 }
 
@@ -78,63 +83,61 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState("All Partners");
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
   const [radius, setRadius] = useState(25);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([-33.9249, 18.4241]);
-  const [zoom, setZoom] = useState(12);
-  const [mapLayer, setMapLayer] = useState<"standard" | "satellite" | "dark">("standard");
-  const [shouldUpdateMap, setShouldUpdateMap] = useState(false);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Default map center (Cape Town)
+  const [mapCenter, setMapCenter] = useState<[number, number]>([-33.9249, 18.4241]);
+  const [zoom, setZoom] = useState(13);
+  const [mapLayer, setMapLayer] = useState<"standard" | "satellite" | "dark">("standard");
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  // Fetch partners from Supabase
+  // Fetch partners from database
   useEffect(() => {
     async function fetchPartners() {
       try {
+        setLoading(true);
         const { data, error } = await supabase
           .from('partners')
           .select('*')
-          .eq('status', 'active');
+          .eq('status', 'active')
+          .order('shop_name');
 
-        if (error) {
-          console.error('Supabase error:', error);
-          throw error;
-        }
+        if (error) throw error;
 
-        if (data && data.length > 0) {
-          // Transform database data to match Partner interface
-          const transformedPartners: Partner[] = data.map((p: any) => {
-            // Use actual coordinates if available, otherwise use default
-            const hasValidCoords = p.latitude && p.longitude && 
-                                   p.latitude !== 0 && p.longitude !== 0;
-            
-            return {
-              id: p.id,
-              name: p.shop_name || p.full_name || 'Unknown Partner',
-              category: p.category || 'Service',
-              address: p.address || 'Address not available',
-              city: p.city || p.suburb || 'Cape Town',
-              phone: p.phone || p.mobile_number || 'N/A',
-              cashback: p.cashback_percent || 5,
-              status: 'Active',
-              lat: hasValidCoords ? p.latitude : -33.9249,
-              lng: hasValidCoords ? p.longitude : 18.4241,
-              partnerSince: p.created_at ? new Date(p.created_at).getFullYear().toString() : '2024',
-              iconType: getCategoryIcon(p.category || 'Service')
-            };
-          });
+        if (data) {
+          // Fetch additional stats for each partner
+          const partnersWithStats = await Promise.all(
+            data.map(async (partner) => {
+              // Get member count
+              const { count: memberCount } = await supabase
+                .from('wallets')
+                .select('*', { count: 'exact', head: true })
+                .eq('partner_id', partner.id);
 
-          console.log('Loaded partners:', transformedPartners);
-          setPartners(transformedPartners);
-          
-          // Set first partner as selected if available
-          if (transformedPartners.length > 0) {
-            setSelectedPartnerId(transformedPartners[0].id);
-            // Center map on first partner
-            const firstPartner = transformedPartners[0];
-            setMapCenter([firstPartner.lat, firstPartner.lng]);
-            setZoom(14);
+              // Get total revenue
+              const { data: transactions } = await supabase
+                .from('transactions')
+                .select('purchase_amount')
+                .eq('partner_id', partner.id);
+
+              const totalRevenue = transactions?.reduce((sum, t) => sum + (t.purchase_amount || 0), 0) || 0;
+
+              return {
+                ...partner,
+                member_count: memberCount || 0,
+                total_revenue: totalRevenue
+              };
+            })
+          );
+
+          setPartners(partnersWithStats);
+          // Set initial map center to first partner with coordinates
+          const firstPartnerWithCoords = partnersWithStats.find(p => p.latitude && p.longitude);
+          if (firstPartnerWithCoords && firstPartnerWithCoords.latitude && firstPartnerWithCoords.longitude) {
+            setMapCenter([firstPartnerWithCoords.latitude, firstPartnerWithCoords.longitude]);
+            setSelectedPartnerId(firstPartnerWithCoords.id);
           }
-        } else {
-          console.log('No partners found in database');
         }
       } catch (error) {
         console.error('Error fetching partners:', error);
@@ -146,45 +149,36 @@ export default function App() {
     fetchPartners();
   }, []);
 
-  // Helper function to map category to icon type
-  function getCategoryIcon(category: string): "service" | "appliance" | "electronics" | "decor" | "furniture" {
-    const cat = category.toLowerCase();
-    if (cat.includes('electronic') || cat.includes('tech')) return 'electronics';
-    if (cat.includes('appliance') || cat.includes('kitchen')) return 'appliance';
-    if (cat.includes('decor') || cat.includes('home')) return 'decor';
-    if (cat.includes('furniture')) return 'furniture';
-    return 'service';
-  }
-
   const categories = ["All Partners", "Active", "Appliances", "Service", "Electronics", "Home Decor", "Furniture"];
 
   const filteredPartners = useMemo(() => {
-    return partners.filter((p: Partner) => {
-      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                            p.city.toLowerCase().includes(searchQuery.toLowerCase());
+    return partners.filter((p) => {
+      const matchesSearch = p.shop_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            (p.city && p.city.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesCategory = activeCategory === "All Partners" || 
-                              (activeCategory === "Active" && p.status === "Active") ||
-                              p.category === activeCategory;
+                              (activeCategory === "Active" && p.status === "active") ||
+                              (p.category && p.category === activeCategory);
       
-      const distance = getDistance(mapCenter[0], mapCenter[1], p.lat, p.lng);
-      const matchesRadius = distance <= radius;
-
-      return matchesSearch && matchesCategory && matchesRadius;
+      // Only filter by radius if partner has coordinates
+      if (p.latitude && p.longitude) {
+        const distance = getDistance(mapCenter[0], mapCenter[1], p.latitude, p.longitude);
+        const matchesRadius = distance <= radius;
+        return matchesSearch && matchesCategory && matchesRadius;
+      }
+      
+      return matchesSearch && matchesCategory;
     });
   }, [searchQuery, activeCategory, radius, mapCenter, partners]);
 
   const selectedPartner = useMemo(() => 
-    partners.find((p: Partner) => p.id === selectedPartnerId) || null
+    partners.find(p => p.id === selectedPartnerId) || null
   , [selectedPartnerId, partners]);
 
   // Sync map center when partner is selected
   useEffect(() => {
-    if (selectedPartner) {
-      setMapCenter([selectedPartner.lat, selectedPartner.lng]);
-      setZoom(14);
-      setShouldUpdateMap(true);
-      // Reset the flag after a short delay
-      setTimeout(() => setShouldUpdateMap(false), 100);
+    if (selectedPartner && selectedPartner.latitude && selectedPartner.longitude) {
+      setMapCenter([selectedPartner.latitude, selectedPartner.longitude]);
+      setZoom(15);
     }
   }, [selectedPartner]);
 
@@ -193,8 +187,6 @@ export default function App() {
       navigator.geolocation.getCurrentPosition((position) => {
         setMapCenter([position.coords.latitude, position.coords.longitude]);
         setZoom(15);
-        setShouldUpdateMap(true);
-        setTimeout(() => setShouldUpdateMap(false), 100);
       });
     }
   };
@@ -209,30 +201,24 @@ export default function App() {
   // Custom Marker Icons
   const createCustomIcon = (p: Partner) => {
     const isSelected = selectedPartnerId === p.id;
-    const colorClass = isSelected ? 'bg-primary text-on-primary' : 'bg-white text-primary border-2 border-primary/20';
-    const arrowColor = isSelected ? 'bg-primary' : 'bg-white border-r-2 border-b-2 border-primary/20';
+    const colorClass = isSelected ? 'bg-primary text-on-primary ring-4 ring-primary/20 marker-pulse-effect' : 'bg-white text-primary border-2 border-primary/10';
+    const arrowColor = isSelected ? 'bg-primary' : 'bg-white border-r-2 border-b-2 border-primary/10';
     
-    let iconSvg = '';
-    switch(p.iconType) {
-      case 'service': iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>'; break;
-      case 'appliance': iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6"/><path d="M5 6a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2"/><path d="M10 10v4"/><path d="M14 10v4"/><path d="M5 10h14"/></svg>'; break;
-      case 'electronics': iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="15" x="2" y="3" rx="2" ry="2"/><path d="M17 21l-1.5-4h-7L7 21"/><path d="M2 13h20"/></svg>'; break;
-      case 'decor': iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>'; break;
-      case 'furniture': iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14"/><path d="M2 20h20"/><path d="M14 12v.01"/><path d="M10 12v.01"/></svg>'; break;
-    }
+    // Default icon for all partners
+    const iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
     
     return L.divIcon({
       html: `
         <div class="relative group">
-          <div class="w-12 h-12 rounded-full flex items-center justify-center shadow-lg relative transition-all duration-300 group-hover:scale-110 ${colorClass}">
+          <div class="w-11 h-11 rounded-2xl flex items-center justify-center shadow-xl relative transition-all duration-500 cubic-bezier(0.34, 1.56, 0.64, 1) group-hover:scale-110 group-hover:-translate-y-1 ${colorClass}">
             ${iconSvg}
             <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 ${arrowColor}"></div>
           </div>
         </div>
       `,
       className: '',
-      iconSize: [48, 48],
-      iconAnchor: [24, 48],
+      iconSize: [44, 44],
+      iconAnchor: [22, 44],
     });
   };
 
@@ -245,38 +231,39 @@ export default function App() {
   };
 
   return (
-    <main className="find-partner-page flex h-screen w-full relative overflow-hidden font-sans bg-white">
-      {/* Sidebar */}
-      <aside className="hidden lg:flex flex-col w-[440px] h-full bg-surface-container-low z-20 overflow-y-auto px-8 py-10 gap-y-10 shrink-0 border-r border-outline-variant/30">
-        {/* Back Button */}
-        <button 
-          onClick={() => window.history.back()}
-          className="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors group w-fit -mt-2"
-        >
-          <div className="w-9 h-9 rounded-xl bg-white border border-outline-variant/30 flex items-center justify-center group-hover:border-primary group-hover:bg-primary/5 transition-all">
-            <ChevronRight size={18} className="rotate-180" />
+    <main className="find-partner-page flex h-screen w-full relative overflow-hidden font-sans bg-white selection:bg-primary/10 selection:text-primary">
+      {loading ? (
+        <div className="flex items-center justify-center w-full h-full">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-on-surface-variant font-semibold">Loading partners...</p>
           </div>
-          <span className="text-sm font-bold">Back</span>
-        </button>
-
-        {/* Branding & Search */}
-        <div className="flex flex-col gap-y-6">
-          <div>
-            <h1 className="text-4xl font-black tracking-tighter text-primary leading-none">
-              The Editorial Archive
+        </div>
+      ) : (
+        <>
+      {/* Sidebar */}
+      <aside className="hidden lg:flex flex-col w-[460px] h-full bg-white z-20 overflow-hidden shrink-0 border-r border-outline-variant/30 shadow-2xl">
+        {/* Branding Section */}
+        <div className="px-10 pt-12 pb-8 bg-white relative">
+          <div className="flex flex-col gap-y-1 mb-8">
+            <h1 className="text-4xl font-display font-bold tracking-tighter-extra text-primary leading-none">
+              THE ARCHIVE
             </h1>
-            <p className="text-on-surface-variant font-medium mt-3 text-sm tracking-wide uppercase">
-              Curated Partner Directory
-            </p>
+            <div className="flex items-center gap-3">
+              <div className="h-[1px] w-8 bg-primary/30" />
+              <p className="text-on-surface-variant font-bold text-[10px] tracking-[0.3em] uppercase">
+                Curated Partner Directory
+              </p>
+            </div>
           </div>
           
           <div className="relative group">
-            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-on-surface-variant">
-              <Search size={18} />
+            <div className="absolute inset-y-0 left-5 flex items-center pointer-events-none text-on-surface-variant/60">
+              <Search size={18} strokeWidth={2.5} />
             </div>
             <input 
-              className="w-full h-14 pl-12 pr-4 rounded-2xl bg-white border border-outline-variant/50 focus:ring-2 focus:ring-primary/20 focus:border-primary placeholder-on-surface-variant/40 text-on-surface transition-all shadow-sm"
-              placeholder="Search by name or city..." 
+              className="w-full h-14 pl-14 pr-6 rounded-2xl bg-surface-container-low border border-transparent focus:bg-white focus:border-primary/20 focus:ring-4 focus:ring-primary/5 placeholder-on-surface-variant/40 text-on-surface font-semibold transition-all duration-300"
+              placeholder="Search partners or locations..." 
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -284,16 +271,16 @@ export default function App() {
           </div>
         </div>
 
-        {/* Filter Chips */}
-        <div className="flex flex-wrap gap-2">
+        {/* Filter Chips - Scrollable */}
+        <div className="px-10 pb-6 flex gap-2 overflow-x-auto no-scrollbar mask-fade-right">
           {categories.map((cat) => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 cursor-pointer border ${
+              className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-300 cursor-pointer whitespace-nowrap border ${
                 activeCategory === cat 
-                  ? "bg-primary text-on-primary border-primary shadow-md" 
-                  : "bg-white text-on-surface-variant border-outline-variant/50 hover:border-primary hover:text-primary"
+                  ? "bg-primary text-on-primary border-primary shadow-lg shadow-primary/20 -translate-y-0.5" 
+                  : "bg-white text-on-surface-variant border-outline-variant/40 hover:border-primary/30 hover:text-primary"
               }`}
             >
               {cat}
@@ -301,99 +288,153 @@ export default function App() {
           ))}
         </div>
 
-        {/* Partner List Header */}
-        <div className="flex items-center justify-between border-b border-outline-variant/20 pb-4">
-          <h2 className="text-[10px] font-black text-on-surface-variant tracking-[0.2em] uppercase">
-            Featured Partners
-          </h2>
-          <span className="bg-primary/10 text-primary px-2 py-1 rounded text-[10px] font-black">
-            {filteredPartners.length} RESULTS
-          </span>
-        </div>
-
-        {/* Partner Cards Stack */}
-        <div className="flex flex-col gap-y-4 pb-12">
-          {loading ? (
-            <div className="text-center py-20 px-6">
-              <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-sm font-bold text-on-surface">Loading partners...</p>
+        {/* Partner List Container */}
+        <div className="flex-1 overflow-y-auto px-10 pb-12 space-y-8">
+          <div className="flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md z-10 py-4">
+            <h2 className="text-[10px] font-black text-on-surface-variant/60 tracking-[0.25em] uppercase">
+              Available Partners
+            </h2>
+            <div className="flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <span className="text-[10px] font-black text-primary uppercase tracking-widest">
+                {filteredPartners.length} FOUND
+              </span>
             </div>
-          ) : (
+          </div>
+
+          <div className="flex flex-col gap-y-5">
             <AnimatePresence mode="popLayout">
-              {filteredPartners.map((partner: Partner) => (
-              <motion.div
-                key={partner.id}
-                layout
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                onClick={() => setSelectedPartnerId(partner.id)}
-                className={`bg-white rounded-2xl p-6 border transition-all duration-300 cursor-pointer group relative overflow-hidden ${
-                  selectedPartnerId === partner.id 
-                    ? 'border-primary shadow-xl ring-1 ring-primary/20' 
-                    : 'border-outline-variant/30 hover:border-primary/50 hover:shadow-lg'
-                }`}
+              {filteredPartners.map((partner) => (
+                <motion.div
+                  key={partner.id}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  onClick={() => {
+                    setSelectedPartnerId(partner.id);
+                    setIsDetailOpen(true);
+                  }}
+                  className={`group relative bg-white rounded-[24px] p-7 border transition-all duration-500 cursor-pointer overflow-hidden ${
+                    selectedPartnerId === partner.id 
+                      ? 'border-primary shadow-2xl shadow-primary/10 ring-1 ring-primary/10' 
+                      : 'border-outline-variant/30 hover:border-primary/40 hover:shadow-xl hover:-translate-y-1'
+                  }`}
+                >
+                  {/* Selection Indicator */}
+                  <AnimatePresence>
+                    {selectedPartnerId === partner.id && (
+                      <motion.div 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="absolute top-0 left-0 w-1.5 h-full bg-primary" 
+                      />
+                    )}
+                  </AnimatePresence>
+                  
+                  <div className="flex justify-between items-start mb-6">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded-md bg-primary/5 text-primary text-[9px] font-black uppercase tracking-widest">
+                          {partner.category || 'Partner'}
+                        </span>
+                        {partner.status === "active" && (
+                          <div className="flex items-center gap-1">
+                            <div className="w-1 h-1 rounded-full bg-green-500" />
+                            <span className="text-[9px] font-bold text-green-600 uppercase tracking-tighter">Live</span>
+                          </div>
+                        )}
+                      </div>
+                      <h3 className="text-2xl font-display font-bold text-on-surface leading-tight tracking-tighter group-hover:text-primary transition-colors duration-300">
+                        {partner.shop_name}
+                      </h3>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <div className="bg-primary text-on-primary px-4 py-2.5 rounded-2xl text-center shadow-lg shadow-primary/20">
+                        <span className="text-xl font-black leading-none">{partner.cashback_percent}%</span>
+                        <span className="block text-[8px] font-black uppercase tracking-widest opacity-70 mt-0.5">Back</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-5">
+                    <div className="flex items-center gap-4 text-on-surface-variant">
+                      <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center shrink-0 group-hover:bg-primary/5 group-hover:text-primary transition-colors duration-300">
+                        <MapPin size={16} strokeWidth={2.5} />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Location</span>
+                        <span className="text-xs font-bold text-on-surface/80 capitalize">
+                          {partner.address || 'Address not available'}, {partner.city || 'City'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {partner.phone && (
+                      <div className="flex items-center gap-4 text-on-surface-variant">
+                        <div className="w-10 h-10 rounded-xl bg-surface-container flex items-center justify-center shrink-0 group-hover:bg-primary/5 group-hover:text-primary transition-colors duration-300">
+                          <Phone size={16} strokeWidth={2.5} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black uppercase tracking-widest opacity-50">Contact</span>
+                          <span className="text-xs font-bold text-on-surface/80">{partner.phone}</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3 pt-3">
+                      <div className="p-3 bg-surface-container-low rounded-xl">
+                        <span className="block text-[9px] font-black text-on-surface-variant/50 uppercase tracking-widest mb-1">Members</span>
+                        <span className="text-lg font-display font-bold text-on-surface">{partner.member_count || 0}</span>
+                      </div>
+                      <div className="p-3 bg-surface-container-low rounded-xl">
+                        <span className="block text-[9px] font-black text-on-surface-variant/50 uppercase tracking-widest mb-1">Revenue</span>
+                        <span className="text-lg font-display font-bold text-on-surface">R{((partner.total_revenue || 0) / 1000).toFixed(1)}k</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-5 border-t border-outline-variant/20">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={14} className="text-on-surface-variant/40" />
+                        <span className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-tighter">
+                          Since {partner.created_at ? new Date(partner.created_at).getFullYear() : '2024'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-primary font-black text-[10px] uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
+                        View Details <ChevronRight size={14} strokeWidth={3} />
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            
+            {filteredPartners.length === 0 && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-24 px-8 bg-surface-container-low rounded-[32px] border-2 border-dashed border-outline-variant/40"
               >
-                {selectedPartnerId === partner.id && (
-                  <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
-                )}
-                
-                <div className="flex justify-between items-start mb-6">
-                  <div>
-                    <h3 className="text-xl font-black text-on-surface leading-tight tracking-tight group-hover:text-primary transition-colors">
-                      {partner.name}
-                    </h3>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <BadgeCheck size={14} className="text-primary" />
-                      <span className="text-primary font-bold text-[10px] uppercase tracking-wider">{partner.status}</span>
-                    </div>
-                  </div>
-                  <div className="bg-primary text-on-primary px-3 py-2 rounded-xl text-center flex flex-col justify-center min-w-[64px] shadow-sm">
-                    <span className="text-[8px] opacity-80 uppercase tracking-widest font-black">Cashback</span>
-                    <span className="text-lg font-black leading-none mt-0.5">{partner.cashback}%</span>
-                  </div>
+                <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl shadow-black/5">
+                  <Search size={32} className="text-outline-variant" strokeWidth={1.5} />
                 </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 text-on-surface-variant">
-                    <div className="w-8 h-8 rounded-lg bg-surface-container flex items-center justify-center shrink-0">
-                      <MapPin size={14} />
-                    </div>
-                    <span className="text-xs font-bold capitalize truncate">{partner.address}, {partner.city}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-4 border-t border-outline-variant/10">
-                    <div className="flex items-center gap-2">
-                      <Clock size={12} className="text-on-surface-variant" />
-                      <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">Partner Since {partner.partnerSince}</span>
-                    </div>
-                    <ChevronRight size={16} className={`transition-transform duration-300 ${selectedPartnerId === partner.id ? 'translate-x-1 text-primary' : 'text-outline-variant'}`} />
-                  </div>
-                </div>
+                <h4 className="text-xl font-display font-bold text-on-surface mb-2">No partners found</h4>
+                <p className="text-sm text-on-surface-variant/70 leading-relaxed mb-8">
+                  We couldn't find any partners matching your current filters in this area.
+                </p>
+                <button 
+                  onClick={() => setRadius(50)}
+                  className="px-8 py-4 bg-primary text-on-primary rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] hover:shadow-2xl hover:shadow-primary/30 transition-all duration-500 active:scale-95"
+                >
+                  Expand Radius to 50km
+                </button>
               </motion.div>
-            ))}
-          </AnimatePresence>
-          )}
-          
-          {!loading && filteredPartners.length === 0 && (
-            <div className="text-center py-20 px-6 bg-surface-container-low rounded-3xl border-2 border-dashed border-outline-variant/30">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm">
-                <Search size={24} className="text-outline-variant" />
-              </div>
-              <p className="text-sm font-bold text-on-surface">No partners in this area</p>
-              <p className="text-xs text-on-surface-variant mt-1">Try expanding your search radius or changing categories.</p>
-              <button 
-                onClick={() => setRadius(50)}
-                className="mt-6 px-6 py-3 bg-primary text-on-primary rounded-xl text-xs font-black uppercase tracking-widest hover:shadow-lg transition-all"
-              >
-                Expand to 50km
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </aside>
 
-      {/* Main Map View */}
+      {/* Main Map View Section */}
       <section className="flex-1 relative h-full bg-surface-dim">
         <MapContainer 
           center={mapCenter} 
@@ -405,100 +446,96 @@ export default function App() {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url={getTileUrl()}
           />
-          <MapController center={mapCenter} zoom={zoom} shouldUpdate={shouldUpdateMap} />
-          <MapEvents onMoveEnd={setMapCenter} />
+          <MapController center={mapCenter} zoom={zoom} />
           <ZoomControl position="bottomright" />
           
-          {filteredPartners.map((p: Partner) => (
+          {filteredPartners
+            .filter(p => p.latitude && p.longitude)
+            .map((p) => (
             <Marker 
               key={p.id} 
-              position={[p.lat, p.lng]} 
+              position={[p.latitude!, p.longitude!]} 
               icon={createCustomIcon(p)}
               eventHandlers={{
-                click: () => setSelectedPartnerId(p.id),
+                click: () => {
+                  setSelectedPartnerId(p.id);
+                  setIsDetailOpen(true);
+                },
               }}
             >
-              <Popup className="custom-popup" minWidth={280} maxWidth={320}>
-                <div className="p-5 bg-white">
-                  {/* Header with close button */}
-                  <div className="flex justify-between items-start mb-4">
+              <Popup className="custom-popup" closeButton={false}>
+                <div className="p-6 bg-white">
+                  <div className="flex justify-between items-start gap-4 mb-6">
                     <div className="flex-1">
-                      <h4 className="text-lg font-black text-[#0f3d5c] m-0 leading-tight mb-1.5">{p.name}</h4>
-                      <div className="flex items-center gap-1.5">
-                        <BadgeCheck size={12} className="text-[#14b8a6]" />
-                        <span className="text-[9px] font-bold uppercase text-[#14b8a6] tracking-wider">{p.status}</span>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="px-2 py-0.5 rounded bg-primary/5 text-primary text-[8px] font-black uppercase tracking-widest">{p.category || 'Partner'}</span>
+                        <div className="flex items-center gap-1">
+                          <div className="w-1 h-1 rounded-full bg-green-500" />
+                          <span className="text-[8px] font-bold text-green-600 uppercase">Live</span>
+                        </div>
                       </div>
+                      <h4 className="text-xl font-display font-bold text-primary m-0 leading-tight tracking-tighter">{p.shop_name}</h4>
                     </div>
-                    <div className="bg-gradient-to-br from-[#0f3d5c] to-[#1a5170] text-white px-3.5 py-2.5 rounded-xl text-center shadow-lg ml-3 min-w-[60px]">
-                      <span className="text-[9px] font-black uppercase tracking-wider block opacity-90">Cashback</span>
-                      <span className="text-xl font-black leading-none block mt-0.5">{p.cashback}%</span>
-                    </div>
-                  </div>
-                  
-                  {/* Divider */}
-                  <div className="h-px bg-gradient-to-r from-transparent via-[#e2e8f0] to-transparent mb-4"></div>
-                  
-                  {/* Info Grid */}
-                  <div className="space-y-3 mb-5">
-                    <div className="flex items-start gap-3 group">
-                      <div className="w-9 h-9 rounded-xl bg-[#f8fafc] flex items-center justify-center shrink-0 group-hover:bg-[#0f3d5c]/5 transition-colors">
-                        <MapPin size={16} className="text-[#0f3d5c]" />
-                      </div>
-                      <div className="flex-1 pt-1">
-                        <p className="text-[9px] font-black uppercase text-[#94a3b8] tracking-wider mb-0.5">Location</p>
-                        <p className="text-xs font-bold text-[#0f172a] leading-snug">{p.address}<br/>{p.city}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-start gap-3 group">
-                      <div className="w-9 h-9 rounded-xl bg-[#f8fafc] flex items-center justify-center shrink-0 group-hover:bg-[#0f3d5c]/5 transition-colors">
-                        <Phone size={16} className="text-[#0f3d5c]" />
-                      </div>
-                      <div className="flex-1 pt-1">
-                        <p className="text-[9px] font-black uppercase text-[#94a3b8] tracking-wider mb-0.5">Contact</p>
-                        <a href={`tel:${p.phone}`} className="text-xs font-bold text-[#0f3d5c] hover:text-[#1a5170] transition-colors no-underline">{p.phone}</a>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-start gap-3 group">
-                      <div className="w-9 h-9 rounded-xl bg-[#f8fafc] flex items-center justify-center shrink-0 group-hover:bg-[#0f3d5c]/5 transition-colors">
-                        <Clock size={16} className="text-[#0f3d5c]" />
-                      </div>
-                      <div className="flex-1 pt-1">
-                        <p className="text-[9px] font-black uppercase text-[#94a3b8] tracking-wider mb-0.5">Partner Since</p>
-                        <p className="text-xs font-bold text-[#0f172a]">{p.partnerSince}</p>
-                      </div>
+                    <div className="bg-primary text-white w-12 h-12 rounded-2xl flex flex-col items-center justify-center shadow-lg shadow-primary/20 shrink-0">
+                      <span className="text-sm font-black leading-none">{p.cashback_percent}%</span>
+                      <span className="text-[6px] font-black uppercase opacity-70">Back</span>
                     </div>
                   </div>
                   
-                  {/* Action Button */}
-                  <a 
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full py-3.5 bg-gradient-to-r from-[#0f3d5c] to-[#1a5170] text-white rounded-xl text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2.5 hover:shadow-xl hover:shadow-[#0f3d5c]/20 transition-all active:scale-[0.98] no-underline group"
-                  >
-                    <Navigation size={16} className="group-hover:translate-x-0.5 transition-transform" />
-                    Get Directions
-                  </a>
+                  <div className="space-y-3 mb-6">
+                    <div className="flex items-center gap-3 text-on-surface-variant">
+                      <MapPin size={12} strokeWidth={2.5} className="text-primary/40" />
+                      <span className="text-[11px] font-bold text-on-surface/70 leading-tight">{p.address || 'Address not available'}, {p.city || 'City'}</span>
+                    </div>
+                    {p.phone && (
+                      <div className="flex items-center gap-3 text-on-surface-variant">
+                        <Phone size={12} strokeWidth={2.5} className="text-primary/40" />
+                        <span className="text-[11px] font-bold text-on-surface/70">{p.phone}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <a 
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${p.latitude},${p.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 h-11 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary-container transition-all duration-300 no-underline shadow-lg shadow-primary/10"
+                    >
+                      <Navigation size={14} strokeWidth={2.5} />
+                      Directions
+                    </a>
+                    <button 
+                      onClick={() => setIsDetailOpen(true)}
+                      className="w-11 h-11 bg-surface-container rounded-xl flex items-center justify-center text-primary hover:bg-primary/10 transition-all duration-300"
+                    >
+                      <Info size={18} strokeWidth={2.5} />
+                    </button>
+                  </div>
                 </div>
               </Popup>
             </Marker>
           ))}
         </MapContainer>
 
-        {/* Floating Top Controls */}
-        <div className="absolute top-8 left-8 right-8 flex justify-between items-center pointer-events-none z-[1000]">
-          <div className="flex gap-4 pointer-events-auto">
-            <div className="glass-panel flex items-center gap-5 px-6 py-3 rounded-2xl border border-white/40 shadow-2xl">
-              <div className="flex items-center gap-2">
-                <Locate size={14} className="text-primary" />
-                <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Radius</span>
+        {/* Floating Map Controls */}
+        <div className="absolute top-10 left-10 right-10 flex justify-between items-start pointer-events-none z-[1000]">
+          <div className="flex flex-col gap-4 pointer-events-auto">
+            <motion.div 
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              className="glass-panel flex items-center gap-6 px-8 py-4 rounded-[24px] shadow-2xl"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                  <Locate size={16} strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-black text-on-surface-variant uppercase tracking-[0.2em]">Range</span>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="w-40 h-1.5 bg-outline-variant/30 rounded-full relative cursor-pointer">
+              <div className="flex items-center gap-6">
+                <div className="w-48 h-2 bg-primary/10 rounded-full relative cursor-pointer group">
                   <div 
-                    className="absolute inset-y-0 left-0 bg-primary rounded-full shadow-[0_0_10px_rgba(26,85,139,0.3)]" 
+                    className="absolute inset-y-0 left-0 bg-primary rounded-full shadow-[0_0_15px_rgba(26,85,139,0.4)] transition-all duration-300" 
                     style={{ width: `${(radius / 50) * 100}%` }}
                   ></div>
                   <input 
@@ -507,91 +544,253 @@ export default function App() {
                     max="50" 
                     value={radius}
                     onChange={(e) => setRadius(parseInt(e.target.value))}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
                   />
-                  <div 
-                    className="absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white border-2 border-primary rounded-full shadow-lg pointer-events-none transition-transform hover:scale-110"
-                    style={{ left: `${(radius / 50) * 100}%`, marginLeft: '-10px' }}
-                  ></div>
+                  <motion.div 
+                    className="absolute top-1/2 -translate-y-1/2 w-6 h-6 bg-white border-[3px] border-primary rounded-full shadow-xl pointer-events-none z-20"
+                    style={{ left: `${(radius / 50) * 100}%`, marginLeft: '-12px' }}
+                    whileHover={{ scale: 1.2 }}
+                    whileTap={{ scale: 0.9 }}
+                  />
                 </div>
-                <span className="text-xs font-black text-primary w-12 tabular-nums">{radius}km</span>
+                <div className="flex items-baseline gap-0.5">
+                  <span className="text-lg font-display font-bold text-primary tabular-nums leading-none">{radius}</span>
+                  <span className="text-[10px] font-black text-primary/60 uppercase">km</span>
+                </div>
               </div>
-            </div>
+            </motion.div>
           </div>
 
           <div className="flex gap-3 pointer-events-auto">
-            <button 
+            <motion.button 
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.1 }}
               onClick={handleLocate}
-              title="My Location"
-              className="w-12 h-12 glass-panel rounded-2xl flex items-center justify-center text-on-surface shadow-xl border border-white/40 hover:bg-white hover:text-primary transition-all duration-300 active:scale-95"
+              className="w-14 h-14 glass-panel rounded-2xl flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white transition-all duration-500 shadow-2xl active:scale-90 group"
             >
-              <Locate size={20} />
-            </button>
-            <button 
+              <Locate size={22} strokeWidth={2} className="group-hover:rotate-12 transition-transform" />
+            </motion.button>
+            <motion.button 
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
               onClick={toggleLayer}
-              title="Toggle Map Layer"
-              className="w-12 h-12 glass-panel rounded-2xl flex items-center justify-center text-on-surface shadow-xl border border-white/40 hover:bg-white hover:text-primary transition-all duration-300 active:scale-95"
+              className="w-14 h-14 glass-panel rounded-2xl flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-white transition-all duration-500 shadow-2xl active:scale-90 group"
             >
-              <Layers size={20} />
-            </button>
+              <Layers size={22} strokeWidth={2} className="group-hover:rotate-12 transition-transform" />
+            </motion.button>
           </div>
         </div>
 
-        {/* Mobile Detail Panel */}
+        {/* Detailed Shop View Overlay - Desktop & Mobile */}
         <AnimatePresence>
-          {selectedPartner && (
-            <motion.div 
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              className="lg:hidden absolute bottom-0 left-0 right-0 p-6 z-[1001] bg-white rounded-t-[40px] shadow-[0_-20px_50px_rgba(0,0,0,0.1)] border-t border-outline-variant/20"
-            >
-              <div className="w-12 h-1.5 bg-outline-variant/30 rounded-full mx-auto mb-8" />
+          {isDetailOpen && selectedPartner && (
+            <>
+              {/* Backdrop */}
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsDetailOpen(false)}
+                className="absolute inset-0 bg-black/20 backdrop-blur-sm z-[2000]"
+              />
               
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h3 className="text-2xl font-black text-on-surface leading-tight">{selectedPartner.name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <BadgeCheck size={16} className="text-primary" />
-                    <span className="text-xs font-black text-primary uppercase tracking-widest">{selectedPartner.status}</span>
+              {/* Detail Card */}
+              <motion.div 
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                className="absolute top-0 right-0 bottom-0 w-full lg:w-[540px] bg-white z-[2001] shadow-[-40px_0_80px_rgba(0,0,0,0.1)] flex flex-col"
+              >
+                {/* Header Image/Pattern Area */}
+                <div className="h-64 premium-gradient relative overflow-hidden shrink-0">
+                  <div className="absolute inset-0 opacity-10">
+                    <div className="absolute top-0 left-0 w-full h-full" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '32px 32px' }} />
+                  </div>
+                  <button 
+                    onClick={() => setIsDetailOpen(false)}
+                    className="absolute top-8 right-8 w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-white hover:bg-white hover:text-primary transition-all duration-500 z-10"
+                  >
+                    <X size={24} strokeWidth={2.5} />
+                  </button>
+                  
+                  <div className="absolute bottom-10 left-10 right-10">
+                    <motion.div 
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.2 }}
+                      className="flex items-center gap-3 mb-3"
+                    >
+                      <span className="px-3 py-1 rounded-lg bg-white/20 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-widest">
+                        {selectedPartner.category}
+                      </span>
+                      <div className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-green-500/20 backdrop-blur-md text-green-300 text-[10px] font-black uppercase tracking-widest">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                        Active Partner
+                      </div>
+                    </motion.div>
+                    <motion.h2 
+                      initial={{ y: 20, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                      className="text-5xl font-display font-bold text-white tracking-tighter-extra leading-none"
+                    >
+                      {selectedPartner.shop_name}
+                    </motion.h2>
                   </div>
                 </div>
-                <div className="premium-gradient text-on-primary px-4 py-2 rounded-2xl text-center shadow-lg">
-                  <span className="text-[10px] font-black uppercase tracking-widest block opacity-80">Cashback</span>
-                  <span className="text-xl font-black">{selectedPartner.cashback}%</span>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-8">
-                <div className="p-4 bg-surface-container rounded-2xl">
-                  <Phone size={16} className="text-primary mb-2" />
-                  <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Call</p>
-                  <p className="text-xs font-bold text-on-surface">{selectedPartner.phone}</p>
-                </div>
-                <div className="p-4 bg-surface-container rounded-2xl">
-                  <MapPin size={16} className="text-primary mb-2" />
-                  <p className="text-[10px] font-black text-on-surface-variant uppercase tracking-widest">Visit</p>
-                  <p className="text-xs font-bold text-on-surface truncate">{selectedPartner.city}</p>
-                </div>
-              </div>
+                {/* Content Area */}
+                <div className="flex-1 overflow-y-auto px-10 py-12 space-y-12">
+                  {/* Key Stats */}
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="p-6 bg-surface-container-low rounded-[32px] border border-outline-variant/20">
+                      <span className="block text-[9px] font-black text-on-surface-variant/60 uppercase tracking-widest mb-2">Cashback</span>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-display font-bold text-primary">{selectedPartner.cashback_percent}%</span>
+                      </div>
+                    </div>
+                    <div className="p-6 bg-surface-container-low rounded-[32px] border border-outline-variant/20">
+                      <span className="block text-[9px] font-black text-on-surface-variant/60 uppercase tracking-widest mb-2">Members</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-3xl font-display font-bold text-on-surface">{selectedPartner.member_count || 0}</span>
+                      </div>
+                    </div>
+                    <div className="p-6 bg-surface-container-low rounded-[32px] border border-outline-variant/20">
+                      <span className="block text-[9px] font-black text-on-surface-variant/60 uppercase tracking-widest mb-2">Status</span>
+                      <span className="text-xs font-black text-green-600 uppercase tracking-widest">ACTIVE</span>
+                    </div>
+                  </div>
 
-              <a 
-                href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPartner.lat},${selectedPartner.lng}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full py-5 bg-primary text-on-primary font-black rounded-2xl flex items-center justify-center gap-3 shadow-xl hover:shadow-primary/20 transition-all active:scale-[0.98] no-underline"
-              >
-                <Navigation size={20} />
-                START NAVIGATION
-              </a>
-            </motion.div>
+                  {/* Business Info */}
+                  <div className="space-y-6">
+                    <h4 className="text-[10px] font-black text-on-surface-variant/40 tracking-[0.3em] uppercase">Business Information</h4>
+                    <div className="grid gap-4">
+                      {selectedPartner.business_registration && (
+                        <div className="p-6 bg-white rounded-[28px] border border-outline-variant/30">
+                          <span className="block text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest mb-2">Registration Number</span>
+                          <span className="text-sm font-bold text-on-surface/80">{selectedPartner.business_registration}</span>
+                        </div>
+                      )}
+                      
+                      {selectedPartner.email && (
+                        <div className="p-6 bg-white rounded-[28px] border border-outline-variant/30">
+                          <span className="block text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest mb-2">Business Email</span>
+                          <span className="text-sm font-bold text-on-surface/80 break-all">{selectedPartner.email}</span>
+                        </div>
+                      )}
+
+                      {selectedPartner.category && (
+                        <div className="p-6 bg-white rounded-[28px] border border-outline-variant/30">
+                          <span className="block text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest mb-2">Category</span>
+                          <span className="text-sm font-bold text-on-surface/80 capitalize">{selectedPartner.category}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Financial Stats */}
+                  <div className="space-y-6">
+                    <h4 className="text-[10px] font-black text-on-surface-variant/40 tracking-[0.3em] uppercase">Financial Overview</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-6 bg-gradient-to-br from-primary/5 to-primary/10 rounded-[28px] border border-primary/20">
+                        <span className="block text-[10px] font-black text-primary/60 uppercase tracking-widest mb-2">Total Revenue</span>
+                        <span className="text-2xl font-display font-bold text-primary">R{(selectedPartner.total_revenue || 0).toLocaleString()}</span>
+                      </div>
+                      <div className="p-6 bg-gradient-to-br from-green-500/5 to-green-500/10 rounded-[28px] border border-green-500/20">
+                        <span className="block text-[10px] font-black text-green-600/60 uppercase tracking-widest mb-2">Commission Rate</span>
+                        <span className="text-2xl font-display font-bold text-green-600">{selectedPartner.commission_rate || selectedPartner.cashback_percent}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contact Info */}
+                  <div className="space-y-6">
+                    <h4 className="text-[10px] font-black text-on-surface-variant/40 tracking-[0.3em] uppercase">Contact & Location</h4>
+                    <div className="grid gap-4">
+                      <div className="flex items-center gap-5 p-6 bg-white rounded-[28px] border border-outline-variant/30 hover:border-primary/30 transition-colors duration-300 group">
+                        <div className="w-14 h-14 rounded-2xl bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500">
+                          <MapPin size={24} strokeWidth={2} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest">Address</span>
+                          <span className="text-sm font-bold text-on-surface/80">{selectedPartner.address || 'Address not available'}, {selectedPartner.city || 'City'}</span>
+                        </div>
+                      </div>
+                      
+                      {selectedPartner.phone && (
+                        <div className="flex items-center gap-5 p-6 bg-white rounded-[28px] border border-outline-variant/30 hover:border-primary/30 transition-colors duration-300 group">
+                          <div className="w-14 h-14 rounded-2xl bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500">
+                            <Phone size={24} strokeWidth={2} />
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest">Phone</span>
+                            <span className="text-sm font-bold text-on-surface/80">{selectedPartner.phone}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-5 p-6 bg-white rounded-[28px] border border-outline-variant/30 hover:border-primary/30 transition-colors duration-300 group">
+                        <div className="w-14 h-14 rounded-2xl bg-primary/5 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all duration-500">
+                          <Mail size={24} strokeWidth={2} />
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest">Email</span>
+                          <span className="text-sm font-bold text-on-surface/80 truncate max-w-[280px]">
+                            {selectedPartner.email || `contact@${selectedPartner.shop_name.toLowerCase().replace(/\s+/g, '')}.co.za`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Partnership Details */}
+                  <div className="space-y-6">
+                    <h4 className="text-[10px] font-black text-on-surface-variant/40 tracking-[0.3em] uppercase">Partnership Details</h4>
+                    <div className="grid gap-4">
+                      <div className="p-6 bg-white rounded-[28px] border border-outline-variant/30">
+                        <span className="block text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest mb-2">Partner Since</span>
+                        <span className="text-sm font-bold text-on-surface/80">
+                          {selectedPartner.created_at ? new Date(selectedPartner.created_at).toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          }) : 'N/A'}
+                        </span>
+                      </div>
+                      
+                      <div className="p-6 bg-white rounded-[28px] border border-outline-variant/30">
+                        <span className="block text-[10px] font-black text-on-surface-variant/50 uppercase tracking-widest mb-2">Partner ID</span>
+                        <span className="text-sm font-mono font-bold text-on-surface/80">{selectedPartner.id.slice(0, 8)}...</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="pt-4">
+                    {selectedPartner.latitude && selectedPartner.longitude && (
+                      <a 
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPartner.latitude},${selectedPartner.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full py-6 premium-gradient text-white rounded-[28px] font-black text-sm uppercase tracking-[0.25em] flex items-center justify-center gap-4 shadow-2xl shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-1 transition-all duration-500 no-underline"
+                      >
+                        <Navigation size={20} strokeWidth={2.5} />
+                        Start Navigation
+                        <ArrowRight size={20} strokeWidth={2.5} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </section>
+        </>
+      )}
     </main>
   );
 }
-
-
-
-

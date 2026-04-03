@@ -6,9 +6,10 @@ import { X, Check, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function PartnerMemberRegistration() {
   const navigate = useNavigate();
-  const [activeField, setActiveField] = useState<'name' | 'phone' | 'pin' | 'confirmPin'>('name');
+  const [activeField, setActiveField] = useState<'name' | 'phone' | 'dob' | 'pin' | 'confirmPin'>('name');
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [pinCode, setPinCode] = useState('');
   const [confirmPinCode, setConfirmPinCode] = useState('');
   const [showPin, setShowPin] = useState(false);
@@ -68,6 +69,25 @@ export default function PartnerMemberRegistration() {
       return;
     }
 
+    if (!dateOfBirth) {
+      setError('Please enter your date of birth');
+      setActiveField('dob');
+      return;
+    }
+
+    // Validate age (must be at least 18 years old)
+    const birthDate = new Date(dateOfBirth);
+    const today = new Date();
+    const age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate()) ? age - 1 : age;
+    
+    if (actualAge < 18) {
+      setError('You must be at least 18 years old to register');
+      setActiveField('dob');
+      return;
+    }
+
     if (pinCode.length !== 6) {
       setError('Please enter a 6-digit PIN code');
       setActiveField('pin');
@@ -118,7 +138,7 @@ export default function PartnerMemberRegistration() {
         .from('cover_plans')
         .select('id, plan_name, monthly_target_amount')
         .eq('status', 'active')
-        .eq('monthly_target_amount', 385)
+        .eq('monthly_target_amount', 390)
         .limit(1)
         .single();
 
@@ -136,6 +156,7 @@ export default function PartnerMemberRegistration() {
           full_name: fullName.trim(),
           phone: phoneNumber,
           cell_phone: phoneNumber,
+          date_of_birth: dateOfBirth,
           pin_code: pinCode,
           qr_code: qrCodeGen,
           status: 'active',
@@ -272,6 +293,24 @@ export default function PartnerMemberRegistration() {
                 </div>
               </div>
 
+              {/* Date of Birth */}
+              <div 
+                className={`bg-black/30 rounded-xl p-4 mb-3 cursor-pointer transition-all ${
+                  activeField === 'dob' ? 'ring-2 ring-cyan-400' : 'hover:bg-black/40'
+                }`}
+                onClick={() => setActiveField('dob')}
+              >
+                <p className="text-cyan-300 text-xs font-semibold mb-1.5">🎂 Date of Birth</p>
+                <input
+                  type="date"
+                  value={dateOfBirth}
+                  onChange={(e) => setDateOfBirth(e.target.value)}
+                  max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
+                  className="w-full bg-transparent text-white text-xl font-semibold outline-none"
+                />
+                <p className="text-white/50 text-xs mt-1.5">*Must be at least 18 years old</p>
+              </div>
+
               {/* PIN */}
               <div 
                 className={`bg-black/30 rounded-xl p-4 mb-3 cursor-pointer transition-all ${
@@ -365,13 +404,15 @@ export default function PartnerMemberRegistration() {
                     ? 'TYPE YOUR NAME' 
                     : activeField === 'phone'
                     ? 'ENTER PHONE NUMBER'
+                    : activeField === 'dob'
+                    ? 'SELECT DATE OF BIRTH'
                     : activeField === 'pin'
                     ? 'ENTER PIN CODE'
                     : 'CONFIRM PIN CODE'}
                 </p>
               </div>
 
-              {activeField === 'name' ? (
+              {activeField === 'name' || activeField === 'dob' ? (
                 <div className="flex-1 flex items-center justify-center">
                   <img 
                     src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=600&h=800&fit=crop" 
@@ -415,7 +456,7 @@ export default function PartnerMemberRegistration() {
                     </button>
                     <button
                       onClick={handleSubmit}
-                      disabled={loading || !fullName.trim() || phoneNumber.length !== 10 || pinCode.length !== 6 || confirmPinCode.length !== 6 || !termsAccepted}
+                      disabled={loading || !fullName.trim() || phoneNumber.length !== 10 || !dateOfBirth || pinCode.length !== 6 || confirmPinCode.length !== 6 || !termsAccepted}
                       className="bg-green-500 hover:bg-green-600 disabled:bg-gray-500 disabled:cursor-not-allowed text-white text-xl font-bold rounded-2xl h-16 transition-all flex items-center justify-center gap-2"
                     >
                       {loading ? (

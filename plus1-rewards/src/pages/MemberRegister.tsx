@@ -20,6 +20,7 @@ export default function MemberRegister() {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    dateOfBirth: '',
     pin: '',
     confirmPin: '',
     terms: false
@@ -40,6 +41,24 @@ export default function MemberRegister() {
       // Scroll to error message
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return; 
+    }
+    
+    // Validate date of birth
+    if (!formData.dateOfBirth) {
+      setError('Date of birth is required');
+      return;
+    }
+    
+    // Validate age (must be at least 18 years old)
+    const birthDate = new Date(formData.dateOfBirth);
+    const today = new Date();
+    const age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate()) ? age - 1 : age;
+    
+    if (actualAge < 18) {
+      setError('You must be at least 18 years old to register');
+      return;
     }
     
     if (formData.pin.length !== 6) { setError('PIN must be exactly 6 digits'); return; }
@@ -70,12 +89,12 @@ export default function MemberRegister() {
         return; 
       }
 
-      // Get default cover plan (Day to Day Single - R385)
+      // Get default cover plan (Hospital - Value - Single - R390)
       const { data: defaultPlan, error: planError } = await supabase
         .from('cover_plans')
         .select('id, plan_name, monthly_target_amount')
         .eq('status', 'active')
-        .eq('monthly_target_amount', 385)
+        .eq('monthly_target_amount', 390)
         .limit(1)
         .single();
 
@@ -95,6 +114,7 @@ export default function MemberRegister() {
           full_name: formData.name,
           cell_phone: phoneDigits,
           email: `${phoneDigits}@plus1rewards.local`,
+          date_of_birth: formData.dateOfBirth,
           qr_code: qrCode,
           pin_code: formData.pin,
           status: 'active',
@@ -147,7 +167,7 @@ export default function MemberRegister() {
       stats={[
         { value: 'NO sign up Fee', label: '' },
         { value: '3%', label: 'Rewards Rate' },
-        { value: 'R385', label: 'Monthly Target' },
+        { value: 'R390', label: 'Monthly Target' },
       ]}
     >
       {notification && (
@@ -201,6 +221,20 @@ export default function MemberRegister() {
             autoComplete="tel"
             required
           />
+          <AuthInput
+            label="Date of Birth"
+            icon="cake"
+            id="dateOfBirth"
+            name="dateOfBirth"
+            type="date"
+            placeholder="Select your date of birth"
+            value={formData.dateOfBirth}
+            onChange={handleInputChange}
+            autoComplete="bday"
+            required
+            max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
+          />
+          <p className="text-xs text-gray-500 -mt-2">You must be at least 18 years old to register</p>
           <AuthInput
             label="6-Digit PIN"
             icon="pin"

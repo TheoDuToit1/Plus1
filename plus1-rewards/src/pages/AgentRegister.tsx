@@ -1,126 +1,271 @@
 // plus1-rewards/src/pages/AgentRegister.tsx
-// Updated: 2026-03-23 - Fixed useNavigate import
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import AuthLayout from '../components/auth/AuthLayout';
 import { AuthInput, AuthButton, AuthError, AuthLink } from '../components/auth/AuthComponents';
 import { Notification, useNotification } from '../components/Notification';
+import AgentDigitalSignature from '../components/AgentDigitalSignature';
 
-const BLUE = '#1a558b'
-const BLUE_LIGHT = 'rgba(26,85,139,0.08)'
+const BLUE = '#1a558b';
+const BLUE_LIGHT = 'rgba(26,85,139,0.08)';
 
 export default function AgentRegister() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPin, setShowPin] = useState(false);
+  const [showConfirmPin, setShowConfirmPin] = useState(false);
   const [error, setError] = useState('');
+  const [showSignature, setShowSignature] = useState(false);
   const { notification, showSuccess, hideNotification } = useNotification();
+  
   const [formData, setFormData] = useState({
-    fullName: '',
+    firstName: '',
     surname: '',
-    phoneNumber: '',
+    idNumber: '',
+    mobileNumber: '',
     email: '',
     pin: '',
     confirmPin: '',
-    idNumber: '',
     documentFile: null as File | null,
-    agreementFile: null as File | null,
-    agreementSigned: false
+    agreementAccepted: false
   });
 
-  const handleNavigation = (path: string) => { window.location.href = path; };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked, files } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : type === 'file' ? files?.[0] || null : value
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+    const target = e.target as HTMLInputElement;
+    const checked = target.checked;
+    const files = target.files;
+    
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: type === 'checkbox' ? checked : type === 'file' ? files?.[0] || null : value 
     }));
   };
 
-  const handleNextStep = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateStep1 = () => {
+    if (!formData.firstName.trim()) {
+      setError('First name is required');
+      return false;
+    }
+    if (!formData.surname.trim()) {
+      setError('Surname is required');
+      return false;
+    }
+    if (!formData.idNumber.trim()) {
+      setError('ID number is required');
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep2 = () => {
+    const phoneDigits = formData.mobileNumber.replace(/\D/g, '');
+    if (phoneDigits.length !== 10) {
+      setError('Mobile number must be exactly 10 digits');
+      return false;
+    }
+    if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      setError('Valid email address is required');
+      return false;
+    }
+    if (!formData.documentFile) {
+      setError('Please upload your ID document');
+      return false;
+    }
+    return true;
+  };
+
+  const validateStep3 = () => {
+    if (formData.pin.length !== 6 || !/^\d{6}$/.test(formData.pin)) {
+      setError('PIN must be exactly 6 digits');
+      return false;
+    }
+    if (formData.pin !== formData.confirmPin) {
+      setError('PINs do not match');
+      return false;
+    }
+    if (!formData.agreementAccepted) {
+      setError('You must accept the Sales Agent Agreement');
+      return false;
+    }
+    return true;
+  };
+
+  const handleNext = async () => {
     setError('');
-    if (currentStep === 1) {
-      setCurrentStep(2);
-    } else {
-      setIsSubmitting(true);
-      try {
-        if (formData.pin !== formData.confirmPin) { setError('PINs do not match'); return; }
-        if (formData.pin.length !== 6 || !/^\d{6}$/.test(formData.pin)) { setError('PIN must be exactly 6 digits'); return; }
+    setIsSubmitting(true);
 
-        // First, create user record in users table
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .insert([{
-            role: 'agent',
-            full_name: `${formData.fullName} ${formData.surname}`,
-            mobile_number: formData.phoneNumber,
-            pin_code: formData.pin,
-            email: formData.email,
-            status: 'pending'
-          }])
-          .select()
-          .single();
+    try {
+      if (currentStep === 1 && validateStep1()) {
+        setCurrentStep(2);
+      } else if (currentStep === 2 && validateStep2()) {
+        // Check for duplicate phone number in agents table
+        const cleanPhone = formData.mobileNumber.replace(/\D/g, '');
+        const { data: existingPhone } = await supabase
+          .from('agents')
+          .select('id')
+          .eq('mobile_number', cleanPhone)
+          .maybeSingle();
 
-        if (userError) {
-          console.error('User creation error:', userError);
-          if (userError.message.includes('mobile_number')) {
-            setError('This phone number is already registered. Please use a different number or contact admin.');
-          } else if (userError.message.includes('email')) {
-            setError('This email is already registered. Please use a different email or contact admin.');
-          } else {
-            setError(`Registration failed: ${userError.message}`);
-          }
+        if (existingPhone) {
+          setError('This mobile number is already registered');
+          setIsSubmitting(false);
           return;
         }
 
-        // Then create agent record linked to user
-        const { error: agentError } = await supabase
+        // Check for duplicate email
+        const { data: existingEmail } = await supabase
           .from('agents')
-          .insert([{
-            user_id: userData.id,
-            id_number: formData.idNumber,
-            status: 'pending'
-          }])
-          .select();
+          .select('id')
+          .eq('email', formData.email.trim())
+          .maybeSingle();
 
-        if (agentError) {
-          console.error('Agent record creation error:', agentError);
-          // Clean up user record if agent creation fails
-          await supabase.from('users').delete().eq('id', userData.id);
-          setError(`Registration failed: ${agentError.message}`);
-        } else {
-          showSuccess(
-            'Application Submitted Successfully!',
-            'Your agent application is pending admin approval. You will be notified once reviewed.'
-          );
-          
-          setTimeout(() => {
-            navigate('/agent/login');
-          }, 3000);
+        if (existingEmail) {
+          setError('This email is already registered');
+          setIsSubmitting(false);
+          return;
         }
-      } catch {
-        setError('An unexpected error occurred. Please try again.');
-      } finally {
-        setIsSubmitting(false);
+
+        setCurrentStep(3);
       }
+    } catch (err: any) {
+      console.error('Validation error:', err);
+      setError('Failed to validate information. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const downloadAgreement = () => {
-    const link = document.createElement('a');
-    link.href = '/plus1_rewards_sales_agent_agreement.pdf';
-    link.download = 'plus1_rewards_sales_agent_agreement.pdf';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleBack = () => {
+    setError('');
+    setCurrentStep(prev => prev - 1);
   };
 
-  const steps = ['Personal Info', 'Verification & Agreement'];
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!validateStep3()) return;
+
+    // Show signature popup
+    setShowSignature(true);
+  };
+
+  const handleSignatureComplete = async (signatureDataUrl: string) => {
+    setShowSignature(false);
+    setIsSubmitting(true);
+
+    try {
+      const cleanPhone = formData.mobileNumber.replace(/\D/g, '');
+
+      // Check if mobile number already exists
+      const { data: existingPhone } = await supabase
+        .from('agents')
+        .select('id')
+        .eq('mobile_number', cleanPhone)
+        .maybeSingle();
+
+      if (existingPhone) {
+        setError('This mobile number is already registered');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Check if email already exists
+      const { data: existingEmail } = await supabase
+        .from('agents')
+        .select('id')
+        .eq('email', formData.email)
+        .maybeSingle();
+
+      if (existingEmail) {
+        setError('This email is already registered');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Upload ID document to storage
+      const idDocBlob = formData.documentFile ? await fetch(URL.createObjectURL(formData.documentFile)).then(r => r.blob()) : null;
+      let idDocFileName = null;
+      
+      if (idDocBlob) {
+        idDocFileName = `agent-documents/${Date.now()}_${formData.documentFile?.name}`;
+        const { error: idUploadError } = await supabase.storage
+          .from('documents')
+          .upload(idDocFileName, idDocBlob, {
+            upsert: false
+          });
+
+        if (idUploadError) {
+          console.error('ID document upload error:', idUploadError);
+        }
+      }
+
+      // Upload signature to storage
+      const signatureBlob = await fetch(signatureDataUrl).then(r => r.blob());
+      const signatureFileName = `agent-signatures/${Date.now()}_signature.png`;
+      
+      let signatureStoragePath = null;
+      try {
+        const { error: uploadError } = await supabase.storage
+          .from('documents')
+          .upload(signatureFileName, signatureBlob, {
+            contentType: 'image/png',
+            upsert: false
+          });
+
+        if (uploadError) {
+          console.error('Signature upload error:', uploadError);
+          setError('Failed to upload signature. Please try again.');
+          setIsSubmitting(false);
+          return;
+        } else {
+          signatureStoragePath = signatureFileName;
+          console.log('Signature uploaded successfully:', signatureFileName);
+        }
+      } catch (uploadException) {
+        console.error('Signature upload exception:', uploadException);
+        setError('Failed to upload signature. Please try again.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Create agent record directly in agents table
+      const { error: agentError } = await supabase
+        .from('agents')
+        .insert({
+          full_name: `${formData.firstName} ${formData.surname}`,
+          mobile_number: cleanPhone,
+          pin_code: formData.pin,
+          email: formData.email,
+          id_number: formData.idNumber,
+          agreement_file: signatureStoragePath,
+          status: 'pending',
+          role: 'agent'
+        });
+
+      if (agentError) throw agentError;
+
+      showSuccess(
+        'Registration Submitted Successfully!',
+        'Your application is pending admin approval. You will be notified once approved.'
+      );
+
+      setTimeout(() => {
+        navigate('/agent/login');
+      }, 3000);
+
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const steps = ['Personal Info', 'Contact & Documents', 'Security & Agreement'];
 
   return (
     <AuthLayout
@@ -143,22 +288,25 @@ export default function AgentRegister() {
         />
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-5">
         {/* Header */}
         <div>
           <h2 className="text-2xl font-black text-gray-900">Become an Agent</h2>
-          <p className="text-sm text-gray-500 mt-1">Step {currentStep} of 2 — {steps[currentStep - 1]}</p>
+          <p className="text-sm text-gray-500 mt-1">Step {currentStep} of 3 — {steps[currentStep - 1]}</p>
         </div>
 
         {/* Step progress */}
         <div className="flex items-center gap-2">
           {steps.map((step, i) => (
             <div key={i} className="flex-1 flex flex-col gap-1">
-              <div
-                className="h-1.5 rounded-full transition-all duration-300"
-                style={{ backgroundColor: i < currentStep ? BLUE : '#e5e7eb' }}
+              <div 
+                className="h-1.5 rounded-full transition-all duration-300" 
+                style={{ backgroundColor: i < currentStep ? BLUE : '#e5e7eb' }} 
               />
-              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: i < currentStep ? BLUE : '#9ca3af' }}>
+              <span 
+                className="text-[10px] font-bold uppercase tracking-wider" 
+                style={{ color: i < currentStep ? BLUE : '#9ca3af' }}
+              >
                 {step}
               </span>
             </div>
@@ -167,138 +315,225 @@ export default function AgentRegister() {
 
         <AuthError message={error} />
 
-        {currentStep === 1 ? (
-          <form onSubmit={handleNextStep} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <AuthInput label="First Name" icon="person" id="fullName" name="fullName" type="text" placeholder="Michael" value={formData.fullName} onChange={handleInputChange} required />
-              <AuthInput label="Surname" icon="person" id="surname" name="surname" type="text" placeholder="Johnson" value={formData.surname} onChange={handleInputChange} required />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <AuthInput label="Phone Number" icon="phone" id="phoneNumber" name="phoneNumber" type="tel" placeholder="082 555 1234" value={formData.phoneNumber} onChange={handleInputChange} required />
-              <AuthInput label="Email" icon="mail" id="email" name="email" type="email" placeholder="michael@example.com" value={formData.email} onChange={handleInputChange} required />
-            </div>
-            <AuthButton type="submit">
-              Continue to Step 2
-              <span className="material-symbols-outlined text-base">arrow_forward</span>
-            </AuthButton>
-          </form>
-        ) : (
-          <form onSubmit={handleNextStep} className="space-y-4">
-            <AuthInput label="ID Number" icon="badge" id="idNumber" name="idNumber" type="text" placeholder="8001015009087" value={formData.idNumber} onChange={handleInputChange} required />
-
-            {/* ID Document upload */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-gray-700">Upload ID / Passport / Driver's License</label>
-              <label
-                className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl py-6 cursor-pointer transition-all"
-                style={{ borderColor: formData.documentFile ? BLUE : '#e5e7eb', backgroundColor: formData.documentFile ? BLUE_LIGHT : '#fafafa' }}
-              >
-                <span className="material-symbols-outlined text-3xl" style={{ color: formData.documentFile ? BLUE : '#9ca3af' }}>upload_file</span>
-                <span className="text-sm font-semibold" style={{ color: formData.documentFile ? BLUE : '#6b7280' }}>
-                  {formData.documentFile ? formData.documentFile.name : 'Click to upload file'}
-                </span>
-                <span className="text-xs text-gray-400">JPG, PNG or PDF — max 5MB</span>
-                <input type="file" name="documentFile" accept="image/*,.pdf" onChange={handleInputChange} className="hidden" required />
-              </label>
-            </div>
-
-            {/* Passwords */}
-            <div className="grid grid-cols-2 gap-3">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Step 1: Personal Info */}
+          {currentStep === 1 && (
+            <>
               <AuthInput
-                label="6-Digit PIN" icon="lock" id="pin" name="pin" type={showPassword ? 'text' : 'password'}
-                placeholder="••••••" value={formData.pin} onChange={handleInputChange} required maxLength={6} pattern="\d{6}"
-                suffix={<button type="button" onClick={() => setShowPassword(!showPassword)} className="text-gray-400 hover:text-gray-600"><span className="material-symbols-outlined text-xl">{showPassword ? 'visibility_off' : 'visibility'}</span></button>}
+                label="First Name"
+                icon="person"
+                id="firstName"
+                name="firstName"
+                type="text"
+                placeholder="Michael"
+                value={formData.firstName}
+                onChange={handleInputChange}
+                required
               />
+
               <AuthInput
-                label="Confirm PIN" icon="lock" id="confirmPin" name="confirmPin" type={showConfirmPassword ? 'text' : 'password'}
-                placeholder="••••••" value={formData.confirmPin} onChange={handleInputChange} required maxLength={6} pattern="\d{6}"
-                suffix={<button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="text-gray-400 hover:text-gray-600"><span className="material-symbols-outlined text-xl">{showConfirmPassword ? 'visibility_off' : 'visibility'}</span></button>}
+                label="Surname"
+                icon="person"
+                id="surname"
+                name="surname"
+                type="text"
+                placeholder="Johnson"
+                value={formData.surname}
+                onChange={handleInputChange}
+                required
               />
-            </div>
 
-            {/* Agreement section */}
-            <div className="rounded-xl border p-4 space-y-3" style={{ borderColor: '#e5e7eb', backgroundColor: BLUE_LIGHT }}>
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-xl" style={{ color: BLUE }}>description</span>
-                <span className="font-bold text-sm text-gray-900">Sales Agent Agreement</span>
-              </div>
-              <p className="text-xs text-gray-500">Download, read, sign, and upload the completed agreement below.</p>
-              <button type="button" onClick={downloadAgreement}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90"
-                style={{ backgroundColor: BLUE }}>
-                <span className="material-symbols-outlined text-sm">download</span>
-                Download Agreement
-              </button>
-            </div>
+              <AuthInput
+                label="ID Number"
+                icon="badge"
+                id="idNumber"
+                name="idNumber"
+                type="text"
+                placeholder="8001015009087"
+                value={formData.idNumber}
+                onChange={handleInputChange}
+                required
+              />
 
-            {/* Upload signed agreement */}
-            <div className="space-y-1.5">
-              <label className="text-sm font-semibold text-gray-700">Upload Signed Agreement</label>
-              <label 
-                className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl py-5 cursor-pointer transition-all" 
-                style={{ 
-                  borderColor: formData.agreementFile ? BLUE : '#e5e7eb',
-                  backgroundColor: formData.agreementFile ? BLUE_LIGHT : '#fafafa'
-                }}
-              >
-                <span className="material-symbols-outlined text-2xl" style={{ color: formData.agreementFile ? BLUE : '#9ca3af' }}>upload_file</span>
-                <span className="text-sm font-semibold" style={{ color: formData.agreementFile ? BLUE : '#6b7280' }}>
-                  {formData.agreementFile ? formData.agreementFile.name : 'Click to upload signed agreement (PDF or image)'}
-                </span>
-                {formData.agreementFile && (
-                  <span className="text-xs text-gray-500">
-                    {(formData.agreementFile.size / 1024 / 1024).toFixed(2)} MB
+              <AuthButton type="button" onClick={handleNext} loading={isSubmitting} loadingText="Checking...">
+                Next Step →
+              </AuthButton>
+            </>
+          )}
+
+          {/* Step 2: Contact & Documents */}
+          {currentStep === 2 && (
+            <>
+              <AuthInput
+                label="Cell Phone Number (10 digits)"
+                icon="phone"
+                id="mobileNumber"
+                name="mobileNumber"
+                type="tel"
+                placeholder="082 555 1234"
+                value={formData.mobileNumber}
+                onChange={handleInputChange}
+                required
+              />
+
+              <AuthInput
+                label="Email Address"
+                icon="email"
+                id="email"
+                name="email"
+                type="email"
+                placeholder="agent@example.com"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+              />
+
+              {/* ID Document upload */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-gray-700">Upload ID / Passport / Driver's License</label>
+                <label
+                  className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl py-6 cursor-pointer transition-all"
+                  style={{ borderColor: formData.documentFile ? BLUE : '#e5e7eb', backgroundColor: formData.documentFile ? BLUE_LIGHT : '#fafafa' }}
+                >
+                  <span className="material-symbols-outlined text-3xl" style={{ color: formData.documentFile ? BLUE : '#9ca3af' }}>upload_file</span>
+                  <span className="text-sm font-semibold" style={{ color: formData.documentFile ? BLUE : '#6b7280' }}>
+                    {formData.documentFile ? formData.documentFile.name : 'Click to upload file'}
                   </span>
-                )}
-                <input type="file" name="agreementFile" accept=".pdf,image/*" onChange={handleInputChange} className="hidden" required />
-              </label>
-            </div>
-
-            <label className="flex items-start gap-2.5 text-sm text-gray-600 cursor-pointer">
-              <div className="checkbox-container mt-0.5">
-                <input
-                  type="checkbox"
-                  id="agent-agreement-cbx"
-                  name="agreementSigned"
-                  checked={formData.agreementSigned}
-                  onChange={handleInputChange}
-                  style={{ display: 'none' }}
-                  required
-                />
-                <label htmlFor="agent-agreement-cbx" className="check">
-                  <svg width="18px" height="18px" viewBox="0 0 18 18">
-                    <path d="M1,9 L1,3.5 C1,2 2,1 3.5,1 L14.5,1 C16,1 17,2 17,3.5 L17,14.5 C17,16 16,17 14.5,17 L3.5,17 C2,17 1,16 1,14.5 L1,9 Z"></path>
-                    <polyline points="1 9 7 14 15 4"></polyline>
-                  </svg>
+                  <span className="text-xs text-gray-400">JPG, PNG or PDF — max 5MB</span>
+                  <input type="file" name="documentFile" accept="image/*,.pdf" onChange={handleInputChange} className="hidden" required />
                 </label>
               </div>
-              <span>I have read, understood, and signed the Sales Agent Agreement</span>
-            </label>
 
-            {/* Info box */}
-            <div className="rounded-xl border p-4 flex gap-3" style={{ borderColor: '#e5e7eb', backgroundColor: '#f0f9ff' }}>
-              <span className="material-symbols-outlined text-xl flex-shrink-0" style={{ color: BLUE }}>info</span>
-              <div>
-                <p className="text-sm font-bold text-gray-800">Application Review</p>
-                <p className="text-xs text-gray-500 mt-0.5">All applications are reviewed within 48 hours. You'll receive an email with next steps.</p>
+              <div className="flex gap-3">
+                <AuthButton type="button" onClick={handleBack} variant="outline">
+                  ← Back
+                </AuthButton>
+                <AuthButton type="button" onClick={handleNext} loading={isSubmitting} loadingText="Checking...">
+                  Next Step →
+                </AuthButton>
               </div>
-            </div>
+            </>
+          )}
 
-            <div className="flex gap-3">
-              <button type="button" onClick={() => setCurrentStep(1)} className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all">
-                <span className="material-symbols-outlined text-base">arrow_back</span> Back
-              </button>
-              <AuthButton type="submit" loading={isSubmitting} loadingText="Submitting...">
-                Submit Application
-              </AuthButton>
-            </div>
-          </form>
-        )}
+          {/* Step 3: Security & Agreement */}
+          {currentStep === 3 && (
+            <>
+              <AuthInput
+                label="6-Digit PIN"
+                icon="pin"
+                id="pin"
+                name="pin"
+                type={showPin ? 'text' : 'password'}
+                placeholder="Enter 6-digit PIN"
+                value={formData.pin}
+                onChange={handleInputChange}
+                maxLength={6}
+                pattern="\d{6}"
+                required
+                suffix={
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPin(!showPin)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <span className="material-symbols-outlined text-xl">
+                      {showPin ? 'visibility_off' : 'visibility'}
+                    </span>
+                  </button>
+                }
+              />
+
+              <AuthInput
+                label="Confirm 6-Digit PIN"
+                icon="pin"
+                id="confirmPin"
+                name="confirmPin"
+                type={showConfirmPin ? 'text' : 'password'}
+                placeholder="Confirm your PIN"
+                value={formData.confirmPin}
+                onChange={handleInputChange}
+                maxLength={6}
+                pattern="\d{6}"
+                required
+                suffix={
+                  <button 
+                    type="button" 
+                    onClick={() => setShowConfirmPin(!showConfirmPin)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <span className="material-symbols-outlined text-xl">
+                      {showConfirmPin ? 'visibility_off' : 'visibility'}
+                    </span>
+                  </button>
+                }
+              />
+
+              <p className="text-xs text-gray-600">
+                Your PIN will be used with your mobile number or email to log in
+              </p>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <h4 className="font-bold text-sm mb-2" style={{ color: BLUE }}>
+                  Sales Agent Agreement Summary
+                </h4>
+                <ul className="text-xs text-gray-700 space-y-1">
+                  <li>• You will earn 1% commission on all partner registrations</li>
+                  <li>• Commissions are calculated and paid monthly</li>
+                  <li>• You agree to accurately register partners and members</li>
+                  <li>• Your account requires admin approval before activation</li>
+                  <li>• You will review and sign the full agreement before submission</li>
+                </ul>
+              </div>
+
+              <label className="flex items-start gap-2.5 text-sm text-gray-600 cursor-pointer">
+                <div className="checkbox-container mt-0.5">
+                  <input
+                    type="checkbox"
+                    id="agreement-cbx"
+                    name="agreementAccepted"
+                    checked={formData.agreementAccepted}
+                    onChange={handleInputChange}
+                    style={{ display: 'none' }}
+                    required
+                  />
+                  <label htmlFor="agreement-cbx" className="check">
+                    <svg width="18px" height="18px" viewBox="0 0 18 18">
+                      <path d="M1,9 L1,3.5 C1,2 2,1 3.5,1 L14.5,1 C16,1 17,2 17,3.5 L17,14.5 C17,16 16,17 14.5,17 L3.5,17 C2,17 1,16 1,14.5 L1,9 Z"></path>
+                      <polyline points="1 9 7 14 15 4"></polyline>
+                    </svg>
+                  </label>
+                </div>
+                <span>
+                  I have read and agree to the terms. I will provide my digital signature to complete registration.
+                </span>
+              </label>
+
+              <div className="flex gap-3">
+                <AuthButton type="button" onClick={handleBack} variant="outline">
+                  ← Back
+                </AuthButton>
+                <AuthButton type="submit" loading={isSubmitting} loadingText="Submitting...">
+                  Submit Application
+                </AuthButton>
+              </div>
+            </>
+          )}
+        </form>
 
         <p className="text-center text-sm text-gray-500 pt-2">
-          Already an agent? <AuthLink href="/agent/login">Sign In</AuthLink>
+          Already an agent?{' '}
+          <AuthLink onClick={() => navigate('/agent/login')}>Sign In</AuthLink>
         </p>
       </div>
+
+      {/* Digital Signature Popup */}
+      {showSignature && (
+        <AgentDigitalSignature
+          agentName={`${formData.firstName} ${formData.surname}`}
+          onSign={handleSignatureComplete}
+          onCancel={() => setShowSignature(false)}
+        />
+      )}
     </AuthLayout>
   );
 }

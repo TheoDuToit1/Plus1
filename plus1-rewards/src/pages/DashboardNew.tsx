@@ -16,6 +16,7 @@ interface Member {
   qr_code: string;
   status: string;
   sa_id?: string;
+  date_of_birth?: string;
   suburb?: string;
   city?: string;
   postal_code?: string;
@@ -45,6 +46,22 @@ interface Transaction {
   };
 }
 
+interface LinkedPerson {
+  id: string;
+  full_name: string;
+  id_number: string;
+  linked_type: string;
+  status: string;
+  member_cover_plans: {
+    target_amount: number;
+    funded_amount: number;
+    status: string;
+    cover_plans: {
+      plan_name: string;
+    };
+  };
+}
+
 const DashboardNew: React.FC = () => {
   const navigate = useNavigate();
   const { notification, showSuccess, showError, showWarning, hideNotification } = useNotification();
@@ -53,6 +70,7 @@ const DashboardNew: React.FC = () => {
   const [member, setMember] = useState<Member | null>(null);
   const [mainCoverPlan, setMainCoverPlan] = useState<MemberCoverPlan | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [linkedPeople, setLinkedPeople] = useState<LinkedPerson[]>([]);
   const [loading, setLoading] = useState(true);
   
   // State for form inputs
@@ -181,6 +199,29 @@ const DashboardNew: React.FC = () => {
         setRecentTransactions(txData as any);
       }
 
+      // Get linked people (dependants)
+      const { data: linkedData } = await supabase
+        .from('linked_people')
+        .select(`
+          id,
+          full_name,
+          id_number,
+          linked_type,
+          status,
+          member_cover_plans (
+            target_amount,
+            funded_amount,
+            status,
+            cover_plans (plan_name)
+          )
+        `)
+        .eq('linked_to_main_member_id', memberData.id)
+        .order('full_name', { ascending: true });
+
+      if (linkedData) {
+        setLinkedPeople(linkedData as any);
+      }
+
     } catch (error) {
       console.error('Error loading dashboard:', error);
     } finally {
@@ -288,13 +329,24 @@ const DashboardNew: React.FC = () => {
     
     let nextTarget = 0;
     let upgradeCost = 0;
+    let nextPlanId = '';
     
-    if (currentTarget === 385) {
-      nextTarget = 500;
-      upgradeCost = 115;
-    } else if (currentTarget === 500) {
-      nextTarget = 750;
-      upgradeCost = 250;
+    if (currentTarget === 390) {
+      nextTarget = 665;
+      upgradeCost = 275;
+      // Get the R665 plan ID
+      const { data: nextPlan } = await supabase
+        .from('cover_plans')
+        .select('id')
+        .eq('monthly_target_amount', 665)
+        .eq('status', 'active')
+        .single();
+      
+      if (!nextPlan) {
+        showError('Upgrade Error', 'R665 plan not found. Please contact support.', 3000);
+        return;
+      }
+      nextPlanId = nextPlan.id;
     } else {
       showWarning('Maximum Plan Reached', 'You are already on the highest plan!', 3000);
       return;
@@ -315,6 +367,7 @@ const DashboardNew: React.FC = () => {
       const { error } = await supabase
         .from('member_cover_plans')
         .update({ 
+          cover_plan_id: nextPlanId,
           target_amount: nextTarget,
           funded_amount: nextTarget,
           overflow_balance: newOverflow,
@@ -529,7 +582,7 @@ const DashboardNew: React.FC = () => {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <button 
                 onClick={handleUpgrade}
-                disabled={Number(mainCoverPlan?.target_amount) >= 750}
+                disabled={Number(mainCoverPlan?.target_amount) >= 665}
                 className="!bg-blue-600 !text-white p-4 rounded-lg text-left hover:scale-[0.98] transition-all flex flex-col justify-between min-h-[120px] disabled:!bg-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100"
               >
                 <span className="material-symbols-outlined text-2xl !text-white">upgrade</span>
@@ -539,7 +592,15 @@ const DashboardNew: React.FC = () => {
               </button>
               <button 
                 onClick={handleAddDependant}
-                className="!bg-teal-800 !text-white p-4 rounded-lg text-left hover:scale-[0.98] transition-all flex flex-col justify-between min-h-[120px]"
+                disabled={mainCoverPlan?.status !== 'active' || overflowBalance < 156}
+                className="!bg-teal-800 !text-white p-4 rounded-lg text-left hover:scale-[0.98] transition-all flex flex-col justify-between min-h-[120px] disabled:!bg-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100"
+                title={
+                  mainCoverPlan?.status !== 'active' 
+                    ? 'Plan must be active to add dependants' 
+                    : overflowBalance < 156 
+                    ? 'Need at least R156 overflow to add a child dependant' 
+                    : 'Add a dependant to your plan'
+                }
               >
                 <span className="material-symbols-outlined text-2xl !text-white">person_add</span>
                 <span className="font-bold text-sm leading-tight !text-white">
@@ -548,7 +609,15 @@ const DashboardNew: React.FC = () => {
               </button>
               <button 
                 onClick={handleSponsorSomeone}
-                className="!bg-green-700 !text-white p-4 rounded-lg text-left hover:scale-[0.98] transition-all flex flex-col justify-between min-h-[120px]"
+                disabled={mainCoverPlan?.status !== 'active' || overflowBalance < 390}
+                className="!bg-green-700 !text-white p-4 rounded-lg text-left hover:scale-[0.98] transition-all flex flex-col justify-between min-h-[120px] disabled:!bg-gray-400 disabled:cursor-not-allowed disabled:hover:scale-100"
+                title={
+                  mainCoverPlan?.status !== 'active' 
+                    ? 'Plan must be active to sponsor someone' 
+                    : overflowBalance < 390 
+                    ? 'Need at least R390 overflow to sponsor someone' 
+                    : 'Sponsor someone\'s cover plan'
+                }
               >
                 <span className="material-symbols-outlined text-2xl !text-white">volunteer_activism</span>
                 <span className="font-bold text-sm leading-tight !text-white">
@@ -705,6 +774,84 @@ const DashboardNew: React.FC = () => {
                 <span className="text-[10px] font-bold uppercase tracking-[0.05em] text-center text-gray-900">Support</span>
               </button>
             </div>
+
+            {/* Linked People / Dependants */}
+            {linkedPeople.length > 0 && (
+              <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-sm font-bold uppercase tracking-[0.1em] text-gray-500">
+                    Linked People & Dependants
+                  </h3>
+                  <button 
+                    onClick={() => navigate('/member/linked-people')}
+                    className="text-blue-600 text-xs font-bold hover:underline"
+                  >
+                    View All
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {linkedPeople.map((person) => {
+                    const planData = person.member_cover_plans;
+                    const targetAmount = Number(planData?.target_amount || 0);
+                    const fundedAmount = Number(planData?.funded_amount || 0);
+                    const progressPercent = targetAmount > 0 ? Math.min((fundedAmount / targetAmount) * 100, 100) : 0;
+                    
+                    return (
+                      <div key={person.id} className="p-4 bg-gradient-to-r from-teal-50 to-emerald-50 border-2 border-teal-200 rounded-xl">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <span className="material-symbols-outlined text-white text-xl">
+                                {person.linked_type === 'child' ? 'child_care' : person.linked_type === 'spouse' ? 'favorite' : 'person'}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-bold text-sm text-gray-900">{person.full_name}</p>
+                              <p className="text-[10px] text-teal-700 uppercase tracking-wider font-bold">
+                                {person.linked_type}
+                              </p>
+                            </div>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                            person.status === 'active' ? 'bg-green-100 text-green-700' :
+                            person.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {person.status.toUpperCase()}
+                          </span>
+                        </div>
+                        
+                        {planData && (
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="text-gray-600">{planData.cover_plans?.plan_name || 'Cover Plan'}</span>
+                              <span className="font-bold text-teal-700">R{targetAmount.toFixed(0)}/mo</span>
+                            </div>
+                            
+                            {/* Progress Bar */}
+                            <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full ${planData.status === 'active' ? 'bg-green-500' : 'bg-teal-500'}`}
+                                style={{ width: `${progressPercent}%` }}
+                              ></div>
+                            </div>
+                            
+                            <div className="flex justify-between items-center text-[10px]">
+                              <span className="text-gray-600">
+                                R{fundedAmount.toFixed(2)} / R{targetAmount.toFixed(2)}
+                              </span>
+                              <span className="font-bold text-teal-700">
+                                {progressPercent.toFixed(0)}%
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
 

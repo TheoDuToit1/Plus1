@@ -32,6 +32,8 @@ import MemberTransactions from './pages/MemberTransactions'
 import MemberTopUp from './pages/MemberTopUp'
 import MemberLinkedPeople from './pages/MemberLinkedPeople'
 import MemberSupport from './pages/MemberSupport'
+import AddDependant from './pages/AddDependant'
+import SponsorSomeone from './pages/SponsorSomeone'
 import PartnerDashboard from './components/partner/PartnerDashboard'
 import TransactionHistory from './components/partner/pages/TransactionHistory'
 import PartnerTransactionDetail from './components/partner/PartnerTransactionDetail'
@@ -147,6 +149,8 @@ export default function App() {
           <Route path="/member/top-up" element={<MemberTopUp />} />
           <Route path="/member/linked-people" element={<MemberLinkedPeople />} />
           <Route path="/member/support" element={<MemberSupport />} />
+          <Route path="/member/add-dependant" element={<AddDependant />} />
+          <Route path="/member/sponsor" element={<SponsorSomeone />} />
           <Route path="/member/scan-partner" element={<MemberScanPartner />} />
           <Route path="/member/policy-selector" element={<MemberPolicySelector />} />
           <Route path="/member/policies" element={<MemberPolicies />} />

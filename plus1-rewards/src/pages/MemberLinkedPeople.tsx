@@ -43,48 +43,44 @@ export default function MemberLinkedPeople() {
     setLoading(true);
     try {
       const session = getSession();
-      if (!session) {
+      if (!session || !session.member) {
         navigate('/member/login');
         return;
       }
 
-      // Load member data - query by user_id first
-      const { data: memberData } = await supabase
-        .from('members')
-        .select('id, full_name, phone, email, qr_code')
-        .eq('user_id', session.user.id)
-        .single();
+      const memberData = session.member;
 
-      if (memberData) {
-        // Get member's cover plan (get the first active or in_progress one)
-        const { data: coverPlanData, error: coverPlanError } = await supabase
-          .from('member_cover_plans')
-          .select('id')
-          .eq('member_id', memberData.id)
-          .in('status', ['active', 'in_progress'])
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+      // Get member's cover plan (get the first active or in_progress one)
+      const { data: coverPlanData, error: coverPlanError } = await supabase
+        .from('member_cover_plans')
+        .select('id')
+        .eq('member_id', memberData.id)
+        .in('status', ['active', 'in_progress'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-        if (coverPlanError) {
-          console.error('Error loading cover plan:', coverPlanError);
-        }
-
-        setMember({
-          ...memberData,
-          name: memberData.full_name,
-          cover_plan_id: coverPlanData?.id
-        });
-
-        // Load linked people using member.id
-        const { data: linkedData } = await supabase
-          .from('linked_people')
-          .select('*')
-          .eq('linked_to_main_member_id', memberData.id)
-          .order('created_at', { ascending: false });
-
-        if (linkedData) setLinkedPeople(linkedData as LinkedPerson[]);
+      if (coverPlanError) {
+        console.error('Error loading cover plan:', coverPlanError);
       }
+
+      setMember({
+        id: memberData.id,
+        name: memberData.name || memberData.full_name,
+        phone: memberData.phone || memberData.cell_phone,
+        email: memberData.email,
+        qr_code: memberData.qr_code,
+        cover_plan_id: coverPlanData?.id
+      });
+
+      // Load linked people using member.id
+      const { data: linkedData } = await supabase
+        .from('linked_people')
+        .select('*')
+        .eq('linked_to_main_member_id', memberData.id)
+        .order('created_at', { ascending: false });
+
+      if (linkedData) setLinkedPeople(linkedData as LinkedPerson[]);
     } catch (error) {
       console.error('Error loading linked people:', error);
     } finally {

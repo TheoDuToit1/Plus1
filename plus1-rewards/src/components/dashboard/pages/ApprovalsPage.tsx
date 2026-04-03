@@ -189,17 +189,26 @@ export default function ApprovalsPage() {
   // Fetch signature URL when modal opens
   useEffect(() => {
     const fetchSignatureUrl = async () => {
-      if (showDetailsModal && selectedItem?.signature_url) {
+      if (showDetailsModal && selectedItem) {
         try {
-          const { data, error } = await supabaseAdmin.storage
-            .from('documents')
-            .createSignedUrl(selectedItem.signature_url, 3600); // 1 hour expiry
+          // For partners, use signature_url; for agents, use agreement_file
+          const signaturePath = selectedItem.type === 'partner' 
+            ? selectedItem.signature_url 
+            : selectedItem.agreement_file;
 
-          if (error) {
-            console.error('Error fetching signature URL:', error);
-            setSignatureUrl(null);
+          if (signaturePath) {
+            const { data, error } = await supabaseAdmin.storage
+              .from('documents')
+              .createSignedUrl(signaturePath, 3600); // 1 hour expiry
+
+            if (error) {
+              console.error('Error fetching signature URL:', error);
+              setSignatureUrl(null);
+            } else {
+              setSignatureUrl(data.signedUrl);
+            }
           } else {
-            setSignatureUrl(data.signedUrl);
+            setSignatureUrl(null);
           }
         } catch (error) {
           console.error('Error:', error);
@@ -487,15 +496,15 @@ export default function ApprovalsPage() {
                             <h4 className="text-lg font-bold text-gray-900 mb-2">{partner.name}</h4>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                               <div>
-                                <p className="text-xs text-gray-600 uppercase font-bold">Business Type</p>
+                                <p className="text-xs text-gray-600 uppercase font-bold">Category</p>
                                 <p className="text-sm text-gray-900">{partner.business_type || 'Not specified'}</p>
                               </div>
                               <div>
-                                <p className="text-xs text-gray-600 uppercase font-bold">Location</p>
+                                <p className="text-xs text-gray-600 uppercase font-bold">Address</p>
                                 <p className="text-sm text-gray-900">{partner.location || 'Not specified'}</p>
                               </div>
                               <div>
-                                <p className="text-xs text-gray-600 uppercase font-bold">Commission Rate</p>
+                                <p className="text-xs text-gray-600 uppercase font-bold">Cashback Percent</p>
                                 <p className="text-sm text-[#1a558b] font-bold">{partner.commission_rate}%</p>
                               </div>
                               <div>
@@ -603,9 +612,9 @@ export default function ApprovalsPage() {
                               </div>
                             </div>
                             {agent.agreement_file && (
-                              <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold">
-                                <span className="material-symbols-outlined text-sm">description</span>
-                                Agreement Uploaded
+                              <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-50 text-green-700 rounded-lg text-xs font-bold">
+                                <span className="material-symbols-outlined text-sm">draw</span>
+                                Digitally Signed
                               </div>
                             )}
                           </div>
@@ -839,24 +848,16 @@ export default function ApprovalsPage() {
                             <p className="text-sm text-gray-900 font-semibold">{selectedItem.shop_name || selectedItem.name || '-'}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-600 uppercase tracking-wider">Business Type</p>
-                            <p className="text-sm text-gray-900 font-semibold">{selectedItem.business_type || '-'}</p>
-                          </div>
-                          <div>
                             <p className="text-xs text-gray-600 uppercase tracking-wider">Category</p>
-                            <p className="text-sm text-gray-900 font-semibold">{selectedItem.category || '-'}</p>
+                            <p className="text-sm text-gray-900 font-semibold">{selectedItem.category || selectedItem.business_type || '-'}</p>
                           </div>
                           <div>
                             <p className="text-xs text-gray-600 uppercase tracking-wider">Cashback Percent</p>
                             <p className="text-sm text-[#1a558b] font-bold">{selectedItem.cashback_percent || selectedItem.commission_rate || 0}%</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-600 uppercase tracking-wider">Location</p>
-                            <p className="text-sm text-gray-900 font-semibold">{selectedItem.location || '-'}</p>
-                          </div>
-                          <div>
                             <p className="text-xs text-gray-600 uppercase tracking-wider">Address</p>
-                            <p className="text-sm text-gray-900 font-semibold">{selectedItem.address || '-'}</p>
+                            <p className="text-sm text-gray-900 font-semibold">{selectedItem.address || selectedItem.location || '-'}</p>
                           </div>
                         </div>
                       </div>
@@ -870,7 +871,7 @@ export default function ApprovalsPage() {
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                           <div>
                             <p className="text-xs text-gray-600 uppercase tracking-wider">Responsible Person</p>
-                            <p className="text-sm text-gray-900 font-semibold">{selectedItem.responsible_person || '-'}</p>
+                            <p className="text-sm text-gray-900 font-semibold">{selectedItem.responsible_person || selectedItem.full_name || '-'}</p>
                           </div>
                           <div>
                             <p className="text-xs text-gray-600 uppercase tracking-wider">Phone</p>
@@ -879,24 +880,6 @@ export default function ApprovalsPage() {
                           <div>
                             <p className="text-xs text-gray-600 uppercase tracking-wider">Email</p>
                             <p className="text-sm text-gray-900 font-semibold break-all">{selectedItem.email || '-'}</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Products Information */}
-                      <div className="bg-white border border-gray-200 rounded-xl p-6">
-                        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[#1a558b]">inventory_2</span>
-                          Products & Services
-                        </h3>
-                        <div className="space-y-4">
-                          <div>
-                            <p className="text-xs text-gray-600 uppercase tracking-wider mb-2">Included Products</p>
-                            <p className="text-sm text-gray-900">{selectedItem.included_products || 'Not specified'}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-600 uppercase tracking-wider mb-2">Excluded Products</p>
-                            <p className="text-sm text-gray-900">{selectedItem.excluded_products || 'None'}</p>
                           </div>
                         </div>
                       </div>
@@ -1041,30 +1024,67 @@ export default function ApprovalsPage() {
                         </div>
                       </div>
 
-                      {/* Agreement Information */}
+                      {/* Agreement Information with Digital Signature */}
                       <div className="bg-white border border-gray-200 rounded-xl p-6">
                         <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[#1a558b]">description</span>
-                          Agreement Information
+                          <span className="material-symbols-outlined text-[#1a558b]">draw</span>
+                          Digital Signature & Agreement
                         </h3>
                         <div className="space-y-4">
                           <div>
-                            <p className="text-xs text-gray-600 uppercase tracking-wider mb-2">Agreement File</p>
-                            {selectedItem.agreement_file ? (
-                              <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-blue-600">check_circle</span>
-                                <a 
-                                  href={selectedItem.agreement_file} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-sm text-blue-600 hover:underline font-semibold"
-                                >
-                                  View Agreement Document
-                                </a>
+                            <p className="text-xs text-gray-600 uppercase tracking-wider mb-2">Agreement Status</p>
+                            <div className="flex items-center gap-2">
+                              <span className="material-symbols-outlined text-green-600">check_circle</span>
+                              <span className="text-sm text-green-600 font-semibold">
+                                Digitally signed on {new Date(selectedItem.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Digital Signature Display */}
+                          {selectedItem.agreement_file && (
+                            <div>
+                              <p className="text-xs text-gray-600 uppercase tracking-wider mb-2">Agent Signature</p>
+                              <div className="border-2 border-gray-200 rounded-xl p-4 bg-gray-50">
+                                {signatureUrl ? (
+                                  <img 
+                                    src={signatureUrl}
+                                    alt="Agent Signature"
+                                    className="max-w-full h-auto max-h-40 mx-auto"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                      const errorDiv = e.currentTarget.nextElementSibling as HTMLElement;
+                                      if (errorDiv) errorDiv.classList.remove('hidden');
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="text-center text-gray-500 text-sm py-8">
+                                    <div className="w-12 h-12 border-4 border-gray-300 border-t-[#1a558b] rounded-full animate-spin mx-auto mb-4"></div>
+                                    Loading signature...
+                                  </div>
+                                )}
+                                <div className="hidden text-center text-gray-500 text-sm">
+                                  <span className="material-symbols-outlined text-4xl mb-2 block">error</span>
+                                  Unable to load signature image
+                                </div>
                               </div>
-                            ) : (
-                              <p className="text-sm text-gray-500">No agreement file uploaded</p>
-                            )}
+                              <div className="flex items-center gap-2 text-xs text-green-600 mt-2">
+                                <span className="material-symbols-outlined text-sm">verified</span>
+                                <span>Digitally signed and verified</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Agreement Summary */}
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                            <h4 className="font-bold text-sm text-blue-900 mb-2">Sales Agent Agreement Summary</h4>
+                            <ul className="text-xs text-blue-800 space-y-1">
+                              <li>• Agent will earn 1% commission on all partner registrations</li>
+                              <li>• Commissions are calculated and paid monthly</li>
+                              <li>• Agent agrees to accurately register partners and members</li>
+                              <li>• Account requires admin approval before activation</li>
+                              <li>• Agent has reviewed and digitally signed the full agreement</li>
+                            </ul>
                           </div>
                         </div>
                       </div>

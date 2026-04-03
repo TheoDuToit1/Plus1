@@ -69,7 +69,7 @@ export default function PolicyProviderLogin() {
       headline={<>Partner with <span style={{ color: '#93c5fd' }}>innovative</span> healthcare rewards.</>}
       subheadline="Access comprehensive policy management tools and track member activations through our integrated platform."
       stats={[
-        { value: 'R385', label: 'Monthly Premium' },
+        { value: 'R390', label: 'Monthly Premium' },
         { value: 'Auto', label: 'Policy Activation' },
         { value: '24/7', label: 'System Access' },
       ]}

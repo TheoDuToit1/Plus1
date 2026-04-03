@@ -19,7 +19,7 @@ export default function Footer() {
               </a>
             </div>
             <p className="text-gray-500 max-w-sm mb-6 text-sm leading-relaxed">
-              Health Cover for All. Because your shopping should work as hard as you do.
+              Medi Cover for All. Because your shopping should work as hard as you do.
             </p>
             <div className="flex gap-3">
               <a

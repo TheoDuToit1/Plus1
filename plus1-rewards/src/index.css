@@ -1095,11 +1095,11 @@ input.member-input-override:-webkit-autofill:active {
 
 /* FindPartner color utilities */
 .find-partner-page .text-primary {
-  color: var(--color-primary-blue) !important;
+  color: #1a558b !important;
 }
 
 .find-partner-page .bg-primary {
-  background-color: var(--color-primary-blue) !important;
+  background-color: #1a558b !important;
 }
 
 .find-partner-page .text-on-primary {
@@ -1135,37 +1135,101 @@ input.member-input-override:-webkit-autofill:active {
 }
 
 .find-partner-page .border-primary {
-  border-color: var(--color-primary-blue) !important;
+  border-color: #1a558b !important;
 }
 
 .find-partner-page .text-outline-variant {
   color: var(--color-outline-gray) !important;
 }
 
+.find-partner-page .bg-white {
+  background-color: #ffffff !important;
+}
+
+.find-partner-page .text-white {
+  color: #ffffff !important;
+}
+
+.find-partner-page .bg-green-500 {
+  background-color: #22c55e !important;
+}
+
+.find-partner-page .text-green-600 {
+  color: #16a34a !important;
+}
+
+.find-partner-page .text-yellow-500 {
+  color: #eab308 !important;
+}
+
+.find-partner-page .fill-yellow-500 {
+  fill: #eab308 !important;
+}
+
 /* FindPartner hover states */
 .find-partner-page .hover\:border-primary:hover {
-  border-color: var(--color-primary-blue) !important;
+  border-color: #1a558b !important;
 }
 
 .find-partner-page .hover\:text-primary:hover {
-  color: var(--color-primary-blue) !important;
+  color: #1a558b !important;
 }
 
 .find-partner-page .hover\:bg-primary:hover {
-  background-color: var(--color-primary-blue) !important;
+  background-color: #1a558b !important;
 }
 
 .find-partner-page .hover\:bg-white:hover {
   background-color: white !important;
 }
 
+.find-partner-page .hover\:bg-primary\/10:hover {
+  background-color: rgba(26, 85, 139, 0.1) !important;
+}
+
+.find-partner-page .hover\:bg-primary\/5:hover {
+  background-color: rgba(26, 85, 139, 0.05) !important;
+}
+
+.find-partner-page .hover\:shadow-xl:hover {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.find-partner-page .hover\:shadow-2xl:hover {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+}
+
+.find-partner-page .hover\:shadow-primary\/30:hover {
+  box-shadow: 0 20px 60px -10px rgba(26, 85, 139, 0.3) !important;
+}
+
+.find-partner-page .hover\:shadow-primary\/50:hover {
+  box-shadow: 0 20px 60px -10px rgba(26, 85, 139, 0.5) !important;
+}
+
 /* FindPartner focus states */
+.find-partner-page .focus\:ring-4:focus {
+  box-shadow: 0 0 0 4px rgba(26, 85, 139, 0.05) !important;
+}
+
 .find-partner-page .focus\:ring-primary:focus {
-  box-shadow: 0 0 0 2px rgba(15, 61, 92, 0.2) !important;
+  box-shadow: 0 0 0 4px rgba(26, 85, 139, 0.05) !important;
+}
+
+.find-partner-page .focus\:ring-primary\/5:focus {
+  box-shadow: 0 0 0 4px rgba(26, 85, 139, 0.05) !important;
 }
 
 .find-partner-page .focus\:border-primary:focus {
-  border-color: var(--color-primary-blue) !important;
+  border-color: #1a558b !important;
+}
+
+.find-partner-page .focus\:border-primary\/20:focus {
+  border-color: rgba(26, 85, 139, 0.2) !important;
+}
+
+.find-partner-page .focus\:bg-white:focus {
+  background-color: #ffffff !important;
 }
 
 /* FindPartner opacity variants */

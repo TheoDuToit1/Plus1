@@ -15,7 +15,7 @@ export default function UpgradePromptModal({
   onUpgrade,
   onDecline
 }: UpgradePromptModalProps) {
-  const nextTarget = currentTarget === 385 ? 500 : currentTarget === 500 ? 750 : 0;
+  const nextTarget = currentTarget === 390 ? 665 : 0;
   const additionalNeeded = nextTarget - fundedAmount;
 
   if (nextTarget === 0) return null; // Already on highest plan
@@ -66,7 +66,7 @@ export default function UpgradePromptModal({
             </div>
             <div className="space-y-1">
               <p className="text-sm text-gray-700">
-                <span className="font-bold">Upgrade to:</span> {nextTarget === 500 ? 'Day1 Health Plus' : 'Day1 Health Premium'} (R{nextTarget})
+                <span className="font-bold">Upgrade to:</span> Comprehensive - Value Plus - Single (R{nextTarget})
               </p>
               <p className="text-sm text-gray-700">
                 <span className="font-bold">Additional needed:</span> R{additionalNeeded.toFixed(2)}

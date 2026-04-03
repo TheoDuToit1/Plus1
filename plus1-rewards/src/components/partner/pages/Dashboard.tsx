@@ -675,7 +675,7 @@ export default function Dashboard() {
         .from('cover_plans')
         .select('id, plan_name, monthly_target_amount')
         .eq('status', 'active')
-        .eq('monthly_target_amount', 385)
+        .eq('monthly_target_amount', 390)
         .limit(1)
         .single();
 

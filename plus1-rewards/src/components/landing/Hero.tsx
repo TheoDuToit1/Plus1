@@ -65,7 +65,7 @@ export default function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.1 }}
         >
-          Health Cover for All.
+          Medi Cover for All.
         </motion.h1>
 
         {/* Mobile hero image - visible only on mobile */}
@@ -98,7 +98,7 @@ export default function Hero() {
               custom={0}
               variants={textVariants}
             >
-              Health Cover for All.
+              Medi Cover for All.
             </motion.span>
             <br />
             <motion.span 

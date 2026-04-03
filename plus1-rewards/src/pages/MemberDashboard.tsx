@@ -325,13 +325,25 @@ export function MemberDashboard() {
     // Determine next plan tier and cost
     let nextTarget = 0;
     let upgradeCost = 0;
+    let nextPlanId = '';
     
-    if (currentTarget === 385) {
-      nextTarget = 500;
-      upgradeCost = 115; // 500 - 385
-    } else if (currentTarget === 500) {
-      nextTarget = 750;
-      upgradeCost = 250; // 750 - 500
+    if (currentTarget === 390) {
+      nextTarget = 665;
+      upgradeCost = 275; // 665 - 390
+      
+      // Get the R665 plan ID
+      const { data: nextPlan } = await supabase
+        .from('cover_plans')
+        .select('id')
+        .eq('monthly_target_amount', 665)
+        .eq('status', 'active')
+        .single();
+      
+      if (!nextPlan) {
+        alert('R665 plan not found. Please contact support.');
+        return;
+      }
+      nextPlanId = nextPlan.id;
     } else {
       alert('You are already on the highest plan!');
       return;
@@ -350,6 +362,7 @@ export function MemberDashboard() {
       const { error } = await supabase
         .from('member_cover_plans')
         .update({ 
+          cover_plan_id: nextPlanId,
           target_amount: nextTarget,
           funded_amount: nextTarget, // Plan is now funded at new level
           overflow_balance: newOverflow,
@@ -721,13 +734,13 @@ export function MemberDashboard() {
             {/* Upgrade Plan Button */}
             <button
               onClick={handleUpgrade}
-              disabled={Number(mainCoverPlan.target_amount) >= 750}
+              disabled={Number(mainCoverPlan.target_amount) >= 665}
               className="bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 disabled:cursor-not-allowed text-white font-bold py-6 rounded-xl transition-all transform hover:scale-105 disabled:hover:scale-100 flex flex-col items-center justify-center gap-2"
             >
               <span className="material-symbols-outlined text-4xl">upgrade</span>
               <span>Upgrade Plan</span>
               <span className="text-xs opacity-90">
-                {Number(mainCoverPlan.target_amount) >= 750 ? 'Max plan reached' : 'Increase coverage'}
+                {Number(mainCoverPlan.target_amount) >= 665 ? 'Max plan reached' : 'Increase coverage'}
               </span>
             </button>
 

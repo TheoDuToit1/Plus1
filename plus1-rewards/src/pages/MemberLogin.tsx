@@ -99,7 +99,7 @@ export default function MemberLogin() {
       stats={[
         { value: 'NO sign up Fee', label: '' },
         { value: '3%', label: 'Rewards Rate' },
-        { value: 'R385', label: 'Monthly Target' },
+        { value: 'R390', label: 'Monthly Target' },
       ]}
     >
       <div className="space-y-6">

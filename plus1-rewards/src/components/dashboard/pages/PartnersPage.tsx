@@ -553,7 +553,7 @@ export default function PartnersPage() {
                       <p className="text-sm text-gray-900 font-semibold">{partnerDetails.partner.shop_name || 'Not provided'}</p>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">
-                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Business Type</p>
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-1">Category</p>
                       <p className="text-sm text-gray-900">{partnerDetails.partner.category || 'Not specified'}</p>
                     </div>
                     <div className="bg-white border border-gray-200 rounded-lg p-4">

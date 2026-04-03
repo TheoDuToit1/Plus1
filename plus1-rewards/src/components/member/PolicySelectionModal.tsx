@@ -33,12 +33,12 @@ export default function PolicySelectionModal({ isOpen, onClose, onPolicySelected
     }
   }, [isOpen]);
 
-  // Auto-select the R385 plan when policies are loaded
+  // Auto-select the R390 plan when policies are loaded
   useEffect(() => {
     if (policies.length > 0 && !selectedPolicy) {
-      const r385Plan = policies.find(p => p.monthly_target === 385);
-      if (r385Plan) {
-        setSelectedPolicy(r385Plan.id);
+      const r390Plan = policies.find(p => p.monthly_target === 390);
+      if (r390Plan) {
+        setSelectedPolicy(r390Plan.id);
       }
     }
   }, [policies, selectedPolicy]);
@@ -215,15 +215,15 @@ export default function PolicySelectionModal({ isOpen, onClose, onPolicySelected
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredPolicies.map((policy) => {
-                  const isR385 = policy.monthly_target === 385;
+                  const isR390 = policy.monthly_target === 390;
                   const isSelected = selectedPolicy === policy.id;
                   
                   return (
                     <div
                       key={policy.id}
-                      onClick={() => isR385 && setSelectedPolicy(policy.id)}
+                      onClick={() => isR390 && setSelectedPolicy(policy.id)}
                       className={`p-4 rounded-xl border-2 transition-all ${
-                        !isR385 
+                        !isR390 
                           ? 'border-white/10 bg-white/5 opacity-50 cursor-not-allowed'
                           : isSelected
                           ? 'border-primary bg-primary/10 cursor-pointer'

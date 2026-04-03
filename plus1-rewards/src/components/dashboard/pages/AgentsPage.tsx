@@ -18,6 +18,7 @@ export default function AgentsPage() {
   const [selectedAgent, setSelectedAgent] = useState<any>(null);
   const [agentDetails, setAgentDetails] = useState<any>(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [signatureUrl, setSignatureUrl] = useState<string | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -144,7 +145,35 @@ export default function AgentsPage() {
   const closeAgentModal = () => {
     setSelectedAgent(null);
     setAgentDetails(null);
+    setSignatureUrl(null);
   };
+
+  // Fetch signature URL when modal opens
+  useEffect(() => {
+    const fetchSignatureUrl = async () => {
+      if (selectedAgent && selectedAgent.agreement_file) {
+        try {
+          const { data, error } = await supabaseAdmin.storage
+            .from('documents')
+            .createSignedUrl(selectedAgent.agreement_file, 3600); // 1 hour expiry
+
+          if (error) {
+            console.error('Error fetching signature URL:', error);
+            setSignatureUrl(null);
+          } else {
+            setSignatureUrl(data.signedUrl);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          setSignatureUrl(null);
+        }
+      } else {
+        setSignatureUrl(null);
+      }
+    };
+
+    fetchSignatureUrl();
+  }, [selectedAgent]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -323,14 +352,18 @@ export default function AgentsPage() {
                             agent.status === 'active' 
                               ? 'bg-[#1a558b]/20 text-[#1a558b] border border-[#1a558b]/30' 
                               : agent.status === 'pending'
-                              ? 'bg-yellow-500/20 text-yellow-600 border border-yellow-500/30'
+                              ? agent.agreement_file
+                                ? 'bg-green-500/20 text-green-600 border border-green-500/30'
+                                : 'bg-yellow-500/20 text-yellow-600 border border-yellow-500/30'
                               : 'bg-red-500/20 text-red-600 border border-red-500/30'
                           }`}>
                             <span className={`size-1.5 rounded-full ${
                               agent.status === 'active' ? 'bg-[#1a558b]' : 
-                              agent.status === 'pending' ? 'bg-yellow-500' : 'bg-red-500'
+                              agent.status === 'pending' 
+                                ? agent.agreement_file ? 'bg-green-500' : 'bg-yellow-500'
+                                : 'bg-red-500'
                             }`}></span>
-                            {agent.status}
+                            {agent.status === 'pending' && agent.agreement_file ? 'Digitally Signed' : agent.status}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center"><span className="text-sm font-bold text-gray-900">0</span></td>
@@ -466,6 +499,71 @@ export default function AgentsPage() {
                         <p className="text-sm text-green-700 font-semibold">{new Date(selectedAgent.approved_at).toLocaleString()}</p>
                       </div>
                     )}
+                  </div>
+                </section>
+
+                {/* Digital Signature & Agreement */}
+                <section>
+                  <h3 className="text-lg font-bold text-[#1a558b] mb-4 flex items-center gap-2">
+                    <span className="material-symbols-outlined">draw</span>
+                    Digital Signature & Agreement
+                  </h3>
+                  <div className="bg-white border border-gray-200 rounded-lg p-6 space-y-4">
+                    <div>
+                      <p className="text-xs text-gray-600 uppercase font-bold mb-2">Agreement Status</p>
+                      <div className="flex items-center gap-2">
+                        <span className="material-symbols-outlined text-green-600">check_circle</span>
+                        <span className="text-sm text-green-600 font-semibold">
+                          Digitally signed on {new Date(selectedAgent.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Digital Signature Display */}
+                    {selectedAgent.agreement_file && (
+                      <div>
+                        <p className="text-xs text-gray-600 uppercase font-bold mb-2">Agent Signature</p>
+                        <div className="border-2 border-gray-200 rounded-lg p-4 bg-gray-50">
+                          {signatureUrl ? (
+                            <img 
+                              src={signatureUrl}
+                              alt="Agent Signature"
+                              className="max-w-full h-auto max-h-40 mx-auto"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                const errorDiv = e.currentTarget.nextElementSibling as HTMLElement;
+                                if (errorDiv) errorDiv.classList.remove('hidden');
+                              }}
+                            />
+                          ) : (
+                            <div className="text-center text-gray-500 text-sm py-8">
+                              <div className="w-12 h-12 border-4 border-gray-300 border-t-[#1a558b] rounded-full animate-spin mx-auto mb-4"></div>
+                              Loading signature...
+                            </div>
+                          )}
+                          <div className="hidden text-center text-gray-500 text-sm">
+                            <span className="material-symbols-outlined text-4xl mb-2 block">error</span>
+                            Unable to load signature image
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-green-600 mt-2">
+                          <span className="material-symbols-outlined text-sm">verified</span>
+                          <span>Digitally signed and verified</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Agreement Summary */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="font-bold text-sm text-blue-900 mb-2">Sales Agent Agreement Summary</h4>
+                      <ul className="text-xs text-blue-800 space-y-1">
+                        <li>• Agent will earn 1% commission on all partner registrations</li>
+                        <li>• Commissions are calculated and paid monthly</li>
+                        <li>• Agent agrees to accurately register partners and members</li>
+                        <li>• Account requires admin approval before activation</li>
+                        <li>• Agent has reviewed and digitally signed the full agreement</li>
+                      </ul>
+                    </div>
                   </div>
                 </section>
 
